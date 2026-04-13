@@ -1035,7 +1035,8 @@ const termsRouter = router({
 });
 
 // ─── App Router ────────────────────────────────────────────────────────────────────────────────
-export const appRouter = router({em: systemRouter,
+export const appRouter = router({
+  system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

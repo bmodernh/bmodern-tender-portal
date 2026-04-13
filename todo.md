@@ -210,3 +210,9 @@
 - [ ] Update Pricing Rules UI to show Tier 2 qty and Tier 3 qty fields for electrical items
 - [ ] Update pricing engine: T2 uplift = (T2qty - T1qty) × T2unitPrice; T3 uplift = T3qty × T3unitPrice
 - [ ] Update portal getPackagePrices to use new quantity-based calculation for electrical
+
+## Phase 7 — Wizard BOQ Upload Step
+
+- [ ] Add Step 4 (BOQ Upload) to the new project creation wizard — upload PDF/Excel BOQ right after creating the project
+- [ ] Step 4 is optional (can skip) but shows the upload UI immediately after project is saved
+- [ ] After BOQ upload in wizard, trigger AI extraction and show a preview before finishing

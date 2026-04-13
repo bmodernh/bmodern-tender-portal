@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Check, Save, Upload, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle, Save, Upload, X } from "lucide-react";
 
 const STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
@@ -22,8 +22,9 @@ const STATUS_OPTIONS = [
 
 const STEPS = [
   { id: 1, label: "Client & Project", description: "Who and where" },
-  { id: 2, label: "Pricing & Quantities", description: "Costs and scope" },
-  { id: 3, label: "Presentation", description: "Image and notes" },
+  { id: 2, label: "BOQ Upload", description: "Bill of Quantities" },
+  { id: 3, label: "Pricing & Quantities", description: "Costs and scope" },
+  { id: 4, label: "Presentation", description: "Image and notes" },
 ];
 
 // ─── Step Indicator ────────────────────────────────────────────────────────────
@@ -100,56 +101,21 @@ export default function AdminProjectForm() {
   const utils = trpc.useUtils();
   const upsertQuantitiesMutation = trpc.quantities.upsert.useMutation();
   const createMutation = trpc.projects.create.useMutation({
+    // In wizard mode (step > 1 after creation), we handle navigation in handleSubmit
+    // This onSuccess fires for mutateAsync too, so we skip navigation if step > 1
     onSuccess: async (data) => {
-      const newId = (data as any).id;
-      // Save quantities if any were entered
-      const hasQty = Object.entries(form).some(([k, v]) =>
-        k !== 'clientName' && k !== 'clientEmail' && k !== 'projectAddress' &&
-        k !== 'proposalNumber' && k !== 'projectType' && k !== 'buildType' &&
-        k !== 'tenderExpiryDate' && k !== 'baseContractPrice' && k !== 'preliminaryEstimateMin' &&
-        k !== 'preliminaryEstimateMax' && k !== 'heroImageUrl' && k !== 'notes' && k !== 'status' && !!v
-      );
-      if (newId && hasQty) {
-        try {
-          const p = (key: string) => form[key as keyof typeof form] ? parseInt(form[key as keyof typeof form] as string) : undefined;
-          const s = (key: string) => (form[key as keyof typeof form] as string) || undefined;
-          await upsertQuantitiesMutation.mutateAsync({
-            projectId: newId,
-            downlightsQty: p('downlightsQty'), powerPointsQty: p('powerPointsQty'),
-            pendantPointsQty: p('pendantPointsQty'), switchPlatesQty: p('switchPlatesQty'),
-            dataPointsQty: p('dataPointsQty'), exhaustFansQty: p('exhaustFansQty'),
-            acZonesQty: p('acZonesQty'), acKw: s('acKw'),
-            kitchenBaseCabinetryLm: s('kitchenBaseCabinetryLm'),
-            kitchenOverheadCabinetryLm: s('kitchenOverheadCabinetryLm'),
-            wardrobeLm: s('wardrobeLm'), laundryJoineryQty: p('laundryJoineryQty'),
-            kitchenBenchtopArea: s('kitchenBenchtopArea'), islandBenchtopArea: s('islandBenchtopArea'),
-            vanityStoneTopQty: p('vanityStoneTopQty'),
-            basinMixersQty: p('basinMixersQty'), showerSetsQty: p('showerSetsQty'),
-            kitchenMixersQty: p('kitchenMixersQty'), toiletsQty: p('toiletsQty'),
-            bathtubsQty: p('bathtubsQty'), applianceSetsQty: p('applianceSetsQty'),
-            floorTileM2: s('floorTileM2'), wallTileM2: s('wallTileM2'),
-            splashbackTileM2: s('splashbackTileM2'),
-            timberHybridM2: s('timberHybridM2'), carpetM2: s('carpetM2'),
-            facadeCladdingM2: s('facadeCladdingM2'),
-            insulationCeilingR: s('insulationCeilingR'), insulationWallR: s('insulationWallR'),
-            internalDoorsQty: p('internalDoorsQty'), externalDoorsQty: p('externalDoorsQty'),
-            doorHandlesQty: p('doorHandlesQty'),
-          });
-        } catch {
-          // Quantities save failed silently — can be entered later in Quantities tab
-        }
-      }
-      toast.success("Project created successfully");
-      utils.projects.list.invalidate();
-      navigate(`/admin/projects/${newId ?? ""}`);
+      // If we're in the wizard (step will be set to 2 after this), don't navigate yet
+      // The navigation happens in updateMutation.onSuccess after Step 4
     },
     onError: (e) => toast.error(e.message),
   });
   const updateMutation = trpc.projects.update.useMutation({
     onSuccess: () => {
-      toast.success("Project updated");
+      toast.success(isEdit ? "Project updated" : "Project created successfully");
       utils.projects.list.invalidate();
-      navigate(`/admin/projects/${projectId}`);
+      // In wizard mode, navigate to the wizard-created project
+      const targetId = isEdit ? projectId : wizardProjectId;
+      navigate(`/admin/projects/${targetId}`);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -157,6 +123,14 @@ export default function AdminProjectForm() {
 
   // ─── Form state ──────────────────────────────────────────────────────────────
   const [step, setStep] = useState(1);
+  // BOQ wizard state — project is created when advancing from Step 1
+  const [wizardProjectId, setWizardProjectId] = useState<number | null>(null);
+  const [boqFile, setBoqFile] = useState<File | null>(null);
+  const [boqUploading, setBoqUploading] = useState(false);
+  const [boqDocId, setBoqDocId] = useState<number | null>(null);
+  const [boqStatus, setBoqStatus] = useState<string | null>(null);
+  const [boqExtracted, setBoqExtracted] = useState<Array<{ id: number; category: string; description: string; unit: string | null; quantity: string | null; mappedQuantityField: string | null; confirmed: boolean }>>([]);
+  const [boqPolling, setBoqPolling] = useState(false);
   const [form, setForm] = useState({
     // Step 1
     clientName: "",
@@ -255,13 +229,104 @@ export default function AdminProjectForm() {
     return null;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const err = validateStep(step);
     if (err) { toast.error(err); return; }
-    setStep(s => Math.min(s + 1, 3));
+    // When advancing from Step 1, create the project immediately so we have an ID for BOQ upload
+    if (step === 1 && !wizardProjectId) {
+      try {
+        const data = {
+          clientName: form.clientName,
+          clientEmail: form.clientEmail || undefined,
+          projectAddress: form.projectAddress,
+          proposalNumber: form.proposalNumber,
+          projectType: form.projectType || undefined,
+          buildType: form.buildType || undefined,
+          baseContractPrice: form.baseContractPrice || undefined,
+          tenderExpiryDate: form.tenderExpiryDate || undefined,
+          notes: form.notes || undefined,
+        };
+        const result = await createMutation.mutateAsync(data);
+        const newId = (result as any).id;
+        setWizardProjectId(newId);
+        setStep(2);
+      } catch {
+        // error handled by createMutation.onError
+      }
+      return;
+    }
+    // When advancing from Step 2 (BOQ), auto-fill quantities from extracted BOQ items
+    if (step === 2 && boqExtracted.length > 0 && wizardProjectId) {
+      const qtyUpdate: Record<string, number> = {};
+      for (const item of boqExtracted) {
+        if (item.mappedQuantityField && item.quantity) {
+          const val = parseFloat(item.quantity);
+          if (!isNaN(val)) qtyUpdate[item.mappedQuantityField] = val;
+        }
+      }
+      if (Object.keys(qtyUpdate).length > 0) {
+        setForm(prev => ({ ...prev, ...Object.fromEntries(Object.entries(qtyUpdate).map(([k, v]) => [k, String(v)])) }));
+      }
+    }
+    setStep(s => Math.min(s + 1, STEPS.length));
   };
 
   const handleBack = () => setStep(s => Math.max(s - 1, 1));
+
+  // BOQ upload handler for wizard Step 2
+  const handleBoqUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !wizardProjectId) return;
+    setBoqFile(file);
+    setBoqUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('projectId', String(wizardProjectId));
+      const res = await fetch('/api/boq/upload', { method: 'POST', body: fd, credentials: 'include' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Upload failed');
+      setBoqDocId(json.documentId);
+      setBoqStatus('extracting');
+      setBoqPolling(true);
+      toast.success('BOQ uploaded — extracting items...');
+    } catch (err: any) {
+      toast.error(err.message || 'Upload failed');
+    } finally {
+      setBoqUploading(false);
+    }
+  };
+
+  // Poll BOQ extraction status
+  useEffect(() => {
+    if (!boqPolling || !boqDocId) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/trpc/boq.getItems?input=${encodeURIComponent(JSON.stringify({ json: { boqDocumentId: boqDocId } }))}`, { credentials: 'include' });
+        const json = await res.json();
+        const result = json?.result?.data?.json;
+        if (result?.status === 'extracted' || result?.status === 'error') {
+          setBoqStatus(result.status);
+          setBoqExtracted(result.items || []);
+          setBoqPolling(false);
+          // Auto-fill quantities from BOQ
+          if (result.items?.length) {
+            const qMap: Record<string, string> = {};
+            for (const item of result.items) {
+              if (item.mappedQuantityField && item.quantity) {
+                qMap[item.mappedQuantityField] = item.quantity;
+              }
+            }
+            if (Object.keys(qMap).length > 0) {
+              setForm(f => ({ ...f, ...qMap }));
+              toast.success(`Auto-filled ${Object.keys(qMap).length} quantities from BOQ`);
+            }
+          }
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [boqPolling, boqDocId]);
 
   // ─── Image upload ─────────────────────────────────────────────────────────────
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,7 +357,7 @@ export default function AdminProjectForm() {
   };
 
   // ─── Submit ───────────────────────────────────────────────────────────────────
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const err = validateStep(step);
     if (err) { toast.error(err); return; }
     const data = {
@@ -311,6 +376,37 @@ export default function AdminProjectForm() {
     };
     if (isEdit && projectId) {
       updateMutation.mutate({ id: projectId, ...data, status: form.status as any });
+    } else if (wizardProjectId) {
+      // Save quantities first, then update project with remaining fields
+      const p = (key: string) => form[key as keyof typeof form] ? parseInt(form[key as keyof typeof form] as string) : undefined;
+      const s = (key: string) => (form[key as keyof typeof form] as string) || undefined;
+      try {
+        await upsertQuantitiesMutation.mutateAsync({
+          projectId: wizardProjectId,
+          downlightsQty: p('downlightsQty'), powerPointsQty: p('powerPointsQty'),
+          pendantPointsQty: p('pendantPointsQty'), switchPlatesQty: p('switchPlatesQty'),
+          dataPointsQty: p('dataPointsQty'), exhaustFansQty: p('exhaustFansQty'),
+          acZonesQty: p('acZonesQty'), acKw: s('acKw'),
+          kitchenBaseCabinetryLm: s('kitchenBaseCabinetryLm'),
+          kitchenOverheadCabinetryLm: s('kitchenOverheadCabinetryLm'),
+          wardrobeLm: s('wardrobeLm'), laundryJoineryQty: p('laundryJoineryQty'),
+          kitchenBenchtopArea: s('kitchenBenchtopArea'), islandBenchtopArea: s('islandBenchtopArea'),
+          vanityStoneTopQty: p('vanityStoneTopQty'),
+          basinMixersQty: p('basinMixersQty'), showerSetsQty: p('showerSetsQty'),
+          kitchenMixersQty: p('kitchenMixersQty'), toiletsQty: p('toiletsQty'),
+          bathtubsQty: p('bathtubsQty'), applianceSetsQty: p('applianceSetsQty'),
+          floorTileM2: s('floorTileM2'), wallTileM2: s('wallTileM2'),
+          splashbackTileM2: s('splashbackTileM2'),
+          timberHybridM2: s('timberHybridM2'), carpetM2: s('carpetM2'),
+          facadeCladdingM2: s('facadeCladdingM2'),
+          insulationCeilingR: s('insulationCeilingR'), insulationWallR: s('insulationWallR'),
+          internalDoorsQty: p('internalDoorsQty'), externalDoorsQty: p('externalDoorsQty'),
+          doorHandlesQty: p('doorHandlesQty'),
+        });
+      } catch {
+        // Quantities save failed silently — can be updated later in Quantities tab
+      }
+      updateMutation.mutate({ id: wizardProjectId, ...data, status: form.status as any });
     } else {
       createMutation.mutate(data);
     }
@@ -461,8 +557,68 @@ export default function AdminProjectForm() {
           </div>
         )}
 
-        {/* Step 2: Pricing & Quantities */}
+        {/* Step 2: BOQ Upload */}
         {step === 2 && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <section className="bg-card border rounded-lg p-6 space-y-4" style={{ borderColor: "var(--border)" }}>
+              <div>
+                <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Bill of Quantities</h2>
+                <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: "Lato, sans-serif" }}>
+                  Upload the client's BOQ (PDF or Excel). The AI will extract items and auto-fill quantities in the next step. You can skip this and enter quantities manually.
+                </p>
+              </div>
+
+              {!boqFile && !boqDocId && (
+                <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg cursor-pointer hover:border-[var(--bm-petrol)] transition-colors" style={{ borderColor: "var(--border)" }}>
+                  <Upload size={22} className="mb-2 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                    {boqUploading ? "Uploading..." : "Click to upload BOQ (PDF or Excel)"}
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-1" style={{ fontFamily: "Lato, sans-serif" }}>PDF, XLSX, XLS up to 16MB</span>
+                  <input type="file" accept=".pdf,.xlsx,.xls,.csv" className="hidden" onChange={handleBoqUpload} disabled={boqUploading} />
+                </label>
+              )}
+
+              {boqFile && boqStatus === 'extracting' && (
+                <div className="flex items-center gap-3 p-4 rounded-lg" style={{ background: "rgba(32,62,74,0.05)", border: "1px solid rgba(32,62,74,0.15)" }}>
+                  <div className="animate-spin rounded-full h-5 w-5 border-2" style={{ borderColor: "var(--bm-petrol)", borderTopColor: "transparent" }} />
+                  <div>
+                    <div className="text-sm font-medium" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Extracting items from {boqFile.name}...</div>
+                    <div className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>This usually takes 15–30 seconds</div>
+                  </div>
+                </div>
+              )}
+
+              {boqStatus === 'extracted' && boqExtracted.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>
+                    <CheckCircle size={16} />
+                    <span className="font-medium">Extracted {boqExtracted.length} items — quantities auto-filled in Step 3</span>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {boqExtracted.slice(0, 10).map(item => (
+                      <div key={item.id} className="flex items-center justify-between text-xs px-3 py-1.5 rounded" style={{ background: "rgba(32,62,74,0.04)", fontFamily: "Lato, sans-serif" }}>
+                        <span className="text-muted-foreground">{item.category} — {item.description}</span>
+                        {item.quantity && <span className="font-medium" style={{ color: "var(--bm-petrol)" }}>{item.quantity} {item.unit || ''}</span>}
+                      </div>
+                    ))}
+                    {boqExtracted.length > 10 && <div className="text-xs text-muted-foreground px-3" style={{ fontFamily: "Lato, sans-serif" }}>+{boqExtracted.length - 10} more items</div>}
+                  </div>
+                </div>
+              )}
+
+              {boqStatus === 'error' && (
+                <div className="flex items-center gap-2 p-3 rounded text-sm" style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", color: "#dc2626", fontFamily: "Lato, sans-serif" }}>
+                  <AlertCircle size={15} />
+                  <span>Extraction failed. You can still enter quantities manually in the next step.</span>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* Step 3: Pricing & Quantities */}
+        {step === 3 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <section className="bg-card border rounded-lg p-6 space-y-4" style={{ borderColor: "var(--border)" }}>
               <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Contract Pricing</h2>
@@ -595,8 +751,8 @@ export default function AdminProjectForm() {
           </div>
         )}
 
-        {/* Step 3: Presentation */}
-        {step === 3 && (
+        {/* Step 4: Presentation */}
+        {step === 4 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <section className="bg-card border rounded-lg p-6" style={{ borderColor: "var(--border)" }}>
               <h2 className="text-xs font-bold tracking-wider uppercase mb-4" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Hero Image</h2>
@@ -662,15 +818,15 @@ export default function AdminProjectForm() {
             {step === 1 ? "Cancel" : "Back"}
           </Button>
 
-          {step < 3 ? (
+          {step < STEPS.length ? (
             <Button
               type="button"
               onClick={handleNext}
+              disabled={createMutation.isPending}
               className="gap-2 text-xs tracking-wider uppercase"
               style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
             >
-              Next: {STEPS[step].label}
-              <ArrowRight size={13} />
+              {createMutation.isPending && step === 1 ? "Creating..." : (<>Next: {STEPS[step].label}<ArrowRight size={13} /></>)}
             </Button>
           ) : (
             <Button
