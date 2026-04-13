@@ -20,6 +20,7 @@ import {
 } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { verifyJwt } from "./_core/jwt";
+import { parse as parseCookieHeader } from "cookie";
 
 async function buildPdfData(projectId: number): Promise<PdfData | null> {
   const db = await getDb();
@@ -98,14 +99,21 @@ export function registerPdfRoute(app: Express) {
   // Admin: GET /api/pdf/proposal/:projectId  (requires admin session cookie)
   app.get("/api/pdf/proposal/:projectId", async (req: Request, res: Response) => {
     try {
-      // Verify admin session via cookie
-      const cookie = req.headers.cookie || "";
-      const match = cookie.match(/bm_admin_session=([^;]+)/);
-      if (!match) {
+      // Verify admin session via cookie (use cookie package for reliable parsing)
+      const cookieHeader = req.headers.cookie || "";
+      const cookies = parseCookieHeader(cookieHeader);
+      const sessionToken = cookies["bm_admin_session"];
+      if (!sessionToken) {
         res.status(401).json({ error: "Unauthorized" });
         return;
       }
-      const payload = await verifyJwt(match[1]);
+      let payload: Record<string, unknown>;
+      try {
+        payload = await verifyJwt(sessionToken);
+      } catch {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
       if (!payload) {
         res.status(401).json({ error: "Unauthorized" });
         return;

@@ -12,7 +12,9 @@ import {
   Calendar,
   ChevronRight,
   Building2,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -38,7 +40,12 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("");
   const [, navigate] = useLocation();
 
+  const utils = trpc.useUtils();
   const { data: projects, isLoading } = trpc.projects.list.useQuery();
+  const deleteProjectMutation = trpc.projects.delete.useMutation({
+    onSuccess: () => { utils.projects.list.invalidate(); toast.success("Project deleted"); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const filtered = projects?.filter((p) => {
     const q = search.toLowerCase();
@@ -170,6 +177,19 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     )}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (confirm(`Delete "${project.clientName}"? This cannot be undone.`)) {
+                          deleteProjectMutation.mutate({ id: project.id });
+                        }
+                      }}
+                      className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                      title="Delete project"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                     <ChevronRight size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
                   </div>
                 </div>

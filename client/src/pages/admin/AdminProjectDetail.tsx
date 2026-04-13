@@ -1094,6 +1094,10 @@ export default function AdminProjectDetail() {
   const projectId = parseInt(params.id);
 
   const { data: project, isLoading } = trpc.projects.get.useQuery({ id: projectId });
+  const deleteProjectMutation = trpc.projects.delete.useMutation({
+    onSuccess: () => { toast.success("Project deleted"); navigate("/admin"); },
+    onError: (e) => toast.error(e.message),
+  });
 
   if (isLoading) {
     return (
@@ -1151,6 +1155,20 @@ export default function AdminProjectDetail() {
             style={{ fontFamily: "Lato, sans-serif" }}
           >
             <Edit size={13} /> Edit
+          </Button>
+          <Button
+            onClick={() => {
+              if (confirm(`Delete "${project.clientName}"? This cannot be undone.`)) {
+                deleteProjectMutation.mutate({ id: projectId });
+              }
+            }}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+            style={{ fontFamily: "Lato, sans-serif" }}
+            disabled={deleteProjectMutation.isPending}
+          >
+            <Trash2 size={13} /> Delete
           </Button>
         </div>
       </div>
