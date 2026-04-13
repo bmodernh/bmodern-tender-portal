@@ -1,5 +1,6 @@
 import { Express, Request, Response } from "express";
 import multer from "multer";
+import * as XLSX from "xlsx";
 import { storagePut } from "./storage";
 import {
   createBoqDocument,
@@ -78,23 +79,11 @@ When extracting items, if a line item clearly maps to one of these quantity fiel
 - insulationWallR: wall insulation (R value)
 `;
 
-async function extractBoqWithAI(fileBuffer: Buffer, mimeType: string, fileName: string) {
-  // For PDF/Excel, we send the file as base64 to the LLM
+async function extractBoqWithAI(fileBuffer: Buffer, mimeType: string, fileName: string, fileUrl?: string) {
   const isExcel = mimeType.includes("spreadsheet") || mimeType.includes("excel") || fileName.match(/\.xlsx?$/i);
   const isPdf = mimeType === "application/pdf" || fileName.match(/\.pdf$/i);
 
-  let prompt = "";
-  let messages: any[] = [];
-
-  if (isPdf) {
-    // Use file_url for PDF
-    // We need to upload first, then pass URL — but we already have the buffer
-    // Use base64 approach via text extraction prompt
-    const base64 = fileBuffer.toString("base64");
-    messages = [
-      {
-        role: "system",
-        content: `You are a construction BOQ (Bill of Quantities) extraction specialist. Extract all line items from the provided BOQ document and return structured JSON.
+  const BOQ_SYSTEM_PROMPT = `You are a construction BOQ (Bill of Quantities) extraction specialist. Extract all line items from the provided BOQ document and return structured JSON.
 
 Categories to use:
 - "Preliminaries": site establishment, scaffolding, temp fencing, project management, insurance, permits, waste removal
@@ -119,52 +108,52 @@ Return ONLY valid JSON in this exact format:
       "mappedQuantityField": null
     }
   ]
-}`,
-      },
+}`;
+
+  let messages: any[] = [];
+
+  if (isPdf && fileUrl) {
+    // Use the public S3 URL for PDF — the LLM can read it directly
+    messages = [
+      { role: "system", content: BOQ_SYSTEM_PROMPT },
       {
         role: "user",
         content: [
           {
             type: "file_url",
-            file_url: {
-              url: `data:application/pdf;base64,${base64}`,
-              mime_type: "application/pdf",
-            },
+            file_url: { url: fileUrl, mime_type: "application/pdf" },
           },
-          {
-            type: "text",
-            text: "Extract all BOQ line items from this document and return as JSON.",
-          },
+          { type: "text", text: "Extract all BOQ line items from this document and return as JSON." },
         ],
       },
     ];
-  } else {
-    // For Excel/CSV, convert to text representation first
-    prompt = `I have a Bill of Quantities (BOQ) from a construction project. The file is named "${fileName}". 
-    
-Please extract all line items and categorise them. Since I cannot send the Excel file directly, I'll describe that this is a typical residential construction BOQ with sections for preliminaries, structural work, and internal fit-out items.
-
-Return ONLY valid JSON in this exact format:
-{
-  "items": [
-    {
-      "category": "Preliminaries",
-      "description": "Site establishment",
-      "unit": "item", 
-      "quantity": "1",
-      "mappedQuantityField": null
+  } else if (isExcel) {
+    // Parse Excel/CSV to text rows, then send as text prompt
+    let textContent = "";
+    try {
+      const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+      const rows: string[] = [];
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
+        rows.push(`=== Sheet: ${sheetName} ===\n${csv}`);
+      }
+      textContent = rows.join("\n\n");
+    } catch {
+      textContent = `[Excel file: ${fileName} — could not parse content]`;
     }
-  ]
-}
-
-Note: For Excel files, extract as many items as possible from the typical BOQ structure.`;
-
     messages = [
+      { role: "system", content: BOQ_SYSTEM_PROMPT },
       {
-        role: "system",
-        content: `You are a construction BOQ extraction specialist. ${QUANTITY_FIELD_HINTS}`,
+        role: "user",
+        content: `Here is the content of a construction BOQ spreadsheet ("${fileName}"):\n\n${textContent.slice(0, 12000)}\n\nExtract all BOQ line items and return as JSON.`,
       },
-      { role: "user", content: prompt },
+    ];
+  } else {
+    // Fallback: text-only prompt
+    messages = [
+      { role: "system", content: BOQ_SYSTEM_PROMPT },
+      { role: "user", content: `Extract BOQ line items from the file named "${fileName}" and return as JSON.` },
     ];
   }
 
@@ -267,7 +256,7 @@ export function registerBoqRoutes(app: Express) {
           }, 120_000);
           try {
             await updateBoqDocumentStatus(docId, "extracting");
-            const items = await extractBoqWithAI(file.buffer, file.mimetype, file.originalname);
+            const items = await extractBoqWithAI(file.buffer, file.mimetype, file.originalname, fileUrl);
             clearTimeout(timeoutId);
             await deleteBoqItemsByDocument(docId);
             await saveBoqItems(
