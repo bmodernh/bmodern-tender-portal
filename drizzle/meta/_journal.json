@@ -43,6 +43,13 @@
       "when": 1776055995951,
       "tag": "0005_goofy_night_thrasher",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1776059149745,
+      "tag": "0006_bitter_madame_masque",
+      "breakpoints": true
     }
   ]
 }

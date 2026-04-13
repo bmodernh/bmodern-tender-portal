@@ -387,6 +387,14 @@ const quantitiesRouter = router({
       joineryAllowance: z.string().optional().nullable(),
       stoneAllowance: z.string().optional().nullable(),
       appliancesAllowance: z.string().optional().nullable(),
+      // New fields
+      acZonesQty: z.number().optional().nullable(),
+      acKw: z.string().optional().nullable(),
+      facadeCladdingM2: z.string().optional().nullable(),
+      insulationCeilingR: z.string().optional().nullable(),
+      insulationWallR: z.string().optional().nullable(),
+      laundryJoineryQty: z.number().optional().nullable(),
+      applianceSetsQty: z.number().optional().nullable(),
     }))
     .mutation(async ({ input, ctx }) => {
       await requireAdmin(ctx);

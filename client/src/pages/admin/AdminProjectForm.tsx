@@ -103,26 +103,37 @@ export default function AdminProjectForm() {
     onSuccess: async (data) => {
       const newId = (data as any).id;
       // Save quantities if any were entered
-      if (newId && (
-        form.downlightsQty || form.powerPointsQty || form.kitchenBaseCabinetryLm ||
-        form.kitchenOverheadCabinetryLm || form.kitchenBenchtopArea || form.islandBenchtopArea ||
-        form.basinMixersQty || form.showerSetsQty || form.kitchenMixersQty ||
-        form.floorTileM2 || form.wallTileM2
-      )) {
+      const hasQty = Object.entries(form).some(([k, v]) =>
+        k !== 'clientName' && k !== 'clientEmail' && k !== 'projectAddress' &&
+        k !== 'proposalNumber' && k !== 'projectType' && k !== 'buildType' &&
+        k !== 'tenderExpiryDate' && k !== 'baseContractPrice' && k !== 'preliminaryEstimateMin' &&
+        k !== 'preliminaryEstimateMax' && k !== 'heroImageUrl' && k !== 'notes' && k !== 'status' && !!v
+      );
+      if (newId && hasQty) {
         try {
+          const p = (key: string) => form[key as keyof typeof form] ? parseInt(form[key as keyof typeof form] as string) : undefined;
+          const s = (key: string) => (form[key as keyof typeof form] as string) || undefined;
           await upsertQuantitiesMutation.mutateAsync({
             projectId: newId,
-            downlightsQty: form.downlightsQty ? parseInt(form.downlightsQty) : undefined,
-            powerPointsQty: form.powerPointsQty ? parseInt(form.powerPointsQty) : undefined,
-            kitchenBaseCabinetryLm: form.kitchenBaseCabinetryLm || undefined,
-            kitchenOverheadCabinetryLm: form.kitchenOverheadCabinetryLm || undefined,
-            kitchenBenchtopArea: form.kitchenBenchtopArea || undefined,
-            islandBenchtopArea: form.islandBenchtopArea || undefined,
-            basinMixersQty: form.basinMixersQty ? parseInt(form.basinMixersQty) : undefined,
-            showerSetsQty: form.showerSetsQty ? parseInt(form.showerSetsQty) : undefined,
-            kitchenMixersQty: form.kitchenMixersQty ? parseInt(form.kitchenMixersQty) : undefined,
-            floorTileM2: form.floorTileM2 || undefined,
-            wallTileM2: form.wallTileM2 || undefined,
+            downlightsQty: p('downlightsQty'), powerPointsQty: p('powerPointsQty'),
+            pendantPointsQty: p('pendantPointsQty'), switchPlatesQty: p('switchPlatesQty'),
+            dataPointsQty: p('dataPointsQty'), exhaustFansQty: p('exhaustFansQty'),
+            acZonesQty: p('acZonesQty'), acKw: s('acKw'),
+            kitchenBaseCabinetryLm: s('kitchenBaseCabinetryLm'),
+            kitchenOverheadCabinetryLm: s('kitchenOverheadCabinetryLm'),
+            wardrobeLm: s('wardrobeLm'), laundryJoineryQty: p('laundryJoineryQty'),
+            kitchenBenchtopArea: s('kitchenBenchtopArea'), islandBenchtopArea: s('islandBenchtopArea'),
+            vanityStoneTopQty: p('vanityStoneTopQty'),
+            basinMixersQty: p('basinMixersQty'), showerSetsQty: p('showerSetsQty'),
+            kitchenMixersQty: p('kitchenMixersQty'), toiletsQty: p('toiletsQty'),
+            bathtubsQty: p('bathtubsQty'), applianceSetsQty: p('applianceSetsQty'),
+            floorTileM2: s('floorTileM2'), wallTileM2: s('wallTileM2'),
+            splashbackTileM2: s('splashbackTileM2'),
+            timberHybridM2: s('timberHybridM2'), carpetM2: s('carpetM2'),
+            facadeCladdingM2: s('facadeCladdingM2'),
+            insulationCeilingR: s('insulationCeilingR'), insulationWallR: s('insulationWallR'),
+            internalDoorsQty: p('internalDoorsQty'), externalDoorsQty: p('externalDoorsQty'),
+            doorHandlesQty: p('doorHandlesQty'),
           });
         } catch {
           // Quantities save failed silently — can be entered later in Quantities tab
@@ -162,15 +173,36 @@ export default function AdminProjectForm() {
     // Quantities (key ones for pricing engine)
     downlightsQty: "",
     powerPointsQty: "",
+    pendantPointsQty: "",
+    switchPlatesQty: "",
+    dataPointsQty: "",
+    exhaustFansQty: "",
+    acZonesQty: "",
+    acKw: "",
     kitchenBaseCabinetryLm: "",
     kitchenOverheadCabinetryLm: "",
+    wardrobeLm: "",
+    laundryJoineryQty: "",
     kitchenBenchtopArea: "",
     islandBenchtopArea: "",
+    vanityStoneTopQty: "",
     basinMixersQty: "",
     showerSetsQty: "",
     kitchenMixersQty: "",
+    toiletsQty: "",
+    bathtubsQty: "",
+    applianceSetsQty: "",
     floorTileM2: "",
     wallTileM2: "",
+    splashbackTileM2: "",
+    timberHybridM2: "",
+    carpetM2: "",
+    facadeCladdingM2: "",
+    insulationCeilingR: "",
+    insulationWallR: "",
+    internalDoorsQty: "",
+    externalDoorsQty: "",
+    doorHandlesQty: "",
     // Step 3
     heroImageUrl: "",
     notes: "",
@@ -192,17 +224,16 @@ export default function AdminProjectForm() {
         baseContractPrice: existing.baseContractPrice?.toString() || "",
         preliminaryEstimateMin: existing.preliminaryEstimateMin?.toString() || "",
         preliminaryEstimateMax: existing.preliminaryEstimateMax?.toString() || "",
-        downlightsQty: "",
-        powerPointsQty: "",
-        kitchenBaseCabinetryLm: "",
-        kitchenOverheadCabinetryLm: "",
-        kitchenBenchtopArea: "",
-        islandBenchtopArea: "",
-        basinMixersQty: "",
-        showerSetsQty: "",
-        kitchenMixersQty: "",
-        floorTileM2: "",
-        wallTileM2: "",
+        // Quantities — not pre-filled from project (loaded separately in Quantities tab)
+        downlightsQty: "", powerPointsQty: "", pendantPointsQty: "", switchPlatesQty: "",
+        dataPointsQty: "", exhaustFansQty: "", acZonesQty: "", acKw: "",
+        kitchenBaseCabinetryLm: "", kitchenOverheadCabinetryLm: "", wardrobeLm: "", laundryJoineryQty: "",
+        kitchenBenchtopArea: "", islandBenchtopArea: "", vanityStoneTopQty: "",
+        basinMixersQty: "", showerSetsQty: "", kitchenMixersQty: "", toiletsQty: "", bathtubsQty: "",
+        applianceSetsQty: "", floorTileM2: "", wallTileM2: "", splashbackTileM2: "",
+        timberHybridM2: "", carpetM2: "", facadeCladdingM2: "",
+        insulationCeilingR: "", insulationWallR: "",
+        internalDoorsQty: "", externalDoorsQty: "", doorHandlesQty: "",
         heroImageUrl: existing.heroImageUrl || "",
         notes: existing.notes || "",
         status: existing.status || "draft",
@@ -463,12 +494,21 @@ export default function AdminProjectForm() {
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Electrical</div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <FieldGroup label="Downlights (qty)">
-                    <Input {...f("downlightsQty")} type="number" placeholder="e.g. 25" className="h-9 text-sm" />
-                  </FieldGroup>
-                  <FieldGroup label="Power Points (qty)">
-                    <Input {...f("powerPointsQty")} type="number" placeholder="e.g. 15" className="h-9 text-sm" />
-                  </FieldGroup>
+                  <FieldGroup label="Downlights (qty)"><Input {...f("downlightsQty")} type="number" placeholder="e.g. 25" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Power Points (qty)"><Input {...f("powerPointsQty")} type="number" placeholder="e.g. 15" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Pendant Points (qty)"><Input {...f("pendantPointsQty")} type="number" placeholder="e.g. 4" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Switch Plates (qty)"><Input {...f("switchPlatesQty")} type="number" placeholder="e.g. 12" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Data Points (qty)"><Input {...f("dataPointsQty")} type="number" placeholder="e.g. 6" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Exhaust Fans (qty)"><Input {...f("exhaustFansQty")} type="number" placeholder="e.g. 3" className="h-9 text-sm" /></FieldGroup>
+                </div>
+              </div>
+
+              {/* Air Conditioning */}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Air Conditioning</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <FieldGroup label="AC Zones (qty)"><Input {...f("acZonesQty")} type="number" placeholder="e.g. 4" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Total kW Capacity"><Input {...f("acKw")} type="number" placeholder="e.g. 14.0" className="h-9 text-sm" /></FieldGroup>
                 </div>
               </div>
 
@@ -476,41 +516,40 @@ export default function AdminProjectForm() {
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Joinery</div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <FieldGroup label="Kitchen Base (lm)">
-                    <Input {...f("kitchenBaseCabinetryLm")} type="number" placeholder="e.g. 6.5" className="h-9 text-sm" />
-                  </FieldGroup>
-                  <FieldGroup label="Kitchen Overhead (lm)">
-                    <Input {...f("kitchenOverheadCabinetryLm")} type="number" placeholder="e.g. 4.0" className="h-9 text-sm" />
-                  </FieldGroup>
+                  <FieldGroup label="Kitchen Base (lm)"><Input {...f("kitchenBaseCabinetryLm")} type="number" placeholder="e.g. 6.5" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Kitchen Overhead (lm)"><Input {...f("kitchenOverheadCabinetryLm")} type="number" placeholder="e.g. 4.0" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Wardrobe (lm)"><Input {...f("wardrobeLm")} type="number" placeholder="e.g. 8.0" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Laundry Cabinets (qty)"><Input {...f("laundryJoineryQty")} type="number" placeholder="e.g. 1" className="h-9 text-sm" /></FieldGroup>
                 </div>
               </div>
 
-              {/* Benchtops */}
+              {/* Benchtops & Stone */}
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Benchtops</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Benchtops & Stone</div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <FieldGroup label="Kitchen Bench (m²)">
-                    <Input {...f("kitchenBenchtopArea")} type="number" placeholder="e.g. 4.2" className="h-9 text-sm" />
-                  </FieldGroup>
-                  <FieldGroup label="Island Bench (m²)">
-                    <Input {...f("islandBenchtopArea")} type="number" placeholder="e.g. 2.0" className="h-9 text-sm" />
-                  </FieldGroup>
+                  <FieldGroup label="Kitchen Bench (m²)"><Input {...f("kitchenBenchtopArea")} type="number" placeholder="e.g. 4.2" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Island Bench (m²)"><Input {...f("islandBenchtopArea")} type="number" placeholder="e.g. 2.0" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Vanity Stone Tops (qty)"><Input {...f("vanityStoneTopQty")} type="number" placeholder="e.g. 3" className="h-9 text-sm" /></FieldGroup>
                 </div>
               </div>
 
-              {/* Tapware */}
+              {/* Tapware & Sanitary */}
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Tapware & Fixtures</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Tapware & Sanitaryware</div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <FieldGroup label="Basin Mixers (qty)">
-                    <Input {...f("basinMixersQty")} type="number" placeholder="e.g. 3" className="h-9 text-sm" />
-                  </FieldGroup>
-                  <FieldGroup label="Shower Sets (qty)">
-                    <Input {...f("showerSetsQty")} type="number" placeholder="e.g. 2" className="h-9 text-sm" />
-                  </FieldGroup>
-                  <FieldGroup label="Kitchen Mixers (qty)">
-                    <Input {...f("kitchenMixersQty")} type="number" placeholder="e.g. 1" className="h-9 text-sm" />
-                  </FieldGroup>
+                  <FieldGroup label="Basin Mixers (qty)"><Input {...f("basinMixersQty")} type="number" placeholder="e.g. 3" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Shower Sets (qty)"><Input {...f("showerSetsQty")} type="number" placeholder="e.g. 2" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Kitchen Mixers (qty)"><Input {...f("kitchenMixersQty")} type="number" placeholder="e.g. 1" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Toilets (qty)"><Input {...f("toiletsQty")} type="number" placeholder="e.g. 3" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Bathtubs (qty)"><Input {...f("bathtubsQty")} type="number" placeholder="e.g. 1" className="h-9 text-sm" /></FieldGroup>
+                </div>
+              </div>
+
+              {/* Appliances */}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Appliances</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <FieldGroup label="Appliance Sets (qty)"><Input {...f("applianceSetsQty")} type="number" placeholder="e.g. 1" className="h-9 text-sm" /></FieldGroup>
                 </div>
               </div>
 
@@ -518,12 +557,38 @@ export default function AdminProjectForm() {
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Tiles</div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <FieldGroup label="Floor Tile (m²)">
-                    <Input {...f("floorTileM2")} type="number" placeholder="e.g. 80" className="h-9 text-sm" />
-                  </FieldGroup>
-                  <FieldGroup label="Wall Tile (m²)">
-                    <Input {...f("wallTileM2")} type="number" placeholder="e.g. 40" className="h-9 text-sm" />
-                  </FieldGroup>
+                  <FieldGroup label="Floor Tile (m²)"><Input {...f("floorTileM2")} type="number" placeholder="e.g. 80" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Wall Tile (m²)"><Input {...f("wallTileM2")} type="number" placeholder="e.g. 40" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Splashback Tile (m²)"><Input {...f("splashbackTileM2")} type="number" placeholder="e.g. 2.0" className="h-9 text-sm" /></FieldGroup>
+                </div>
+              </div>
+
+              {/* Flooring */}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Flooring</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <FieldGroup label="Timber / Hybrid (m²)"><Input {...f("timberHybridM2")} type="number" placeholder="e.g. 120" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Carpet (m²)"><Input {...f("carpetM2")} type="number" placeholder="e.g. 60" className="h-9 text-sm" /></FieldGroup>
+                </div>
+              </div>
+
+              {/* Doors & Hardware */}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Doors & Hardware</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <FieldGroup label="Internal Doors (qty)"><Input {...f("internalDoorsQty")} type="number" placeholder="e.g. 12" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="External Doors (qty)"><Input {...f("externalDoorsQty")} type="number" placeholder="e.g. 2" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Door Handles (qty)"><Input {...f("doorHandlesQty")} type="number" placeholder="e.g. 14" className="h-9 text-sm" /></FieldGroup>
+                </div>
+              </div>
+
+              {/* Facade & Insulation */}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Facade & Insulation</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <FieldGroup label="Facade Cladding (m²)"><Input {...f("facadeCladdingM2")} type="number" placeholder="e.g. 80" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Ceiling Insulation (R)"><Input {...f("insulationCeilingR")} type="number" placeholder="e.g. 2.5" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Wall Insulation (R)"><Input {...f("insulationWallR")} type="number" placeholder="e.g. 1.5" className="h-9 text-sm" /></FieldGroup>
                 </div>
               </div>
             </section>

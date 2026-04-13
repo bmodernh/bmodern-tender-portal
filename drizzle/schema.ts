@@ -138,6 +138,18 @@ export const quantities = mysqlTable("quantities", {
   islandBenchtopArea: decimal("islandBenchtopArea", { precision: 8, scale: 2 }),
   vanityStoneTopQty: int("vanityStoneTopQty"),
   stoneSplashbackArea: decimal("stoneSplashbackArea", { precision: 8, scale: 2 }),
+  // Air Conditioning
+  acZonesQty: int("acZonesQty"),                          // number of AC zones
+  acKw: decimal("acKw", { precision: 6, scale: 2 }),       // total kW capacity
+  // Facade & External
+  facadeCladdingM2: decimal("facadeCladdingM2", { precision: 8, scale: 2 }),
+  // Insulation
+  insulationCeilingR: decimal("insulationCeilingR", { precision: 4, scale: 1 }),  // e.g. 2.5
+  insulationWallR: decimal("insulationWallR", { precision: 4, scale: 1 }),        // e.g. 1.5
+  // Laundry Joinery
+  laundryJoineryQty: int("laundryJoineryQty"),             // number of laundry cabinets
+  // Appliances
+  applianceSetsQty: int("applianceSetsQty"),               // number of full appliance sets (oven+cooktop+rangehood+DW)
   // Allowances
   floorTileAllowancePerM2: decimal("floorTileAllowancePerM2", { precision: 8, scale: 2 }),
   wallTileAllowancePerM2: decimal("wallTileAllowancePerM2", { precision: 8, scale: 2 }),
