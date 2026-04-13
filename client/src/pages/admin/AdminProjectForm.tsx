@@ -286,7 +286,7 @@ export default function AdminProjectForm() {
       const res = await fetch('/api/boq/upload', { method: 'POST', body: fd, credentials: 'include' });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Upload failed');
-      setBoqDocId(json.documentId);
+      setBoqDocId(json.docId);
       setBoqStatus('extracting');
       setBoqPolling(true);
       toast.success('BOQ uploaded — extracting items...');
@@ -297,36 +297,48 @@ export default function AdminProjectForm() {
     }
   };
 
-  // Poll BOQ extraction status
+  // Poll BOQ extraction status — poll listDocuments which has the status field
   useEffect(() => {
-    if (!boqPolling || !boqDocId) return;
+    if (!boqPolling || !boqDocId || !wizardProjectId) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/trpc/boq.getItems?input=${encodeURIComponent(JSON.stringify({ json: { boqDocumentId: boqDocId } }))}`, { credentials: 'include' });
-        const json = await res.json();
-        const result = json?.result?.data?.json;
-        if (result?.status === 'extracted' || result?.status === 'error') {
-          setBoqStatus(result.status);
-          setBoqExtracted(result.items || []);
+        const docRes = await fetch(
+          `/api/trpc/boq.listDocuments?input=${encodeURIComponent(JSON.stringify({ json: { projectId: wizardProjectId } }))}`,
+          { credentials: 'include' }
+        );
+        const docJson = await docRes.json();
+        const docs: Array<{ id: number; status: string }> = docJson?.result?.data?.json ?? [];
+        const doc = docs.find((d: any) => d.id === boqDocId);
+        if (!doc) return;
+        if (doc.status === 'extracted' || doc.status === 'error') {
+          setBoqStatus(doc.status);
           setBoqPolling(false);
-          // Auto-fill quantities from BOQ
-          if (result.items?.length) {
-            const qMap: Record<string, string> = {};
-            for (const item of result.items) {
-              if (item.mappedQuantityField && item.quantity) {
-                qMap[item.mappedQuantityField] = item.quantity;
+          if (doc.status === 'extracted') {
+            const itemRes = await fetch(
+              `/api/trpc/boq.getItems?input=${encodeURIComponent(JSON.stringify({ json: { boqDocumentId: boqDocId } }))}`,
+              { credentials: 'include' }
+            );
+            const itemJson = await itemRes.json();
+            const items: any[] = itemJson?.result?.data?.json ?? [];
+            setBoqExtracted(items);
+            if (items.length) {
+              const qMap: Record<string, string> = {};
+              for (const item of items) {
+                if (item.mappedQuantityField && item.quantity) {
+                  qMap[item.mappedQuantityField] = item.quantity;
+                }
               }
-            }
-            if (Object.keys(qMap).length > 0) {
-              setForm(f => ({ ...f, ...qMap }));
-              toast.success(`Auto-filled ${Object.keys(qMap).length} quantities from BOQ`);
+              if (Object.keys(qMap).length > 0) {
+                setForm(f => ({ ...f, ...qMap }));
+                toast.success(`Auto-filled ${Object.keys(qMap).length} quantities from BOQ`);
+              }
             }
           }
         }
       } catch { /* ignore */ }
     }, 3000);
     return () => clearInterval(interval);
-  }, [boqPolling, boqDocId]);
+  }, [boqPolling, boqDocId, wizardProjectId]);
 
   // ─── Image upload ─────────────────────────────────────────────────────────────
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -580,12 +592,22 @@ export default function AdminProjectForm() {
               )}
 
               {boqFile && boqStatus === 'extracting' && (
-                <div className="flex items-center gap-3 p-4 rounded-lg" style={{ background: "rgba(32,62,74,0.05)", border: "1px solid rgba(32,62,74,0.15)" }}>
-                  <div className="animate-spin rounded-full h-5 w-5 border-2" style={{ borderColor: "var(--bm-petrol)", borderTopColor: "transparent" }} />
-                  <div>
-                    <div className="text-sm font-medium" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Extracting items from {boqFile.name}...</div>
-                    <div className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>This usually takes 15–30 seconds</div>
+                <div className="flex items-center justify-between gap-3 p-4 rounded-lg" style={{ background: "rgba(32,62,74,0.05)", border: "1px solid rgba(32,62,74,0.15)" }}>
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2" style={{ borderColor: "var(--bm-petrol)", borderTopColor: "transparent" }} />
+                    <div>
+                      <div className="text-sm font-medium" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Extracting items from {boqFile.name}...</div>
+                      <div className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>This usually takes 15–30 seconds</div>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => { setBoqPolling(false); setBoqStatus(null); setBoqFile(null); setBoqDocId(null); }}
+                    className="text-xs text-muted-foreground hover:text-foreground underline shrink-0"
+                    style={{ fontFamily: "Lato, sans-serif" }}
+                  >
+                    Cancel
+                  </button>
                 </div>
               )}
 

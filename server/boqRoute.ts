@@ -260,9 +260,15 @@ export function registerBoqRoutes(app: Express) {
 
         // Run extraction in background (don't await)
         (async () => {
+          // 120-second timeout to prevent indefinite hangs
+          const timeoutId = setTimeout(async () => {
+            console.error("[BOQ] Extraction timed out after 120s");
+            await updateBoqDocumentStatus(docId, "error", "Extraction timed out. Please try again or enter quantities manually.");
+          }, 120_000);
           try {
             await updateBoqDocumentStatus(docId, "extracting");
             const items = await extractBoqWithAI(file.buffer, file.mimetype, file.originalname);
+            clearTimeout(timeoutId);
             await deleteBoqItemsByDocument(docId);
             await saveBoqItems(
               items.map((item, idx) => ({
@@ -278,6 +284,7 @@ export function registerBoqRoutes(app: Express) {
             );
             await updateBoqDocumentStatus(docId, "extracted");
           } catch (err: any) {
+            clearTimeout(timeoutId);
             console.error("[BOQ] Extraction error:", err);
             await updateBoqDocumentStatus(docId, "error", err?.message || "Unknown error");
           }

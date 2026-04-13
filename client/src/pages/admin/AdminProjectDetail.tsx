@@ -169,7 +169,10 @@ function BoqTab({ projectId }: { projectId: number }) {
   const [polling, setPolling] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
-  const { data: documents, refetch: refetchDocs } = trpc.boq.listDocuments.useQuery({ projectId });
+  const { data: documents, refetch: refetchDocs } = trpc.boq.listDocuments.useQuery(
+    { projectId },
+    { refetchInterval: polling ? 3000 : false }
+  );
   const { data: items, refetch: refetchItems } = trpc.boq.getItems.useQuery(
     { boqDocumentId: selectedDocId! },
     { enabled: !!selectedDocId, refetchInterval: polling ? 3000 : false }
