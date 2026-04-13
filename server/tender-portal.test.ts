@@ -164,7 +164,7 @@ describe("portal", () => {
     await expect(caller.portal.getProject({ token: "invalid-token" })).rejects.toThrow();
   });
 
-  it("throws FORBIDDEN when project is in draft status", async () => {
+  it("returns project data for draft status (draft preview allowed with banner)", async () => {
     getClientTokenRecord.mockResolvedValue({
       id: 1,
       projectId: 1,
@@ -188,7 +188,9 @@ describe("portal", () => {
       notes: null,
     });
     const caller = appRouter.createCaller(makePublicCtx());
-    await expect(caller.portal.getProject({ token: "valid-token" })).rejects.toThrow("not yet available");
+    const result = await caller.portal.getProject({ token: "valid-token" });
+    expect(result.clientName).toBe("Test Client");
+    expect(result.status).toBe("draft");
   });
 
   it("returns project data when token is valid and project is presented", async () => {

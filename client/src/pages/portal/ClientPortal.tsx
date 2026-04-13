@@ -1540,6 +1540,11 @@ export default function ClientPortal() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bm-cream)", paddingBottom: upgradeTotal > 0 ? "80px" : "0" }}>
+      {project.status === "draft" && (
+        <div className="w-full py-2 px-4 text-center text-xs font-medium" style={{ background: "#f59e0b", color: "#1a1a1a", fontFamily: "Lato, sans-serif", letterSpacing: "0.05em" }}>
+          DRAFT PREVIEW — This proposal has not been sent to the client yet
+        </div>
+      )}
       <PortalHeader project={project} token={token} />
       <HeroSection project={project} />
       <ProposalSummaryBar project={project} upgradeTotal={upgradeTotal} />

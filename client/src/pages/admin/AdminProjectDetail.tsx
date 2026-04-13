@@ -18,6 +18,43 @@ import {
   FileText, RefreshCw, Wand2, CheckCheck, AlertCircle, Loader2
 } from "lucide-react";
 
+// ─── PDF Download Button ─────────────────────────────────────────────────────
+function PdfDownloadButton({ projectId, proposalNumber }: { projectId: number; proposalNumber: string | null }) {
+  const [loading, setLoading] = useState(false);
+  const handleDownload = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/pdf/proposal/${projectId}`, { credentials: "include" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "PDF generation failed" }));
+        toast.error(err.error || "PDF generation failed");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `B-Modern-Proposal-${proposalNumber || projectId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to generate PDF");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={loading}
+      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border hover:bg-secondary transition-colors disabled:opacity-50"
+      style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)", borderColor: "var(--border)", background: "transparent" }}
+    >
+      {loading ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />} PDF
+    </button>
+  );
+}
+
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft", presented: "Presented", under_review: "Under Review",
   accepted: "Accepted", contract_creation: "Contract Creation",
@@ -1076,11 +1113,6 @@ export default function AdminProjectDetail() {
     );
   }
 
-  const STATUS_LABELS: Record<string, string> = {
-    draft: "Draft", presented: "Presented", under_review: "Under Review",
-    accepted: "Accepted", contract_creation: "Contract Creation",
-    contract_signed: "Contract Signed", post_contract: "Post Contract",
-  };
 
   return (
     <AdminLayout
@@ -1110,15 +1142,7 @@ export default function AdminProjectDetail() {
           )}
         </div>
         <div className="flex gap-2 shrink-0">
-          <a
-            href={`/api/pdf/proposal/${projectId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border hover:bg-secondary transition-colors"
-            style={{ fontFamily: "Lato, sans-serif", textDecoration: "none", color: "var(--bm-petrol)", borderColor: "var(--border)" }}
-          >
-            <FileDown size={13} /> PDF
-          </a>
+          <PdfDownloadButton projectId={projectId} proposalNumber={project.proposalNumber} />
           <Button
             onClick={() => navigate(`/admin/projects/${projectId}/edit`)}
             variant="outline"

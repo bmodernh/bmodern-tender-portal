@@ -575,7 +575,7 @@ const portalRouter = router({
       }
       const project = await getProjectById(tokenRecord.projectId);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
-      if (project.status === "draft") throw new TRPCError({ code: "FORBIDDEN", message: "This proposal is not yet available" });
+      // Allow draft projects to be viewed (portal shows a draft preview banner)
       await updateClientTokenLastAccess(input.token);
       // Return project without sensitive fields
       return {
