@@ -12,7 +12,7 @@ import {
   Shield, Star, Crown, Loader2, Plus,
   MessageSquarePlus, ExternalLink, Clock, CheckCircle2, XCircle,
   AlertCircle, FileText, ScrollText, Sparkles, Lock, Image as ImageIcon,
-  Package, ToggleRight,
+  Package, ToggleRight, Eye, X,
 } from "lucide-react";
 import { FloatingChatButton } from "@/components/ProjectChat";
 
@@ -1021,6 +1021,7 @@ function StickyTotalBar({ basePrice, upgradeTotal, isLocked }: { basePrice: numb
 export default function ClientPortal() {
   const params = useParams<{ token: string }>();
   const token = params.token || "";
+  const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
 
   const { data: project, isLoading, error } = trpc.portal.getProject.useQuery({ token }, { enabled: !!token });
   const { data: tcStatus } = trpc.portal.hasAcknowledgedTerms.useQuery({ token }, { enabled: !!token && !!project });
@@ -1039,14 +1040,33 @@ export default function ClientPortal() {
   if (error) return <ErrorPage message={error.message} />;
   if (!project) return <ErrorPage message="Project not found." />;
 
-  // T&C gate
-  if (!tcAccepted) return <TermsGate token={token} onAccepted={() => setTcAccepted(true)} />;
+  // T&C gate — skip in preview mode
+  if (!isPreview && !tcAccepted) return <TermsGate token={token} onAccepted={() => setTcAccepted(true)} />;
 
   const basePrice = parseFloat(project.baseContractPrice || "0");
   const isLocked = !!project.portalLockedAt;
 
   return (
     <div className="min-h-screen bg-[#f8f6f1] pb-28">
+      {/* Admin Preview Banner */}
+      {isPreview && (
+        <div className="sticky top-0 z-[100] bg-gradient-to-r from-[#203E4A] via-[#2a5060] to-[#203E4A] text-white py-2.5 px-4 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1">
+              <Eye className="h-3.5 w-3.5" />
+              <span className="text-xs font-['Lato'] font-semibold tracking-wider uppercase">Admin Preview</span>
+            </div>
+            <span className="text-xs font-['Lato'] text-white/70">This is how the client will see the portal. Selections made here are not saved.</span>
+          </div>
+          <button
+            onClick={() => window.close()}
+            className="flex items-center gap-1.5 text-xs font-['Lato'] bg-white/15 hover:bg-white/25 rounded-full px-3 py-1 transition-colors"
+          >
+            <X className="h-3.5 w-3.5" /> Close Preview
+          </button>
+        </div>
+      )}
+
       {/* Hero */}
       <HeroSection project={project} />
 

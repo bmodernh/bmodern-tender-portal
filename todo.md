@@ -338,3 +338,9 @@
 - [x] Remove "Quantities" tab from AdminProjectDetail — quantities come from BOQ
 - [x] Ensure Inclusions tab uses BaseInclusionsTab component (with AI wording, categories, BOQ import)
 - [x] Verify the deployed version matches the dev version after checkpoint
+
+## Client Portal Preview Screen
+- [x] Add preview button/mode in admin Client Portal tab
+- [x] Build preview that shows exactly what the client will see (inclusions, upgrades, plus options, running total)
+- [x] Preview should be read-only (no submit, no actual selections saved)
+- [x] Allow admin to close preview and return to admin view

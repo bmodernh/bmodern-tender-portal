@@ -450,8 +450,41 @@ function ClientPortalTab({ projectId, project }: { projectId: number; project: a
     generateLinkMutation.mutate({ projectId, origin: window.location.origin });
   };
 
+  const openPreview = async () => {
+    // Use existing token or generate one for preview
+    if (tokens && tokens.length > 0) {
+      const url = `${window.location.origin}/portal/${tokens[0].token}?preview=1`;
+      window.open(url, "_blank");
+    } else {
+      // Generate a token first, then open preview
+      generateLinkMutation.mutate({ projectId, origin: window.location.origin }, {
+        onSuccess: (result) => {
+          const url = `${result.url}?preview=1`;
+          window.open(url, "_blank");
+        },
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Preview Portal Button */}
+      <div className="bg-gradient-to-r from-[var(--bm-petrol)] to-[#2a5060] rounded-lg p-5 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-white" style={{ fontFamily: "Cormorant Garamond, serif" }}>Preview Client Portal</h3>
+          <p className="text-xs text-white/70 mt-0.5" style={{ fontFamily: "Lato, sans-serif" }}>See exactly what the client will see before sharing the link.</p>
+        </div>
+        <Button
+          size="sm"
+          onClick={openPreview}
+          disabled={generateLinkMutation.isPending}
+          className="gap-1.5 text-xs bg-white text-[var(--bm-petrol)] hover:bg-white/90"
+          style={{ fontFamily: "Lato, sans-serif" }}
+        >
+          <Eye size={13} /> Preview Portal
+        </Button>
+      </div>
+
       {/* Access links */}
       <div className="bg-card border rounded p-4" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center justify-between mb-3">
