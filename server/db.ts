@@ -488,12 +488,37 @@ const ITEM_QTY_MAP: Record<string, string | null> = {
   wardrobe_joinery: "wardrobeLm",
   internal_doors: "internalDoorsQty",
   door_handles: "doorHandlesQty",
+  // New items from tier PDFs
+  basins: "basinsQty",
+  kitchen_sink: null,          // fixed per project (1 kitchen sink)
+  kitchen_laundry_mixer: null, // fixed per project
+  laundry_sink: null,          // fixed per project
+  bathroom_floor_tiles: "floorTileM2",
+  bathroom_wall_tiles: "wallTileM2",
+  laundry_floor_tiles: null,   // fixed cost
+  main_floor_tiles: null,      // fixed cost (covered by timber/hybrid)
+  skirting_boards: "skirtingLm",
+  architraves: null,           // fixed cost
+  wall_lights: null,           // fixed cost (8 lights as per spec)
   // fixed-cost items (unit = "fixed") — qty is always 1
   appliances: null,
   laundry_joinery: null,
   facade_cladding: null,
   insulation: null,
   air_conditioning: null,
+  external_render: null,
+  render_finish: null,
+  face_brick: null,
+  smoke_detectors: null,
+  home_automation: null,
+  sound_insulation: null,
+  plasterboard_walls: null,
+  plasterboard_ceilings: null,
+  cornice: null,
+  square_set_windows_doors: null,
+  linen_cupboard: null,
+  staircase: null,
+  balustrade: null,
 };
 
 export type PackagePriceResult = {

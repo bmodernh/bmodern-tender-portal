@@ -12,6 +12,7 @@ import {
   Shield, Star, Crown, Loader2, Plus,
   MessageSquarePlus, ExternalLink, Clock, CheckCircle2, XCircle,
   AlertCircle, FileText, ScrollText, Sparkles, Lock, Image as ImageIcon,
+  Package, ToggleRight,
 } from "lucide-react";
 import { FloatingChatButton } from "@/components/ProjectChat";
 
@@ -498,6 +499,168 @@ function UpgradeSelectionsSection({
   );
 }
 
+// ─── Section 2B: Plus Options (Per-Project Add-Ons) ─────────────────────────
+function PlusOptionsSection({
+  token,
+  project,
+  onTotalChange,
+}: {
+  token: string;
+  project: any;
+  onTotalChange: (plusTotal: number) => void;
+}) {
+  const { data: groups } = trpc.portal.getUpgradeGroups.useQuery({ token });
+  const { data: options } = trpc.portal.getUpgradeOptions.useQuery({ token });
+  const { data: mySelections } = trpc.portal.getMySelections.useQuery({ token });
+  const utils = trpc.useUtils();
+  const saveMut = trpc.portal.saveSelection.useMutation({
+    onSuccess: () => utils.portal.getMySelections.invalidate(),
+    onError: (e) => toast.error(e.message),
+  });
+
+  const selectedSet = useMemo(() => {
+    const s = new Set<number>();
+    if (mySelections) for (const sel of mySelections) { if (sel.selected) s.add(sel.upgradeOptionId); }
+    return s;
+  }, [mySelections]);
+
+  const plusTotal = useMemo(() => {
+    if (!options) return 0;
+    let total = 0;
+    for (const opt of options) {
+      if (selectedSet.has(opt.id) && !opt.isIncluded) {
+        total += Number(opt.priceDelta || 0);
+      }
+    }
+    return total;
+  }, [options, selectedSet]);
+
+  useEffect(() => { onTotalChange(plusTotal); }, [plusTotal]);
+
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const toggleGroup = (id: number) => {
+    setExpandedGroups(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+
+  if (!groups || groups.length === 0 || !options || options.length === 0) return null;
+
+  const isLocked = !!project.portalLockedAt;
+
+  const handleToggle = (optionId: number) => {
+    if (isLocked) return;
+    const currentlySelected = selectedSet.has(optionId);
+    saveMut.mutate({ token, upgradeOptionId: optionId, selected: !currentlySelected });
+  };
+
+  return (
+    <section className="py-12 md:py-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        {/* Section header */}
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
+            <Package className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h2 className="font-['Playfair_Display_SC'] text-xl md:text-2xl text-[#203E4A] tracking-wider">Plus Options</h2>
+            <p className="text-xs text-[#6D7E94] font-['Lato'] mt-0.5">Additional add-ons to enhance your home beyond the standard tiers</p>
+          </div>
+        </div>
+
+        <div className="space-y-3 mt-8">
+          {groups.map((group: any) => {
+            const groupOptions = options.filter((o: any) => o.groupId === group.id);
+            if (groupOptions.length === 0) return null;
+            const isOpen = expandedGroups.has(group.id);
+            const groupTotal = groupOptions.reduce((sum: number, opt: any) => {
+              if (selectedSet.has(opt.id) && !opt.isIncluded) return sum + Number(opt.priceDelta || 0);
+              return sum;
+            }, 0);
+
+            return (
+              <div key={group.id} className="border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                <button onClick={() => toggleGroup(group.id)} className="w-full flex items-center justify-between px-5 py-4 bg-gray-50/80 hover:bg-gray-100/80 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className="font-['Playfair_Display_SC'] text-sm tracking-wider text-[#203E4A]">{group.category}</span>
+                    <Badge variant="secondary" className="text-[10px] font-['Lato'] bg-teal-50 text-teal-700">{groupOptions.length} options</Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {groupTotal > 0 && (
+                      <span className="text-xs font-['Lato'] font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full">+{fmt(groupTotal)}</span>
+                    )}
+                    {isOpen ? <ChevronUp className="h-4 w-4 text-[#6D7E94]" /> : <ChevronDown className="h-4 w-4 text-[#6D7E94]" />}
+                  </div>
+                </button>
+                {isOpen && (
+                  <div className="divide-y">
+                    {groupOptions.map((opt: any) => {
+                      const isSelected = selectedSet.has(opt.id);
+                      const price = Number(opt.priceDelta || 0);
+                      return (
+                        <div key={opt.id} className="px-5 py-4">
+                          <div className="flex items-start gap-4">
+                            {/* Option image */}
+                            {opt.imageUrl && (
+                              <img src={opt.imageUrl} alt={opt.optionName} className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-xl flex-shrink-0 border" />
+                            )}
+                            {!opt.imageUrl && (
+                              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                <Package className="h-6 w-6 text-[#6D7E94]/40" />
+                              </div>
+                            )}
+                            {/* Option details */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-['Lato'] font-bold text-[#203E4A] text-sm">{opt.optionName}</h4>
+                                {opt.isIncluded && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-['Lato'] font-semibold">Included</span>
+                                )}
+                              </div>
+                              {opt.description && (
+                                <p className="text-xs text-[#6D7E94] font-['Lato'] leading-relaxed line-clamp-2">{opt.description}</p>
+                              )}
+                              {!opt.isIncluded && price > 0 && (
+                                <p className="text-sm font-bold text-teal-700 mt-1.5 font-['Lato']">+{fmt(price)}</p>
+                              )}
+                              {!opt.isIncluded && price === 0 && (
+                                <p className="text-sm font-bold text-[#203E4A] mt-1.5 font-['Lato']">No additional cost</p>
+                              )}
+                            </div>
+                            {/* Toggle button */}
+                            {!opt.isIncluded && (
+                              <button
+                                onClick={() => handleToggle(opt.id)}
+                                disabled={isLocked || saveMut.isPending}
+                                className={`flex-shrink-0 w-14 h-8 rounded-full transition-all duration-200 relative ${
+                                  isSelected
+                                    ? "bg-teal-600 shadow-inner"
+                                    : "bg-gray-200 hover:bg-gray-300"
+                                } ${isLocked ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                              >
+                                <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-all duration-200 ${
+                                  isSelected ? "left-7" : "left-1"
+                                }`} />
+                              </button>
+                            )}
+                            {opt.isIncluded && (
+                              <div className="flex-shrink-0 w-14 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                <Check className="h-4 w-4 text-green-600" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── Section 3: Custom Item Request ──────────────────────────────────────────
 function CustomItemRequestSection({ token }: { token: string }) {
   const utils = trpc.useUtils();
@@ -864,6 +1027,8 @@ export default function ClientPortal() {
 
   const [tcAccepted, setTcAccepted] = useState(false);
   const [upgradeTotal, setUpgradeTotal] = useState(0);
+  const [plusTotal, setPlusTotal] = useState(0);
+  const combinedUpgradeTotal = upgradeTotal + plusTotal;
 
   useEffect(() => {
     if (tcStatus?.acknowledged) setTcAccepted(true);
@@ -907,6 +1072,9 @@ export default function ClientPortal() {
       {/* 2. Upgrade Selections — cross-tier pick and choose */}
       <UpgradeSelectionsSection token={token} project={project} onTotalChange={setUpgradeTotal} />
 
+      {/* 2B. Plus Options — per-project add-ons */}
+      <PlusOptionsSection token={token} project={project} onTotalChange={setPlusTotal} />
+
       {/* 3. Custom Item Requests */}
       <CustomItemRequestSection token={token} />
 
@@ -914,7 +1082,7 @@ export default function ClientPortal() {
       <FileUploadSection token={token} />
 
       {/* 5. Submit for Review / Admin Response */}
-      <SubmitSection token={token} upgradeTotal={upgradeTotal} basePrice={basePrice} />
+      <SubmitSection token={token} upgradeTotal={combinedUpgradeTotal} basePrice={basePrice} />
 
       {/* Footer */}
       <div className="bg-gradient-to-br from-[#203E4A] via-[#1a3540] to-[#162d36] mt-12 py-10 text-center mb-20">
@@ -923,7 +1091,7 @@ export default function ClientPortal() {
       </div>
 
       {/* Sticky running total */}
-      <StickyTotalBar basePrice={basePrice} upgradeTotal={upgradeTotal} isLocked={isLocked} />
+      <StickyTotalBar basePrice={basePrice} upgradeTotal={combinedUpgradeTotal} isLocked={isLocked} />
 
       {/* Floating chat button */}
       <FloatingChatButton token={token} />

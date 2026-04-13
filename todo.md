@@ -299,10 +299,32 @@
 - [x] Gallery-style interactive layout — items as visual cards, not just text rows
 
 ## Complete Pricing Audit + Plus Options
-- [ ] Audit all 3 upgrade tiers — ensure every line item has pricing for Tier 1, 2, and 3
-- [ ] Verify master packages have complete item lists with descriptions and images
-- [ ] Ensure pricing rules cover all categories (Electrical, Plumbing, Tiles, Joinery, etc.)
+- [x] Audit all 3 upgrade tiers — all 24 rules have T2 and T3 pricing complete
+- [x] Verify master packages have complete item lists (36, 34, 35 items respectively)
+- [x] Ensure pricing rules cover all 10 categories (Electrical, Bathrooms, Kitchen, Flooring, Stone, Joinery, Doors, Facade, Insulation, AC)
+- [x] Seed quantities for project 120001 so pricing engine calculates correctly
 - [ ] Add "Plus" options — additional add-on items clients can select beyond the 3 tiers
 - [ ] Admin UI for managing Plus options with pricing
 - [ ] Client portal shows Plus options alongside tier upgrades
 - [x] Update logos throughout: white logo for dark backgrounds, monochrome for light backgrounds
+
+## Phase 10 — Remaining Work (Context Continuation)
+- [ ] Wire Plus Options into client portal (upgrade_groups/upgrade_options from admin CRUD)
+- [ ] Plus Options: client can toggle individual options on/off with price delta
+- [ ] Plus Options: include in running total calculation
+- [ ] Fix AdminPricingRules mutation bug: tier2Qty/tier3Qty not sent in payload
+- [x] Verify end-to-end flow and run all tests
+- [ ] Final UI polish pass
+
+## Pricing Rules Audit — Missing Categories from Tier PDFs
+- [x] Audit all 3 tier PDFs against current pricing rules — identify every missing category/item
+- [x] Add missing category: Plasterboard (Walls, Ceilings, Cornice, Square Set Windows/Doors)
+- [x] Add missing category: Render (External Walls, Finish, Face Brick)
+- [x] Add missing category: Staircase (Staircase type, Balustrade)
+- [x] Add missing category: Fixout Material (Doors, Door Hardware, Skirting Boards, Architraves)
+- [x] Add missing category: Insulation (Ceiling, Walls, Sound Insulation)
+- [x] Add missing items: PC Items — all tapware/sanitaryware individual items (Basin, Toilets, Shower, Baths, Kitchen Sink, Laundry Sink, Kitchen/Laundry Mixer)
+- [x] Add missing items: Electrical — Wall Lights, Data Points, Switches, Smoke Detectors, Exhaust Fans, Automation
+- [x] Add missing items: Tiles — Kitchen Splashback (T1 only), all tile allowance levels
+- [x] Verify all tier descriptions match the PDF specifications exactly
+- [x] Update pricing engine to handle new categories
