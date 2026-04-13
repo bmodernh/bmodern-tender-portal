@@ -43,39 +43,48 @@
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
+  /* B Modern Homes Brand Palette */
+  --bm-petrol: oklch(28% 0.05 220);        /* #203E4A */
+  --bm-petrol-light: oklch(38% 0.05 220);
+  --bm-petrol-dark: oklch(18% 0.04 220);
+  --bm-bluegum: oklch(55% 0.04 230);       /* #6D7E94 */
+  --bm-cream: oklch(97% 0.005 80);
+  --bm-stone: oklch(93% 0.008 80);
+  --bm-warm-gray: oklch(75% 0.008 60);
+
+  --primary: var(--bm-petrol);
+  --primary-foreground: oklch(99% 0 0);
+  --sidebar-primary: var(--bm-petrol);
+  --sidebar-primary-foreground: oklch(99% 0 0);
+  --chart-1: var(--bm-petrol);
+  --chart-2: var(--bm-bluegum);
+  --chart-3: var(--bm-petrol-light);
+  --chart-4: oklch(65% 0.06 220);
+  --chart-5: oklch(45% 0.05 220);
+  --radius: 0.25rem;
+  --background: var(--bm-cream);
+  --foreground: oklch(12% 0.01 220);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(12% 0.01 220);
+  --popover: oklch(100% 0 0);
+  --popover-foreground: oklch(12% 0.01 220);
+  --secondary: var(--bm-stone);
+  --secondary-foreground: oklch(25% 0.02 220);
+  --muted: var(--bm-stone);
+  --muted-foreground: var(--bm-bluegum);
+  --accent: var(--bm-petrol-light);
+  --accent-foreground: oklch(99% 0 0);
+  --destructive: oklch(55% 0.22 25);
+  --destructive-foreground: oklch(99% 0 0);
+  --border: oklch(88% 0.008 80);
+  --input: oklch(88% 0.008 80);
+  --ring: var(--bm-petrol);
+  --sidebar: oklch(100% 0 0);
+  --sidebar-foreground: oklch(12% 0.01 220);
+  --sidebar-accent: var(--bm-stone);
+  --sidebar-accent-foreground: oklch(12% 0.01 220);
+  --sidebar-border: oklch(88% 0.008 80);
+  --sidebar-ring: var(--bm-petrol);
 }
 
 .dark {
@@ -119,6 +128,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Lato', 'Inter', system-ui, sans-serif;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Playfair Display SC', Georgia, serif;
+    font-weight: 400;
+    letter-spacing: 0.03em;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),

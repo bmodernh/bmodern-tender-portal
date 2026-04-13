@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `projects` (`id` int AUTO_INCREMENT NOT NULL, `clientName` varchar(256) NOT NULL, `clientEmail` varchar(320), `projectAddress` text NOT NULL, `proposalNumber` varchar(64) NOT NULL, `projectType` varchar(128), `buildType` varchar(128), `baseContractPrice` decimal(12,2), `preliminaryEstimateMin` decimal(12,2), `preliminaryEstimateMax` decimal(12,2), `status` enum('draft','presented','under_review','accepted','contract_creation','contract_signed','post_contract') NOT NULL DEFAULT 'draft', `heroImageUrl` text, `tenderExpiryDate` timestamp NULL, `portalLockedAt` timestamp NULL, `notes` text, `createdAt` timestamp NOT NULL DEFAULT (now()), `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP, CONSTRAINT `projects_id` PRIMARY KEY(`id`))",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 49PsSbcSqayF3yd.root --database imEXQJppF9z2GgJphACuNv --execute CREATE TABLE `projects` (`id` int AUTO_INCREMENT NOT NULL, `clientName` varchar(256) NOT NULL, `clientEmail` varchar(320), `projectAddress` text NOT NULL, `proposalNumber` varchar(64) NOT NULL, `projectType` varchar(128), `buildType` varchar(128), `baseContractPrice` decimal(12,2), `preliminaryEstimateMin` decimal(12,2), `preliminaryEstimateMax` decimal(12,2), `status` enum('draft','presented','under_review','accepted','contract_creation','contract_signed','post_contract') NOT NULL DEFAULT 'draft', `heroImageUrl` text, `tenderExpiryDate` timestamp NULL, `portalLockedAt` timestamp NULL, `notes` text, `createdAt` timestamp NOT NULL DEFAULT (now()), `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP, CONSTRAINT `projects_id` PRIMARY KEY(`id`))",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1754
+}

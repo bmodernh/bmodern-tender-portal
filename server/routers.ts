@@ -1,28 +1,706 @@
+import { TRPCError } from "@trpc/server";
+import * as bcrypt from "bcryptjs";
+import { nanoid } from "nanoid";
+import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import {
+  createChangeRequest,
+  createClientFile,
+  createClientToken,
+  createInclusionSection,
+  createProject,
+  createUpgradeGroup,
+  createUpgradeOption,
+  createUpgradeSubmission,
+  deleteInclusionSection,
+  deleteProject,
+  deleteUpgradeGroup,
+  deleteUpgradeOption,
+  getAdminCredentials,
+  getAllChangeRequests,
+  getAllProjects,
+  getAllUpgradeSubmissions,
+  getChangeRequestsByProject,
+  getClientFilesByProject,
+  getClientTokenRecord,
+  getClientTokensByProject,
+  getInclusionsByProject,
+  getProjectById,
+  getQuantitiesByProject,
+  getUpgradeGroupsByProject,
+  getUpgradeOptionsByProject,
+  getUpgradeSelections,
+  getUpgradeSubmission,
+  upsertAdminCredentials,
+  upsertQuantities,
+  upsertUpgradeSelection,
+  updateChangeRequestStatus,
+  updateInclusionSection,
+  updateProject,
+  updateUpgradeGroup,
+  updateUpgradeOption,
+  updateClientTokenLastAccess,
+  getUserByOpenId,
+  upsertUser,
+} from "./db";
+import { storagePut } from "./storage";
+import {
+  notifyChangeRequest,
+  notifyFileUpload,
+  notifyUpgradeSubmission,
+} from "./email";
+import { signJwt, verifyJwt } from "./_core/jwt";
 
+// ─── Admin Auth ───────────────────────────────────────────────────────────────
+const adminAuthRouter = router({
+  login: publicProcedure
+    .input(z.object({ username: z.string(), password: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const cred = await getAdminCredentials(input.username);
+      if (!cred) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials" });
+      const valid = await bcrypt.compare(input.password, cred.passwordHash);
+      if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials" });
+      const token = await signJwt({ adminId: cred.id, username: cred.username, role: "admin" });
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie("bm_admin_session", token, { ...cookieOptions, maxAge: 60 * 60 * 24 * 7 * 1000 });
+      return { success: true, username: cred.username };
+    }),
+
+  logout: publicProcedure.mutation(({ ctx }) => {
+    const cookieOptions = getSessionCookieOptions(ctx.req);
+    ctx.res.clearCookie("bm_admin_session", { ...cookieOptions, maxAge: -1 });
+    return { success: true };
+  }),
+
+  me: publicProcedure.query(async ({ ctx }) => {
+    const token = ctx.req.cookies?.["bm_admin_session"];
+    if (!token) return null;
+    try {
+      const payload = await verifyJwt(token);
+      return payload as { adminId: number; username: string; role: string };
+    } catch {
+      return null;
+    }
+  }),
+
+  setup: publicProcedure
+    .input(z.object({ username: z.string(), password: z.string(), setupKey: z.string() }))
+    .mutation(async ({ input }) => {
+      if (input.setupKey !== "bmodern2024setup") throw new TRPCError({ code: "FORBIDDEN" });
+      const hash = await bcrypt.hash(input.password, 12);
+      await upsertAdminCredentials(input.username, hash);
+      return { success: true };
+    }),
+
+  changePassword: publicProcedure
+    .input(z.object({ username: z.string(), currentPassword: z.string(), newPassword: z.string() }))
+    .mutation(async ({ input }) => {
+      const cred = await getAdminCredentials(input.username);
+      if (!cred) throw new TRPCError({ code: "UNAUTHORIZED" });
+      const valid = await bcrypt.compare(input.currentPassword, cred.passwordHash);
+      if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Current password is incorrect" });
+      const hash = await bcrypt.hash(input.newPassword, 12);
+      await upsertAdminCredentials(input.username, hash);
+      return { success: true };
+    }),
+});
+
+// ─── Admin middleware ─────────────────────────────────────────────────────────
+async function requireAdmin(ctx: { req: { cookies?: Record<string, string> } }) {
+  const token = ctx.req.cookies?.["bm_admin_session"];
+  if (!token) throw new TRPCError({ code: "UNAUTHORIZED", message: "Admin authentication required" });
+  try {
+    const payload = await verifyJwt(token);
+    return payload as { adminId: number; username: string; role: string };
+  } catch {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid or expired session" });
+  }
+}
+
+// ─── Projects ─────────────────────────────────────────────────────────────────
+const projectsRouter = router({
+  list: publicProcedure.query(async ({ ctx }) => {
+    await requireAdmin(ctx);
+    return getAllProjects();
+  }),
+
+  get: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const project = await getProjectById(input.id);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      return project;
+    }),
+
+  create: publicProcedure
+    .input(z.object({
+      clientName: z.string().min(1),
+      clientEmail: z.string().email().optional(),
+      projectAddress: z.string().min(1),
+      proposalNumber: z.string().min(1),
+      projectType: z.string().optional(),
+      buildType: z.string().optional(),
+      baseContractPrice: z.string().optional(),
+      preliminaryEstimateMin: z.string().optional(),
+      preliminaryEstimateMax: z.string().optional(),
+      heroImageUrl: z.string().optional(),
+      tenderExpiryDate: z.string().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await createProject({
+        clientName: input.clientName,
+        clientEmail: input.clientEmail,
+        projectAddress: input.projectAddress,
+        proposalNumber: input.proposalNumber,
+        projectType: input.projectType,
+        buildType: input.buildType,
+        baseContractPrice: input.baseContractPrice,
+        preliminaryEstimateMin: input.preliminaryEstimateMin,
+        preliminaryEstimateMax: input.preliminaryEstimateMax,
+        heroImageUrl: input.heroImageUrl,
+        tenderExpiryDate: input.tenderExpiryDate ? new Date(input.tenderExpiryDate) : undefined,
+        notes: input.notes,
+        status: "draft",
+      });
+      return { success: true };
+    }),
+
+  update: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      clientName: z.string().optional(),
+      clientEmail: z.string().email().optional().nullable(),
+      projectAddress: z.string().optional(),
+      proposalNumber: z.string().optional(),
+      projectType: z.string().optional().nullable(),
+      buildType: z.string().optional().nullable(),
+      baseContractPrice: z.string().optional().nullable(),
+      preliminaryEstimateMin: z.string().optional().nullable(),
+      preliminaryEstimateMax: z.string().optional().nullable(),
+      heroImageUrl: z.string().optional().nullable(),
+      tenderExpiryDate: z.string().optional().nullable(),
+      status: z.enum(["draft", "presented", "under_review", "accepted", "contract_creation", "contract_signed", "post_contract"]).optional(),
+      notes: z.string().optional().nullable(),
+      portalLockedAt: z.string().optional().nullable(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const { id, tenderExpiryDate, portalLockedAt, ...rest } = input;
+      await updateProject(id, {
+        ...rest,
+        tenderExpiryDate: tenderExpiryDate ? new Date(tenderExpiryDate) : tenderExpiryDate === null ? null : undefined,
+        portalLockedAt: portalLockedAt ? new Date(portalLockedAt) : portalLockedAt === null ? null : undefined,
+      });
+      return { success: true };
+    }),
+
+  delete: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await deleteProject(input.id);
+      return { success: true };
+    }),
+
+  generateClientLink: publicProcedure
+    .input(z.object({ projectId: z.number(), origin: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const token = nanoid(48);
+      await createClientToken(input.projectId, token);
+      const url = `${input.origin}/portal/${token}`;
+      return { url, token };
+    }),
+
+  getClientTokens: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getClientTokensByProject(input.projectId);
+    }),
+
+  lockPortal: publicProcedure
+    .input(z.object({ id: z.number(), lock: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await updateProject(input.id, { portalLockedAt: input.lock ? new Date() : null });
+      return { success: true };
+    }),
+});
+
+// ─── Inclusions ───────────────────────────────────────────────────────────────
+const inclusionsRouter = router({
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getInclusionsByProject(input.projectId);
+    }),
+
+  create: publicProcedure
+    .input(z.object({
+      projectId: z.number(),
+      title: z.string().min(1),
+      description: z.string().optional(),
+      imageUrl: z.string().optional(),
+      position: z.number().default(0),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await createInclusionSection(input);
+      return { success: true };
+    }),
+
+  update: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      title: z.string().optional(),
+      description: z.string().optional().nullable(),
+      imageUrl: z.string().optional().nullable(),
+      position: z.number().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const { id, ...data } = input;
+      await updateInclusionSection(id, data);
+      return { success: true };
+    }),
+
+  delete: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await deleteInclusionSection(input.id);
+      return { success: true };
+    }),
+
+  reorder: publicProcedure
+    .input(z.object({ items: z.array(z.object({ id: z.number(), position: z.number() })) }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      for (const item of input.items) {
+        await updateInclusionSection(item.id, { position: item.position });
+      }
+      return { success: true };
+    }),
+});
+
+// ─── Quantities ───────────────────────────────────────────────────────────────
+const quantitiesRouter = router({
+  get: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getQuantitiesByProject(input.projectId);
+    }),
+
+  upsert: publicProcedure
+    .input(z.object({
+      projectId: z.number(),
+      floorTileM2: z.string().optional().nullable(),
+      wallTileM2: z.string().optional().nullable(),
+      showerWallTileM2: z.string().optional().nullable(),
+      splashbackTileM2: z.string().optional().nullable(),
+      featureTileM2: z.string().optional().nullable(),
+      tileWastagePct: z.string().optional().nullable(),
+      baseTileAllowancePerM2: z.string().optional().nullable(),
+      basinMixersQty: z.number().optional().nullable(),
+      showerSetsQty: z.number().optional().nullable(),
+      bathFillersQty: z.number().optional().nullable(),
+      kitchenMixersQty: z.number().optional().nullable(),
+      laundryMixersQty: z.number().optional().nullable(),
+      toiletsQty: z.number().optional().nullable(),
+      basinsQty: z.number().optional().nullable(),
+      bathtubsQty: z.number().optional().nullable(),
+      kitchenBaseCabinetryLm: z.string().optional().nullable(),
+      kitchenOverheadCabinetryLm: z.string().optional().nullable(),
+      pantryUnitsQty: z.number().optional().nullable(),
+      potDrawerStacksQty: z.number().optional().nullable(),
+      utilityDrawerStacksQty: z.number().optional().nullable(),
+      binPulloutQty: z.number().optional().nullable(),
+      vanityQty: z.number().optional().nullable(),
+      vanityWidthMm: z.number().optional().nullable(),
+      wardrobeLm: z.string().optional().nullable(),
+      robeDrawerPacksQty: z.number().optional().nullable(),
+      internalDoorsQty: z.number().optional().nullable(),
+      externalDoorsQty: z.number().optional().nullable(),
+      doorHandlesQty: z.number().optional().nullable(),
+      entranceHardwareQty: z.number().optional().nullable(),
+      downlightsQty: z.number().optional().nullable(),
+      pendantPointsQty: z.number().optional().nullable(),
+      powerPointsQty: z.number().optional().nullable(),
+      switchPlatesQty: z.number().optional().nullable(),
+      dataPointsQty: z.number().optional().nullable(),
+      exhaustFansQty: z.number().optional().nullable(),
+      timberHybridM2: z.string().optional().nullable(),
+      carpetM2: z.string().optional().nullable(),
+      skirtingLm: z.string().optional().nullable(),
+      kitchenBenchtopArea: z.string().optional().nullable(),
+      islandBenchtopArea: z.string().optional().nullable(),
+      vanityStoneTopQty: z.number().optional().nullable(),
+      stoneSplashbackArea: z.string().optional().nullable(),
+      floorTileAllowancePerM2: z.string().optional().nullable(),
+      wallTileAllowancePerM2: z.string().optional().nullable(),
+      tapwareAllowance: z.string().optional().nullable(),
+      sanitarywareAllowance: z.string().optional().nullable(),
+      joineryAllowance: z.string().optional().nullable(),
+      stoneAllowance: z.string().optional().nullable(),
+      appliancesAllowance: z.string().optional().nullable(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const { projectId, ...data } = input;
+      await upsertQuantities(projectId, data as any);
+      return { success: true };
+    }),
+});
+
+// ─── Upgrade Groups & Options ─────────────────────────────────────────────────
+const upgradesRouter = router({
+  listGroups: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getUpgradeGroupsByProject(input.projectId);
+    }),
+
+  createGroup: publicProcedure
+    .input(z.object({ projectId: z.number(), category: z.string().min(1), position: z.number().default(0) }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await createUpgradeGroup(input);
+      return { success: true };
+    }),
+
+  updateGroup: publicProcedure
+    .input(z.object({ id: z.number(), category: z.string().optional(), position: z.number().optional() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const { id, ...data } = input;
+      await updateUpgradeGroup(id, data);
+      return { success: true };
+    }),
+
+  deleteGroup: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await deleteUpgradeGroup(input.id);
+      return { success: true };
+    }),
+
+  listOptions: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getUpgradeOptionsByProject(input.projectId);
+    }),
+
+  createOption: publicProcedure
+    .input(z.object({
+      groupId: z.number(),
+      projectId: z.number(),
+      optionName: z.string().min(1),
+      description: z.string().optional(),
+      imageUrl: z.string().optional(),
+      isIncluded: z.boolean().default(false),
+      priceDelta: z.string().default("0"),
+      position: z.number().default(0),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await createUpgradeOption(input);
+      return { success: true };
+    }),
+
+  updateOption: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      optionName: z.string().optional(),
+      description: z.string().optional().nullable(),
+      imageUrl: z.string().optional().nullable(),
+      isIncluded: z.boolean().optional(),
+      priceDelta: z.string().optional(),
+      position: z.number().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const { id, ...data } = input;
+      await updateUpgradeOption(id, data as any);
+      return { success: true };
+    }),
+
+  deleteOption: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await deleteUpgradeOption(input.id);
+      return { success: true };
+    }),
+
+  getSubmissions: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getAllUpgradeSubmissions(input.projectId);
+    }),
+});
+
+// ─── File Upload (Admin) ──────────────────────────────────────────────────────
+const uploadRouter = router({
+  getUploadUrl: publicProcedure
+    .input(z.object({
+      fileName: z.string(),
+      mimeType: z.string(),
+      fileData: z.string(), // base64
+      folder: z.string().default("uploads"),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const suffix = nanoid(8);
+      const ext = input.fileName.split(".").pop() || "bin";
+      const key = `${input.folder}/${Date.now()}-${suffix}.${ext}`;
+      const buffer = Buffer.from(input.fileData, "base64");
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      return { url, key };
+    }),
+});
+
+// ─── Admin Inbox ──────────────────────────────────────────────────────────────
+const inboxRouter = router({
+  listAll: publicProcedure.query(async ({ ctx }) => {
+    await requireAdmin(ctx);
+    return getAllChangeRequests();
+  }),
+
+  listByProject: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getChangeRequestsByProject(input.projectId);
+    }),
+
+  updateStatus: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      status: z.enum(["pending", "reviewed", "actioned"]),
+      adminNotes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await updateChangeRequestStatus(input.id, input.status, input.adminNotes);
+      return { success: true };
+    }),
+
+  listFiles: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getClientFilesByProject(input.projectId);
+    }),
+});
+
+// ─── Client Portal ────────────────────────────────────────────────────────────
+const portalRouter = router({
+  // Validate token and get project data
+  getProject: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND", message: "Invalid access link" });
+      if (tokenRecord.expiresAt && tokenRecord.expiresAt < new Date()) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This access link has expired" });
+      }
+      const project = await getProjectById(tokenRecord.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.status === "draft") throw new TRPCError({ code: "FORBIDDEN", message: "This proposal is not yet available" });
+      await updateClientTokenLastAccess(input.token);
+      // Return project without sensitive fields
+      return {
+        id: project.id,
+        clientName: project.clientName,
+        projectAddress: project.projectAddress,
+        proposalNumber: project.proposalNumber,
+        projectType: project.projectType,
+        buildType: project.buildType,
+        baseContractPrice: project.baseContractPrice,
+        status: project.status,
+        heroImageUrl: project.heroImageUrl,
+        tenderExpiryDate: project.tenderExpiryDate,
+        portalLockedAt: project.portalLockedAt,
+        notes: project.notes,
+      };
+    }),
+
+  getInclusions: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getInclusionsByProject(tokenRecord.projectId);
+    }),
+
+  getUpgradeGroups: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getUpgradeGroupsByProject(tokenRecord.projectId);
+    }),
+
+  getUpgradeOptions: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getUpgradeOptionsByProject(tokenRecord.projectId);
+    }),
+
+  getMySelections: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getUpgradeSelections(tokenRecord.projectId, input.token);
+    }),
+
+  saveSelection: publicProcedure
+    .input(z.object({ token: z.string(), upgradeOptionId: z.number(), selected: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const project = await getProjectById(tokenRecord.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      // Check lock conditions
+      if (project.portalLockedAt) throw new TRPCError({ code: "FORBIDDEN", message: "This portal has been locked" });
+      if (project.status === "contract_signed" || project.status === "post_contract") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Selections are locked after contract signing" });
+      }
+      // Check 14-day window from first submission
+      const submission = await getUpgradeSubmission(tokenRecord.projectId, input.token);
+      if (submission) {
+        const daysSinceSubmission = (Date.now() - submission.submittedAt.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceSubmission > 14) throw new TRPCError({ code: "FORBIDDEN", message: "The 14-day selection window has expired" });
+      }
+      await upsertUpgradeSelection(tokenRecord.projectId, input.token, input.upgradeOptionId, input.selected);
+      return { success: true };
+    }),
+
+  submitSelections: publicProcedure
+    .input(z.object({ token: z.string(), totalUpgradeCost: z.string(), notes: z.string().optional() }))
+    .mutation(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const project = await getProjectById(tokenRecord.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.portalLockedAt) throw new TRPCError({ code: "FORBIDDEN", message: "This portal has been locked" });
+      await createUpgradeSubmission(tokenRecord.projectId, input.token, input.totalUpgradeCost, input.notes);
+      // Send notifications
+      await notifyUpgradeSubmission(
+        project.id,
+        project.projectAddress,
+        project.clientName,
+        project.clientEmail,
+        input.totalUpgradeCost
+      );
+      return { success: true };
+    }),
+
+  getSubmission: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getUpgradeSubmission(tokenRecord.projectId, input.token);
+    }),
+
+  uploadFile: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      fileName: z.string(),
+      mimeType: z.string(),
+      fileData: z.string(), // base64
+      fileSizeBytes: z.number().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const project = await getProjectById(tokenRecord.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      const suffix = nanoid(8);
+      const ext = input.fileName.split(".").pop() || "bin";
+      const key = `client-files/${tokenRecord.projectId}/${Date.now()}-${suffix}.${ext}`;
+      const buffer = Buffer.from(input.fileData, "base64");
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      await createClientFile({
+        projectId: tokenRecord.projectId,
+        clientToken: input.token,
+        fileName: input.fileName,
+        fileUrl: url,
+        fileKey: key,
+        mimeType: input.mimeType,
+        fileSizeBytes: input.fileSizeBytes,
+      });
+      await notifyFileUpload(project.projectAddress, project.clientName, input.fileName);
+      return { success: true, url };
+    }),
+
+  submitChangeRequest: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      category: z.string().min(1),
+      description: z.string().min(10),
+    }))
+    .mutation(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const project = await getProjectById(tokenRecord.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      await createChangeRequest({
+        projectId: tokenRecord.projectId,
+        clientToken: input.token,
+        category: input.category,
+        description: input.description,
+        status: "pending",
+      });
+      await notifyChangeRequest(project.projectAddress, project.clientName, input.category, input.description);
+      return { success: true };
+    }),
+
+  getMyFiles: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getClientFilesByProject(tokenRecord.projectId);
+    }),
+});
+
+// ─── App Router ───────────────────────────────────────────────────────────────
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
-
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  adminAuth: adminAuthRouter,
+  projects: projectsRouter,
+  inclusions: inclusionsRouter,
+  quantities: quantitiesRouter,
+  upgrades: upgradesRouter,
+  upload: uploadRouter,
+  inbox: inboxRouter,
+  portal: portalRouter,
 });
 
 export type AppRouter = typeof appRouter;
