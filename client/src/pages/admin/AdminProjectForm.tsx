@@ -223,7 +223,7 @@ export default function AdminProjectForm() {
       if (!form.projectAddress.trim()) return "Project address is required";
       if (!form.proposalNumber.trim()) return "Proposal number is required";
     }
-    if (s === 2) {
+    if (s === 3) {
       if (!form.baseContractPrice) return "Base contract price is required";
     }
     return null;
