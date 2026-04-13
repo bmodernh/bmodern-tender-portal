@@ -170,3 +170,14 @@
 - [ ] Page 3: Live running total panel (sticky sidebar or bottom bar) — base price + upgrade deltas + revised total, updates instantly on selection
 - [ ] Client can submit their final selections
 - [ ] Fix client portal access link (invalid/expired page bug)
+
+## Phase 6 — Job Creation Wizard
+
+- [ ] Rebuild AdminProjectForm as a 3-step wizard (Step 1: Client & Project, Step 2: Pricing & Quantities, Step 3: Hero Image & Notes)
+- [ ] Step progress indicator at top with visual stepper (Step 1 of 3, etc.)
+- [ ] Per-step validation: required fields must be filled before advancing to next step
+- [ ] Step 1: Client Name, Client Email, Project Address, Proposal Number, Project Type, Build Type, Tender Expiry
+- [ ] Step 2: Base Contract Price, Estimate Min/Max, Quantities (downlights, power points, AC kW, joinery LM, etc.)
+- [ ] Step 3: Hero Image upload, Internal Notes, Status selector
+- [ ] On completion: auto-apply Built for Excellence baseline inclusions to the new project
+- [ ] Edit mode: all fields accessible (no wizard restriction)

@@ -187,7 +187,7 @@ const projectsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       await requireAdmin(ctx);
-      await createProject({
+      const result = await createProject({
         clientName: input.clientName,
         clientEmail: input.clientEmail,
         projectAddress: input.projectAddress,
@@ -202,7 +202,8 @@ const projectsRouter = router({
         notes: input.notes,
         status: "draft",
       });
-      return { success: true };
+      const newId = (result as any).insertId ?? null;
+      return { success: true, id: newId };
     }),
 
   update: publicProcedure
