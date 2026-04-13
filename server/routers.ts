@@ -9,6 +9,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { parse as parseCookieHeader } from "cookie";
 
 // Helper to read a cookie from the raw request headers (works without cookie-parser middleware)
+// v2 - uses 'cookie' npm package for reliable parsing
 function getCookieFromRequest(req: { headers?: { cookie?: string }; cookies?: Record<string, string> }, name: string): string | undefined {
   // Try req.cookies first (if cookie-parser is present)
   if (req.cookies?.[name]) return req.cookies[name];
