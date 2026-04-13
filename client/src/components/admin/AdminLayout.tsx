@@ -11,6 +11,7 @@ import {
   X,
   ChevronRight,
   Settings,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,7 @@ const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Projects", href: "/admin", icon: FolderOpen },
   { label: "Inbox", href: "/admin/inbox", icon: Inbox },
+  { label: "Pricing Rules", href: "/admin/pricing-rules", icon: TrendingUp },
   { label: "Company Settings", href: "/admin/settings", icon: Settings },
 ];
 

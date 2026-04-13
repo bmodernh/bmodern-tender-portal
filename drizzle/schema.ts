@@ -294,6 +294,45 @@ export const masterPackageItems = mysqlTable("master_package_items", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+// ─── Upgrade Pricing Rules (Global — set once, applies to every job) ────────────
+// Each row represents one line item (e.g. Downlights) with tier 2 and tier 3 upgrade costs.
+// tier2CostPerUnit / tier3CostPerUnit are the EXTRA cost vs tier 1 per unit (each/lm/m2/fixed).
+// The quantities table provides the per-project count; engine multiplies qty × costPerUnit.
+export const upgradePricingRules = mysqlTable("upgrade_pricing_rules", {
+  id: int("id").autoincrement().primaryKey(),
+  itemKey: varchar("itemKey", { length: 64 }).notNull().unique(), // e.g. "downlights"
+  label: varchar("label", { length: 128 }).notNull(),             // e.g. "Downlights"
+  category: varchar("category", { length: 64 }).notNull(),        // e.g. "Electrical"
+  unit: mysqlEnum("unit", ["each", "lm", "m2", "fixed"]).default("each").notNull(),
+  // Tier 1 (Built for Excellence) — baseline description only
+  tier1Label: varchar("tier1Label", { length: 256 }),             // e.g. "25 LED downlights"
+  tier1ImageUrl: text("tier1ImageUrl"),
+  // Tier 2 (Tailored Living)
+  tier2Label: varchar("tier2Label", { length: 256 }),             // e.g. "40 LED downlights"
+  tier2CostPerUnit: decimal("tier2CostPerUnit", { precision: 10, scale: 2 }).default("0"),
+  tier2ImageUrl: text("tier2ImageUrl"),
+  tier2Description: text("tier2Description"),
+  // Tier 3 (Signature Series)
+  tier3Label: varchar("tier3Label", { length: 256 }),             // e.g. "50 LED + smart scenes"
+  tier3CostPerUnit: decimal("tier3CostPerUnit", { precision: 10, scale: 2 }).default("0"),
+  tier3ImageUrl: text("tier3ImageUrl"),
+  tier3Description: text("tier3Description"),
+  position: int("position").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Client Item Selections (which tier each client chose per line item) ─────────
+export const clientItemSelections = mysqlTable("client_item_selections", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  clientToken: varchar("clientToken", { length: 128 }).notNull(),
+  itemKey: varchar("itemKey", { length: 64 }).notNull(),  // matches upgradePricingRules.itemKey
+  selectedTier: int("selectedTier").default(1).notNull(), // 1, 2, or 3
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;

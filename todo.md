@@ -114,3 +114,59 @@
 - [x] Add selectedPackageId to projects table for persistent client selection
 - [x] Add portal.getPackages, portal.selectPackage, portal.getPackageDetail procedures
 - [x] Package comparison table on client portal (all 10 key differences)
+
+## Phase 4 — Full System Refactor (Category → Child Items → Options)
+
+### Database
+- [ ] Add `categories` table (parent sections per project: Kitchen, Bathrooms, Electrical, etc.)
+- [ ] Add `line_items` table (child items under each category: Downlights, Basin Mixers, etc.)
+- [ ] Add `item_options` table (options under each line item: Standard / Upgrade 1 / Upgrade 2 / Custom)
+- [ ] Add `custom_product_requests` table (client custom requests with admin status workflow)
+- [ ] Add `client_item_selections` table (which option the client selected per line item)
+
+### Backend
+- [ ] Auto-populate new project with Built for Excellence baseline categories + items + options on creation
+- [ ] tRPC procedures: categories CRUD, line_items CRUD, item_options CRUD (admin)
+- [ ] tRPC procedures: portal.getCategories, portal.getLineItems, portal.getItemOptions
+- [ ] tRPC procedures: portal.selectOption (client selects an option), portal.getMySelections
+- [ ] tRPC procedures: portal.submitCustomRequest, admin.listCustomRequests, admin.priceCustomRequest
+- [ ] Remove old package selection screen from client portal (Built for Excellence is always baseline)
+
+### Admin UI
+- [ ] Admin project detail: Categories tab replaces Inclusions tab (category → items → options tree)
+- [ ] Admin can add/edit/delete categories, line items, and options per project
+- [ ] Admin custom product request inbox: list requests, set price, change status
+- [ ] When admin prices a custom request, it updates the client portal total
+
+### Client Portal
+- [ ] Fix client portal access link (invalid/expired page — highest priority)
+- [ ] Page 1: Welcome / Proposal Summary (branding, client name, address, base price, hero image)
+- [ ] Page 2: Room-by-room selections (expandable categories → child items → option cards with image/description/price delta)
+- [ ] Page 3: Live running total panel (base contract + selected upgrades + custom requests + revised total)
+- [ ] Custom product request form per line item (product name, brand, supplier link, image upload, qty, room, notes)
+- [ ] Custom request status visible to client (submitted / under review / priced / approved / declined)
+- [ ] When custom request is priced and approved, it updates the live total
+
+## Phase 5 — 3-Tier Pricing Engine
+
+### Pricing Rules (Global, Set Once)
+- [ ] Add `upgrade_pricing_rules` table: itemKey, label, category, unit (each/lm/m2/fixed), tier1Qty, tier2Qty, tier3Qty, tier2CostPerUnit, tier3CostPerUnit, tier2Description, tier3Description, tier2ImageUrl, tier3ImageUrl
+- [ ] Seed default pricing rules for all line items (Downlights, Power Points, Tapware, Appliances, Benchtop, Joinery, etc.)
+- [ ] Admin: Global Pricing Rules page — table view of all rules, editable inline (cost per unit, descriptions, images)
+- [ ] Admin nav: add "Pricing Rules" link in sidebar
+
+### Pricing Engine (Per Project)
+- [ ] Add `client_item_selections` table: projectId, clientToken, itemKey, selectedTier (1/2/3), createdAt
+- [ ] Server function: calculatePackagePrices(projectId) — reads base price + quantities + pricing rules → returns { tier1Total, tier2Total, tier3Total, lineItems[] }
+- [ ] tRPC procedure: projects.getPackagePrices(projectId) — admin view of calculated totals
+- [ ] tRPC procedure: portal.getPackagePrices(token) — client view of 3 package totals + all line items with tier options
+- [ ] tRPC procedure: portal.saveItemSelection(token, itemKey, tier) — client selects a tier for an item
+- [ ] tRPC procedure: portal.getMySelections(token) — returns client's current selections + custom total
+
+### Client Portal Rebuild
+- [ ] Remove package selection first screen (replace with 3-price comparison on welcome page)
+- [ ] Page 1: Welcome + 3 package price cards (Base / Tailored / Signature with auto-calculated totals) + "Start from this package" CTA
+- [ ] Page 2: Room-by-room item selection — categories expand to show line items, each item shows 3 tier options (Standard included / Tier 2 upgrade / Tier 3 upgrade) with price delta, image, description
+- [ ] Page 3: Live running total panel (sticky sidebar or bottom bar) — base price + upgrade deltas + revised total, updates instantly on selection
+- [ ] Client can submit their final selections
+- [ ] Fix client portal access link (invalid/expired page bug)

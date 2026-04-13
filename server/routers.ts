@@ -74,6 +74,11 @@ import {
   getAllMasterPackages,
   getMasterPackageWithItems,
   applyMasterPackageToProject,
+  getAllPricingRules,
+  updatePricingRule,
+  calculatePackagePrices,
+  getClientSelections,
+  upsertClientSelection,
 } from "./db";
 import { storagePut } from "./storage";
 import {
@@ -741,6 +746,37 @@ const portalRouter = router({
       if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
       return getClientFilesByProject(tokenRecord.projectId);
     }),
+
+  // 3-tier pricing engine — returns all 3 package totals + line items for this project
+  getPackagePrices: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND", message: "Invalid access link" });
+      return calculatePackagePrices(tokenRecord.projectId);
+    }),
+
+  // Get client's current item-level tier selections
+  getItemSelections: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getClientSelections(tokenRecord.projectId, input.token);
+    }),
+
+  // Client selects a tier for a specific item (mix-and-match)
+  selectItem: publicProcedure
+    .input(z.object({ token: z.string(), itemKey: z.string(), selectedTier: z.number().min(1).max(3) }))
+    .mutation(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const project = await getProjectById(tokenRecord.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.portalLockedAt) throw new TRPCError({ code: "FORBIDDEN", message: "This portal has been locked" });
+      await upsertClientSelection(tokenRecord.projectId, input.token, input.itemKey, input.selectedTier);
+      return { success: true };
+    }),
 });
 // ─── Exclusions Router ──────────────────────────────────────────────────────────────
 const exclusionsRouter = router({
@@ -805,7 +841,41 @@ const companySettingsRouter = router({
     .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await upsertCompanySettings(input); return { success: true }; }),
 });
 
-// ─── Packages Router ─────────────────────────────────────────────────────────────────
+// ─── Pricing Rules Router (Global, admin-only) ─────────────────────────────────────────────────────────────────────────────
+const pricingRulesRouter = router({
+  list: publicProcedure
+    .query(async ({ ctx }) => { await requireAdmin(ctx); return getAllPricingRules(); }),
+
+  update: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      tier1Label: z.string().optional().nullable(),
+      tier1ImageUrl: z.string().optional().nullable(),
+      tier2Label: z.string().optional().nullable(),
+      tier2CostPerUnit: z.string().optional(),
+      tier2ImageUrl: z.string().optional().nullable(),
+      tier2Description: z.string().optional().nullable(),
+      tier3Label: z.string().optional().nullable(),
+      tier3CostPerUnit: z.string().optional(),
+      tier3ImageUrl: z.string().optional().nullable(),
+      tier3Description: z.string().optional().nullable(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const { id, ...data } = input;
+      await updatePricingRule(id, data);
+      return { success: true };
+    }),
+
+  getPackagePrices: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return calculatePackagePrices(input.projectId);
+    }),
+});
+
+// ─── Packages Router ─────────────────────────────────────────────────────────────────────────────
 const packagesRouter = router({
   list: publicProcedure
     .query(async ({ ctx }) => { await requireAdmin(ctx); return getAllMasterPackages(); }),
@@ -847,5 +917,6 @@ export const appRouter = router({
   planImages: planImagesRouter,
   companySettings: companySettingsRouter,
   packages: packagesRouter,
+  pricingRules: pricingRulesRouter,
 });
 export type AppRouter = typeof appRouter;

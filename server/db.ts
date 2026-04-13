@@ -19,6 +19,8 @@ import {
   upgradeOptions,
   upgradeSelections,
   upgradeSubmissions,
+  upgradePricingRules,
+  clientItemSelections,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -441,4 +443,165 @@ export async function applyMasterPackageToProject(projectId: number, packageId: 
     });
   }
   return { sectionsCreated: sections.length };
+}
+
+// ─── Upgrade Pricing Rules (Global — set once, applies to every job) ──────────
+export async function getAllPricingRules() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(upgradePricingRules).orderBy(upgradePricingRules.position);
+}
+
+export async function updatePricingRule(id: number, data: Partial<typeof upgradePricingRules.$inferInsert>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(upgradePricingRules).set(data).where(eq(upgradePricingRules.id, id));
+}
+
+// ─── Pricing Engine ───────────────────────────────────────────────────────────
+// Maps itemKey → quantities field name so the engine can look up the project qty.
+const ITEM_QTY_MAP: Record<string, string | null> = {
+  downlights: "downlightsQty",
+  power_points: "powerPointsQty",
+  switch_plates: "switchPlatesQty",
+  data_points: "dataPointsQty",
+  pendant_points: "pendantPointsQty",
+  exhaust_fans: "exhaustFansQty",
+  basin_mixers: "basinMixersQty",
+  shower_sets: "showerSetsQty",
+  baths: "bathtubsQty",
+  toilets: "toiletsQty",
+  kitchen_benchtop: "kitchenBenchtopArea",
+  kitchen_cabinetry: "kitchenBaseCabinetryLm",
+  splashback: "stoneSplashbackArea",
+  timber_hybrid_flooring: "timberHybridM2",
+  carpet: "carpetM2",
+  vanity_stone: "vanityStoneTopQty",
+  wardrobe_joinery: "wardrobeLm",
+  internal_doors: "internalDoorsQty",
+  door_handles: "doorHandlesQty",
+  // fixed-cost items (unit = "fixed") — qty is always 1
+  appliances: null,
+  laundry_joinery: null,
+  facade_cladding: null,
+  insulation: null,
+  air_conditioning: null,
+};
+
+export type PackagePriceResult = {
+  tier1Total: number;
+  tier2Total: number;
+  tier3Total: number;
+  lineItems: Array<{
+    itemKey: string;
+    label: string;
+    category: string;
+    unit: string;
+    qty: number;
+    tier1Label: string | null;
+    tier1ImageUrl: string | null;
+    tier2Label: string | null;
+    tier2Delta: number;
+    tier2ImageUrl: string | null;
+    tier2Description: string | null;
+    tier3Label: string | null;
+    tier3Delta: number;
+    tier3ImageUrl: string | null;
+    tier3Description: string | null;
+  }>;
+};
+
+export async function calculatePackagePrices(projectId: number): Promise<PackagePriceResult | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
+  if (!project) return null;
+
+  const basePrice = parseFloat(project.baseContractPrice ?? "0");
+
+  // Get quantities for this project
+  const [qty] = await db.select().from(quantities).where(eq(quantities.projectId, projectId));
+
+  // Get all pricing rules
+  const rules = await db.select().from(upgradePricingRules).orderBy(upgradePricingRules.position);
+
+  let tier2Delta = 0;
+  let tier3Delta = 0;
+  const lineItems: PackagePriceResult["lineItems"] = [];
+
+  for (const rule of rules) {
+    const qtyFieldName = ITEM_QTY_MAP[rule.itemKey];
+    let itemQty = 1; // default for fixed items
+
+    if (qtyFieldName && qty) {
+      const rawQty = (qty as Record<string, unknown>)[qtyFieldName];
+      itemQty = rawQty != null ? parseFloat(String(rawQty)) || 0 : 0;
+    }
+
+    const t2Cost = parseFloat(rule.tier2CostPerUnit ?? "0") * itemQty;
+    const t3Cost = parseFloat(rule.tier3CostPerUnit ?? "0") * itemQty;
+
+    tier2Delta += t2Cost;
+    tier3Delta += t3Cost;
+
+    lineItems.push({
+      itemKey: rule.itemKey,
+      label: rule.label,
+      category: rule.category,
+      unit: rule.unit,
+      qty: itemQty,
+      tier1Label: rule.tier1Label ?? null,
+      tier1ImageUrl: rule.tier1ImageUrl ?? null,
+      tier2Label: rule.tier2Label ?? null,
+      tier2Delta: t2Cost,
+      tier2ImageUrl: rule.tier2ImageUrl ?? null,
+      tier2Description: rule.tier2Description ?? null,
+      tier3Label: rule.tier3Label ?? null,
+      tier3Delta: t3Cost,
+      tier3ImageUrl: rule.tier3ImageUrl ?? null,
+      tier3Description: rule.tier3Description ?? null,
+    });
+  }
+
+  return {
+    tier1Total: basePrice,
+    tier2Total: basePrice + tier2Delta,
+    tier3Total: basePrice + tier3Delta,
+    lineItems,
+  };
+}
+
+// ─── Client Item Selections ───────────────────────────────────────────────────
+export async function getClientSelections(projectId: number, clientToken: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(clientItemSelections)
+    .where(and(
+      eq(clientItemSelections.projectId, projectId),
+      eq(clientItemSelections.clientToken, clientToken),
+    ));
+}
+
+export async function upsertClientSelection(
+  projectId: number,
+  clientToken: string,
+  itemKey: string,
+  selectedTier: number,
+) {
+  const db = await getDb();
+  if (!db) return;
+  const [existing] = await db.select().from(clientItemSelections)
+    .where(and(
+      eq(clientItemSelections.projectId, projectId),
+      eq(clientItemSelections.clientToken, clientToken),
+      eq(clientItemSelections.itemKey, itemKey),
+    ));
+  if (existing) {
+    await db.update(clientItemSelections)
+      .set({ selectedTier })
+      .where(eq(clientItemSelections.id, existing.id));
+  } else {
+    await db.insert(clientItemSelections).values({ projectId, clientToken, itemKey, selectedTier });
+  }
 }

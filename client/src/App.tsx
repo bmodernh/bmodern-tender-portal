@@ -12,6 +12,7 @@ import AdminProjectDetail from "./pages/admin/AdminProjectDetail";
 import AdminProjectForm from "./pages/admin/AdminProjectForm";
 import AdminInbox from "./pages/admin/AdminInbox";
 import AdminCompanySettings from "./pages/admin/AdminCompanySettings";
+import AdminPricingRules from "./pages/admin/AdminPricingRules";
 
 // Client portal pages
 import ClientPortal from "./pages/portal/ClientPortal";
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/admin/projects/:id" component={AdminProjectDetail} />
       <Route path="/admin/inbox" component={AdminInbox} />
       <Route path="/admin/settings" component={AdminCompanySettings} />
+      <Route path="/admin/pricing-rules" component={AdminPricingRules} />
 
       {/* Client portal */}
       <Route path="/portal/:token" component={ClientPortal} />

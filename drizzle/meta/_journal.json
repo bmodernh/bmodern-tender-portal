@@ -36,6 +36,13 @@
       "when": 1776054786954,
       "tag": "0004_aspiring_magdalene",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1776055995951,
+      "tag": "0005_goofy_night_thrasher",
+      "breakpoints": true
     }
   ]
 }

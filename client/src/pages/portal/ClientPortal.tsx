@@ -14,23 +14,14 @@ import {
 const LOGO_URL = "https://cdn-bmodern.manus.space/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB.jpg";
 const LOGO_WHITE_URL = "https://cdn-bmodern.manus.space/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB.jpg";
 
-// Key differences for each package tier (for the comparison table)
-const PACKAGE_HIGHLIGHTS: Record<string, { label: string; entry: string; mid: string; premium: string }[]> = {
-  rows: [
-    { label: "Tapware", entry: "Caroma Luna", mid: "ABI Interiors Milani", premium: "ABI Interiors Milani" },
-    { label: "Appliances", entry: "Westinghouse", mid: "SMEG Classic", premium: "Fisher & Paykel" },
-    { label: "Benchtop", entry: "20mm Engineered Stone", mid: "40mm Engineered Stone", premium: "40mm Marble" },
-    { label: "Joinery", entry: "Laminate Soft-Close", mid: "Laminate Soft-Close", premium: "Shaker Joinery" },
-    { label: "Tile Allowance", entry: "$40/m²", mid: "$50/m²", premium: "$60/m²" },
-    { label: "Power Points", entry: "15 double", mid: "20 double", premium: "30 double" },
-    { label: "Downlights", entry: "25 LED", mid: "40 LED", premium: "50 LED" },
-    { label: "Air Conditioning", entry: "Ducted 12kW", mid: "Ducted 16kW", premium: "Ducted 20kW" },
-    { label: "Smart Home", entry: "—", mid: "—", premium: "Loxone Automation" },
-    { label: "Cornice", entry: "Standard Cove", mid: "Square Set", premium: "Square Set + Windows" },
-  ] as any,
-};
+// Tier config for package cards
+const TIER_LABELS = [
+  { key: 1, name: "Built for Excellence", tagline: "Quality inclusions, exceptional value", badge: "bg-slate-100 text-slate-700", color: "#4a5568", border: "#cbd5e0", recommended: false },
+  { key: 2, name: "Tailored Living", tagline: "Elevated finishes, refined lifestyle", badge: "bg-amber-100 text-amber-800", color: "var(--bm-petrol)", border: "var(--bm-petrol)", recommended: true },
+  { key: 3, name: "Signature Series", tagline: "Premium materials, signature style", badge: "bg-purple-100 text-purple-800", color: "#6b46c1", border: "#9f7aea", recommended: false },
+];
 
-// ─── Package Selection Screen ─────────────────────────────────────────────────
+// ─── Package Selection Screen (Pricing Engine) ─────────────────────────────────
 function PackageSelectionScreen({
   token,
   project,
@@ -38,176 +29,219 @@ function PackageSelectionScreen({
 }: {
   token: string;
   project: any;
-  onPackageSelected: (packageId: number) => void;
+  onPackageSelected: (tierKey: number) => void;
 }) {
+  const { data: priceData, isLoading } = trpc.portal.getPackagePrices.useQuery({ token });
+  const { data: mySelections } = trpc.portal.getItemSelections.useQuery({ token });
   const utils = trpc.useUtils();
-  const { data: packages, isLoading } = trpc.portal.getPackages.useQuery({ token });
-  const [selectedId, setSelectedId] = useState<number | null>(project.selectedPackageId ?? null);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  // selectedTier: which starting tier the client has chosen (1/2/3)
+  const [selectedTier, setSelectedTier] = useState<number | null>(null);
   const [showComparison, setShowComparison] = useState(false);
-  const selectMutation = trpc.portal.selectPackage.useMutation({
+  const [showMixMatch, setShowMixMatch] = useState(false);
+  // Per-item overrides: itemKey -> tier (1/2/3)
+  const [itemOverrides, setItemOverrides] = useState<Record<string, number>>({});
+
+  const selectItemMutation = trpc.portal.selectItem.useMutation({
+    onError: (e) => toast.error(e.message),
+  });
+  const selectPackageMutation = trpc.portal.selectPackage.useMutation({
     onSuccess: () => {
       utils.portal.getProject.invalidate();
-      toast.success("Package selected! Explore your inclusions and upgrades below.");
-      onPackageSelected(selectedId!);
+      toast.success("Package confirmed! Your proposal is ready below.");
+      onPackageSelected(selectedTier!);
     },
     onError: (e) => toast.error(e.message),
   });
 
-  const TIER_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; badge: string }> = {
-    entry: { label: "Entry", color: "#4a5568", bg: "#f7f8fa", border: "#cbd5e0", badge: "bg-slate-100 text-slate-700" },
-    mid: { label: "Mid", color: "var(--bm-petrol)", bg: "rgba(32,62,74,0.03)", border: "var(--bm-petrol)", badge: "bg-amber-100 text-amber-800" },
-    premium: { label: "Premium", color: "#6b46c1", bg: "rgba(107,70,193,0.03)", border: "#9f7aea", badge: "bg-purple-100 text-purple-800" },
+  // Calculate the custom total based on base price + item overrides
+  const customTotal = (() => {
+    if (!priceData || selectedTier === null) return 0;
+    const base = Number(project.baseContractPrice || 0);
+    let extra = 0;
+    if (!priceData.lineItems) return base;
+    for (const item of priceData.lineItems) {
+      const overrideTier = itemOverrides[item.itemKey] ?? selectedTier;
+      if (overrideTier === 2) extra += Number(item.tier2Delta || 0);
+      else if (overrideTier === 3) extra += Number(item.tier3Delta || 0);
+    }
+    return base + extra;
+  })();
+
+  const handleItemOverride = (itemKey: string, tier: number) => {
+    setItemOverrides(prev => ({ ...prev, [itemKey]: tier }));
+    selectItemMutation.mutate({ token, itemKey, selectedTier: tier });
   };
 
-  const highlights = (PACKAGE_HIGHLIGHTS as any).rows as { label: string; entry: string; mid: string; premium: string }[];
+  const handleConfirm = () => {
+    if (!selectedTier) return;
+    // Save the package selection (use tier as a proxy for packageId for now)
+    // We'll use tier 1=1, 2=2, 3=3 mapped to master package IDs
+    selectPackageMutation.mutate({ token, packageId: selectedTier });
+  };
+
+  const basePrice = Number(project.baseContractPrice || 0);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bm-cream)" }}>
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
-          <img
-            src={LOGO_URL}
-            alt="B Modern Homes"
-            className="h-7 object-contain"
-            style={{ filter: "brightness(0) saturate(100%) invert(18%) sepia(28%) saturate(700%) hue-rotate(162deg) brightness(95%) contrast(95%)" }}
-          />
+          <img src={LOGO_URL} alt="B Modern Homes" className="h-7 object-contain"
+            style={{ filter: "brightness(0) saturate(100%) invert(18%) sepia(28%) saturate(700%) hue-rotate(162deg) brightness(95%) contrast(95%)" }} />
           <div className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.1em" }}>TENDER PORTAL</div>
         </div>
       </header>
 
       {/* Hero */}
-      <div
-        className="py-16 sm:py-20 text-center"
-        style={{ background: "linear-gradient(135deg, var(--bm-petrol) 0%, #1a3540 100%)" }}
-      >
+      <div className="py-14 sm:py-20 text-center" style={{ background: "linear-gradient(135deg, var(--bm-petrol) 0%, #1a3540 100%)" }}>
         <div className="max-w-2xl mx-auto px-4">
           <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "Lato, sans-serif" }}>
             Welcome, {project.clientName}
           </p>
           <h1 className="text-3xl sm:text-4xl mb-4" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "white" }}>
-            Choose Your Package
+            Your Package Options
           </h1>
           <p className="text-sm" style={{ color: "rgba(255,255,255,0.75)", fontFamily: "Lato, sans-serif", lineHeight: "1.8" }}>
-            Select the package that best suits your vision for {project.projectAddress}.
-            Each package includes a full set of standard inclusions — you can customise further with upgrades after selecting.
+            Three complete packages tailored for {project.projectAddress}.
+            Start with any package, then mix individual items to build your perfect home.
           </p>
         </div>
       </div>
 
-      {/* Package Cards */}
       <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12">
+        {/* Package price cards */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {[1,2,3].map(i => <div key={i} className="h-96 rounded-xl bg-secondary animate-pulse" />)}
+            {[1,2,3].map(i => <div key={i} className="h-64 rounded-xl bg-secondary animate-pulse" />)}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {packages?.map((pkg) => {
-              const cfg = TIER_CONFIG[pkg.tier] || TIER_CONFIG.entry;
-              const isSelected = selectedId === pkg.id;
-              const isExpanded = expandedId === pkg.id;
+            {TIER_LABELS.map((tier) => {
+              const isSelected = selectedTier === tier.key;
+              const tierTotal = tier.key === 1 ? basePrice
+                : tier.key === 2 ? (priceData?.tier2Total ?? basePrice)
+                : (priceData?.tier3Total ?? basePrice);
+              const extraCost = tierTotal - basePrice;
               return (
                 <div
-                  key={pkg.id}
-                  className="relative rounded-xl overflow-hidden transition-all duration-200"
+                  key={tier.key}
+                  className="relative rounded-xl overflow-hidden transition-all duration-200 cursor-pointer"
                   style={{
-                    border: `2px solid ${isSelected ? cfg.border : "var(--border)"}`,
-                    boxShadow: isSelected ? `0 8px 32px ${cfg.color}22` : "0 2px 8px rgba(0,0,0,0.06)",
+                    border: `2px solid ${isSelected ? tier.border : "var(--border)"}`,
+                    boxShadow: isSelected ? `0 8px 32px ${tier.color}22` : "0 2px 8px rgba(0,0,0,0.06)",
                     background: "white",
                   }}
+                  onClick={() => setSelectedTier(tier.key)}
                 >
-                  {/* Recommended badge */}
-                  {pkg.isRecommended && (
-                    <div
-                      className="absolute top-3 right-3 z-10 flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full"
-                      style={{ background: "var(--bm-petrol)", color: "white", fontFamily: "Lato, sans-serif", letterSpacing: "0.08em" }}
-                    >
+                  {tier.recommended && (
+                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full"
+                      style={{ background: "var(--bm-petrol)", color: "white", fontFamily: "Lato, sans-serif", letterSpacing: "0.08em" }}>
                       <Sparkles size={9} /> RECOMMENDED
                     </div>
                   )}
-
-                  {/* Hero image */}
-                  {pkg.heroImageUrl && (
-                    <div className="relative h-48 overflow-hidden">
-                      <img src={pkg.heroImageUrl} alt={pkg.name} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.4) 100%)" }} />
-                    </div>
-                  )}
-
-                  <div className="p-5">
-                    {/* Tier badge */}
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.badge}`} style={{ fontFamily: "Lato, sans-serif" }}>
-                      {cfg.label.toUpperCase()}
+                  <div className="p-6">
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${tier.badge}`} style={{ fontFamily: "Lato, sans-serif" }}>
+                      TIER {tier.key}
                     </span>
-
-                    <h2 className="text-xl mt-2 mb-1" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--bm-petrol)" }}>
-                      {pkg.name}
+                    <h2 className="text-xl mt-3 mb-1" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--bm-petrol)" }}>
+                      {tier.name}
                     </h2>
-                    <p className="text-xs text-muted-foreground mb-4" style={{ fontFamily: "Lato, sans-serif", lineHeight: "1.6" }}>
-                      {pkg.tagline}
+                    <p className="text-xs text-muted-foreground mb-5" style={{ fontFamily: "Lato, sans-serif", lineHeight: "1.6" }}>
+                      {tier.tagline}
                     </p>
-
-                    {/* Key highlights */}
-                    <div className="space-y-1.5 mb-5">
-                      {highlights.slice(0, 4).map((row) => (
-                        <div key={row.label} className="flex items-start gap-2 text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
-                          <span className="shrink-0 mt-0.5" style={{ color: cfg.color }}>&#8226;</span>
-                          <span className="text-muted-foreground">{row.label}:</span>
-                          <span className="font-medium" style={{ color: "var(--bm-petrol)" }}>
-                            {(row as any)[pkg.tier]}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Expand/collapse more details */}
-                    <button
-                      onClick={() => setExpandedId(isExpanded ? null : pkg.id)}
-                      className="flex items-center gap-1 text-xs mb-4 transition-colors"
-                      style={{ color: cfg.color, fontFamily: "Lato, sans-serif" }}
-                    >
-                      {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                      {isExpanded ? "Show less" : "View all inclusions"}
-                    </button>
-
-                    {isExpanded && (
-                      <div className="mb-4 space-y-1.5">
-                        {highlights.slice(4).map((row) => (
-                          <div key={row.label} className="flex items-start gap-2 text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
-                            <span className="shrink-0 mt-0.5" style={{ color: cfg.color }}>&#8226;</span>
-                            <span className="text-muted-foreground">{row.label}:</span>
-                            <span className="font-medium" style={{ color: "var(--bm-petrol)" }}>
-                              {(row as any)[pkg.tier]}
-                            </span>
-                          </div>
-                        ))}
+                    {/* Price */}
+                    <div className="mb-5">
+                      <div className="text-2xl font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: tier.key === 1 ? "var(--bm-petrol)" : tier.color }}>
+                        {tierTotal > 0 ? `$${tierTotal.toLocaleString()}` : "Price on request"}
                       </div>
-                    )}
-
-                    {/* Select button */}
+                      {extraCost > 0 && (
+                        <div className="text-xs mt-0.5" style={{ color: tier.color, fontFamily: "Lato, sans-serif" }}>
+                          +${extraCost.toLocaleString()} above base package
+                        </div>
+                      )}
+                      {tier.key === 1 && (
+                        <div className="text-xs mt-0.5 text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>Base contract price</div>
+                      )}
+                    </div>
                     <button
-                      onClick={() => setSelectedId(pkg.id)}
                       className="w-full py-2.5 rounded text-sm font-semibold transition-all"
                       style={{
-                        background: isSelected ? cfg.color : "transparent",
-                        color: isSelected ? "white" : cfg.color,
-                        border: `1.5px solid ${cfg.color}`,
+                        background: isSelected ? tier.color : "transparent",
+                        color: isSelected ? "white" : tier.color,
+                        border: `1.5px solid ${tier.color}`,
                         fontFamily: "Lato, sans-serif",
                         letterSpacing: "0.05em",
                       }}
                     >
-                      {isSelected ? (
-                        <span className="flex items-center justify-center gap-2"><Check size={14} /> Selected</span>
-                      ) : (
-                        "Select Package"
-                      )}
+                      {isSelected ? <span className="flex items-center justify-center gap-2"><Check size={14} /> Selected</span> : "Select Package"}
                     </button>
                   </div>
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Mix & Match toggle */}
+        {selectedTier !== null && priceData?.lineItems && priceData.lineItems.length > 0 && (
+          <div className="mt-8">
+            <div className="text-center mb-4">
+              <button
+                onClick={() => setShowMixMatch(!showMixMatch)}
+                className="text-sm flex items-center gap-2 mx-auto transition-colors"
+                style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
+              >
+                {showMixMatch ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                {showMixMatch ? "Hide item customisation" : "Customise individual items (mix & match)"}
+              </button>
+            </div>
+
+            {showMixMatch && (
+              <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
+                <div className="px-5 py-3 text-xs font-semibold" style={{ background: "var(--bm-petrol)", color: "white", fontFamily: "Lato, sans-serif", letterSpacing: "0.08em" }}>
+                  ITEM-BY-ITEM CUSTOMISATION
+                </div>
+                <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+                  {priceData.lineItems.map((item: any) => {
+                    const currentTier = itemOverrides[item.itemKey] ?? selectedTier;
+                    return (
+                      <div key={item.itemKey} className="flex items-center justify-between gap-4 px-5 py-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>{item.label}</div>
+                          <div className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                            {currentTier === 1 ? item.tier1Label : currentTier === 2 ? item.tier2Label : item.tier3Label}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {[1, 2, 3].map(t => {
+                            const cfg = TIER_LABELS[t - 1];
+                            const extra = t === 1 ? 0 : t === 2 ? Number(item.tier2Delta || 0) : Number(item.tier3Delta || 0);
+                            const isActive = currentTier === t;
+                            return (
+                              <button
+                                key={t}
+                                onClick={() => handleItemOverride(item.itemKey, t)}
+                                className="text-[10px] px-2.5 py-1 rounded transition-all"
+                                style={{
+                                  background: isActive ? cfg.color : "transparent",
+                                  color: isActive ? "white" : cfg.color,
+                                  border: `1px solid ${cfg.color}`,
+                                  fontFamily: "Lato, sans-serif",
+                                  fontWeight: isActive ? 700 : 400,
+                                }}
+                              >
+                                T{t}{extra > 0 ? ` +$${extra.toLocaleString()}` : ""}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -223,47 +257,80 @@ function PackageSelectionScreen({
           </button>
         </div>
 
-        {/* Comparison table */}
-        {showComparison && (
+        {showComparison && priceData?.lineItems && (
           <div className="mt-6 rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: "var(--bm-petrol)", color: "white" }}>
-                  <th className="py-3 px-4 text-left text-xs" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.08em", fontWeight: 600 }}>FEATURE</th>
+                  <th className="py-3 px-4 text-left text-xs" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.08em", fontWeight: 600 }}>ITEM</th>
                   <th className="py-3 px-4 text-center text-xs" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.08em", fontWeight: 600 }}>BUILT FOR EXCELLENCE</th>
                   <th className="py-3 px-4 text-center text-xs" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.08em", fontWeight: 600, background: "rgba(255,255,255,0.1)" }}>TAILORED LIVING ★</th>
                   <th className="py-3 px-4 text-center text-xs" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.08em", fontWeight: 600 }}>SIGNATURE SERIES</th>
                 </tr>
               </thead>
               <tbody>
-                {highlights.map((row, idx) => (
-                  <tr key={row.label} style={{ background: idx % 2 === 0 ? "white" : "var(--bm-cream)" }}>
-                    <td className="py-2.5 px-4 text-xs font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>{row.label}</td>
-                    <td className="py-2.5 px-4 text-xs text-center text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>{row.entry}</td>
-                    <td className="py-2.5 px-4 text-xs text-center font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)", background: idx % 2 === 0 ? "rgba(32,62,74,0.04)" : "rgba(32,62,74,0.08)" }}>{row.mid}</td>
-                    <td className="py-2.5 px-4 text-xs text-center text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>{row.premium}</td>
+                {priceData.lineItems.map((item: any, idx: number) => (
+                  <tr key={item.itemKey} style={{ background: idx % 2 === 0 ? "white" : "var(--bm-cream)" }}>
+                    <td className="py-2.5 px-4 text-xs font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>{item.label}</td>
+                    <td className="py-2.5 px-4 text-xs text-center text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>{item.tier1Label || "—"}</td>
+                    <td className="py-2.5 px-4 text-xs text-center font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)", background: idx % 2 === 0 ? "rgba(32,62,74,0.04)" : "rgba(32,62,74,0.08)" }}>
+                      {item.tier2Label || "—"}
+                      {Number(item.tier2Delta) > 0 && <span className="ml-1 text-amber-600">(+${Number(item.tier2Delta).toLocaleString()})</span>}
+                    </td>
+                    <td className="py-2.5 px-4 text-xs text-center text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                      {item.tier3Label || "—"}
+                      {Number(item.tier3Delta) > 0 && <span className="ml-1 text-purple-600">(+${Number(item.tier3Delta).toLocaleString()})</span>}
+                    </td>
                   </tr>
                 ))}
+                {/* Totals row */}
+                <tr style={{ background: "var(--bm-petrol)", color: "white" }}>
+                  <td className="py-3 px-4 text-xs font-bold" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.05em" }}>TOTAL PACKAGE PRICE</td>
+                  <td className="py-3 px-4 text-xs text-center font-bold" style={{ fontFamily: "Lato, sans-serif" }}>
+                    {basePrice > 0 ? `$${basePrice.toLocaleString()}` : "—"}
+                  </td>
+                  <td className="py-3 px-4 text-xs text-center font-bold" style={{ fontFamily: "Lato, sans-serif", background: "rgba(255,255,255,0.1)" }}>
+                    {priceData?.tier2Total ? `$${priceData.tier2Total.toLocaleString()}` : "—"}
+                  </td>
+                  <td className="py-3 px-4 text-xs text-center font-bold" style={{ fontFamily: "Lato, sans-serif" }}>
+                    {priceData?.tier3Total ? `$${priceData.tier3Total.toLocaleString()}` : "—"}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
         )}
 
-        {/* Confirm selection CTA */}
-        <div className="mt-10 text-center">
-          <Button
-            disabled={!selectedId || selectMutation.isPending}
-            onClick={() => selectedId && selectMutation.mutate({ token, packageId: selectedId })}
-            className="gap-2 px-8 py-3 text-sm tracking-widest uppercase"
-            style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif", fontWeight: 700 }}
-          >
-            {selectMutation.isPending ? "Confirming..." : (
-              <><ArrowRight size={15} /> Confirm Package &amp; View Proposal</>
-            )}
-          </Button>
-          {!selectedId && (
-            <p className="text-xs text-muted-foreground mt-3" style={{ fontFamily: "Lato, sans-serif" }}>Please select a package above to continue</p>
+        {/* Live total + confirm CTA */}
+        <div className="mt-10">
+          {selectedTier !== null && (
+            <div className="mb-6 p-5 rounded-xl text-center" style={{ background: "white", border: "2px solid var(--bm-petrol)" }}>
+              <div className="text-xs text-muted-foreground mb-1" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.1em" }}>YOUR CUSTOM TOTAL</div>
+              <div className="text-3xl font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--bm-petrol)" }}>
+                ${customTotal.toLocaleString()}
+              </div>
+              {Object.keys(itemOverrides).length > 0 && (
+                <div className="text-xs text-muted-foreground mt-1" style={{ fontFamily: "Lato, sans-serif" }}>
+                  Based on {TIER_LABELS[selectedTier - 1].name} with {Object.keys(itemOverrides).length} item{Object.keys(itemOverrides).length !== 1 ? "s" : ""} customised
+                </div>
+              )}
+            </div>
           )}
+          <div className="text-center">
+            <Button
+              disabled={!selectedTier || selectPackageMutation.isPending}
+              onClick={handleConfirm}
+              className="gap-2 px-8 py-3 text-sm tracking-widest uppercase"
+              style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif", fontWeight: 700 }}
+            >
+              {selectPackageMutation.isPending ? "Confirming..." : (
+                <><ArrowRight size={15} /> Confirm &amp; View Full Proposal</>
+              )}
+            </Button>
+            {!selectedTier && (
+              <p className="text-xs text-muted-foreground mt-3" style={{ fontFamily: "Lato, sans-serif" }}>Please select a package above to continue</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
