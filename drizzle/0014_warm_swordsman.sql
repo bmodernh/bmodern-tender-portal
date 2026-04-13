@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `starting_tier` int DEFAULT 1 NOT NULL;

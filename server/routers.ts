@@ -217,6 +217,7 @@ const projectsRouter = router({
       preliminaryEstimateMin: z.string().optional(),
       preliminaryEstimateMax: z.string().optional(),
       heroImageUrl: z.string().optional(),
+      startingTier: z.number().min(1).max(3).optional(),
       tenderExpiryDate: z.string().optional(),
       notes: z.string().optional(),
     }))
@@ -233,6 +234,7 @@ const projectsRouter = router({
         preliminaryEstimateMin: input.preliminaryEstimateMin,
         preliminaryEstimateMax: input.preliminaryEstimateMax,
         heroImageUrl: input.heroImageUrl,
+        startingTier: input.startingTier ?? 1,
         tenderExpiryDate: input.tenderExpiryDate ? new Date(input.tenderExpiryDate) : undefined,
         notes: input.notes,
         status: "draft",
@@ -254,6 +256,7 @@ const projectsRouter = router({
       preliminaryEstimateMin: z.string().optional().nullable(),
       preliminaryEstimateMax: z.string().optional().nullable(),
       heroImageUrl: z.string().optional().nullable(),
+      startingTier: z.number().min(1).max(3).optional(),
       tenderExpiryDate: z.string().optional().nullable(),
       status: z.enum(["draft", "presented", "under_review", "accepted", "contract_creation", "contract_signed", "post_contract"]).optional(),
       notes: z.string().optional().nullable(),
@@ -662,6 +665,7 @@ const portalRouter = router({
         portalLockedAt: project.portalLockedAt,
         notes: project.notes,
         selectedPackageId: project.selectedPackageId ?? null,
+        startingTier: project.startingTier ?? 1,
       };
     }),
 

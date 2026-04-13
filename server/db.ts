@@ -522,6 +522,7 @@ const ITEM_QTY_MAP: Record<string, string | null> = {
 };
 
 export type PackagePriceResult = {
+  startingTier: number;
   tier1Total: number;
   tier2Total: number;
   tier3Total: number;
@@ -554,6 +555,7 @@ export async function calculatePackagePrices(projectId: number): Promise<Package
   if (!project) return null;
 
   const basePrice = parseFloat(project.baseContractPrice ?? "0");
+  const startingTier = project.startingTier ?? 1;
 
   // Get quantities for this project
   const [qty] = await db.select().from(quantities).where(eq(quantities.projectId, projectId));
@@ -621,6 +623,7 @@ export async function calculatePackagePrices(projectId: number): Promise<Package
   }
 
   return {
+    startingTier,
     tier1Total: basePrice,
     tier2Total: basePrice + tier2Delta,
     tier3Total: basePrice + tier3Delta,

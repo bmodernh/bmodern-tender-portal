@@ -177,6 +177,8 @@ export default function AdminProjectForm() {
     internalDoorsQty: "",
     externalDoorsQty: "",
     doorHandlesQty: "",
+    // Starting tier
+    startingTier: "1",
     // Step 3
     heroImageUrl: "",
     notes: "",
@@ -208,6 +210,7 @@ export default function AdminProjectForm() {
         timberHybridM2: "", carpetM2: "", facadeCladdingM2: "",
         insulationCeilingR: "", insulationWallR: "",
         internalDoorsQty: "", externalDoorsQty: "", doorHandlesQty: "",
+        startingTier: String(existing.startingTier ?? 1),
         heroImageUrl: existing.heroImageUrl || "",
         notes: existing.notes || "",
         status: existing.status || "draft",
@@ -245,6 +248,7 @@ export default function AdminProjectForm() {
           baseContractPrice: form.baseContractPrice || undefined,
           tenderExpiryDate: form.tenderExpiryDate || undefined,
           notes: form.notes || undefined,
+          startingTier: parseInt(form.startingTier) || 1,
         };
         const result = await createMutation.mutateAsync(data);
         const newId = (result as any).id;
@@ -383,6 +387,7 @@ export default function AdminProjectForm() {
       preliminaryEstimateMin: form.preliminaryEstimateMin || undefined,
       preliminaryEstimateMax: form.preliminaryEstimateMax || undefined,
       heroImageUrl: form.heroImageUrl || undefined,
+      startingTier: parseInt(form.startingTier) || 1,
       tenderExpiryDate: form.tenderExpiryDate || undefined,
       notes: form.notes || undefined,
     };
@@ -473,10 +478,21 @@ export default function AdminProjectForm() {
 
           <section className="bg-card border rounded-lg p-6 space-y-4" style={{ borderColor: "var(--border)" }}>
             <h2 className="text-xs font-bold tracking-wider uppercase mb-4" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Pricing</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <FieldGroup label="Base Contract Price ($)" required><Input {...f("baseContractPrice")} type="number" placeholder="e.g. 850000" className="h-10 text-sm" /></FieldGroup>
               <FieldGroup label="Estimate Min ($)"><Input {...f("preliminaryEstimateMin")} type="number" placeholder="e.g. 800000" className="h-10 text-sm" /></FieldGroup>
               <FieldGroup label="Estimate Max ($)"><Input {...f("preliminaryEstimateMax")} type="number" placeholder="e.g. 900000" className="h-10 text-sm" /></FieldGroup>
+              <FieldGroup label="Starting Tier">
+                <Select value={form.startingTier} onValueChange={(v) => setForm(prev => ({ ...prev, startingTier: v }))}>
+                  <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Tier 1 — Built for Excellence</SelectItem>
+                    <SelectItem value="2">Tier 2 — Tailored Living</SelectItem>
+                    <SelectItem value="3">Tier 3 — Signature Series</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">Clients only see upgrades above this tier</p>
+              </FieldGroup>
             </div>
           </section>
 
@@ -645,9 +661,9 @@ export default function AdminProjectForm() {
             <section className="bg-card border rounded-lg p-6 space-y-4" style={{ borderColor: "var(--border)" }}>
               <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Contract Pricing</h2>
               <p className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
-                The base contract price is the Tier 1 (Built for Excellence) total. Tier 2 and 3 prices are auto-calculated from the quantities and pricing rules you've set.
+                The base contract price reflects the starting tier you select below. Upgrade prices are auto-calculated from the quantities and pricing rules you've set.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <FieldGroup label="Base Contract Price ($)" required>
                   <Input {...f("baseContractPrice")} type="number" placeholder="e.g. 850000" className="h-10 text-sm" autoFocus />
                 </FieldGroup>
@@ -656,6 +672,19 @@ export default function AdminProjectForm() {
                 </FieldGroup>
                 <FieldGroup label="Estimate Max ($)">
                   <Input {...f("preliminaryEstimateMax")} type="number" placeholder="e.g. 900000" className="h-10 text-sm" />
+                </FieldGroup>
+                <FieldGroup label="Starting Tier">
+                  <Select value={form.startingTier} onValueChange={(v) => setForm(prev => ({ ...prev, startingTier: v }))}>
+                    <SelectTrigger className="h-10 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Tier 1 — Built for Excellence</SelectItem>
+                      <SelectItem value="2">Tier 2 — Tailored Living</SelectItem>
+                      <SelectItem value="3">Tier 3 — Signature Series</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground mt-1">Clients will only see upgrades above this tier</p>
                 </FieldGroup>
               </div>
             </section>

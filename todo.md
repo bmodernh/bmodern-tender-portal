@@ -344,3 +344,17 @@
 - [x] Build preview that shows exactly what the client will see (inclusions, upgrades, plus options, running total)
 - [x] Preview should be read-only (no submit, no actual selections saved)
 - [x] Allow admin to close preview and return to admin view
+
+## Starting Tier Per Project
+- [x] Add startingTier field to projects schema (enum: tier1, tier2, tier3, default tier1)
+- [x] Run migration to add the column
+- [x] Add starting tier selector to project create/edit form
+- [x] Pass startingTier to client portal via getProject response
+- [x] Filter upgrade selections in client portal to only show tiers >= startingTier
+- [x] Update pricing engine to calculate deltas from the starting tier (not always from tier1)
+
+## Client Selections PDF Summary
+- [x] Build server-side PDF generation for client selections summary
+- [x] PDF should show: base inclusions, selected upgrades with tier names and pricing, plus options, final total
+- [x] Add download button in client portal after submission (and in admin response view)
+- [x] PDF available at all stages: pre-submit, under review, and after admin response

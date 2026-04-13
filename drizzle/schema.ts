@@ -55,6 +55,7 @@ export const projects = mysqlTable("projects", {
     .default("draft")
     .notNull(),
   heroImageUrl: text("heroImageUrl"),
+  startingTier: int("starting_tier").default(1).notNull(),
   tenderExpiryDate: timestamp("tenderExpiryDate"),
   portalLockedAt: timestamp("portalLockedAt"),
   notes: text("notes"),

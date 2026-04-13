@@ -12,7 +12,7 @@ import {
   Shield, Star, Crown, Loader2, Plus,
   MessageSquarePlus, ExternalLink, Clock, CheckCircle2, XCircle,
   AlertCircle, FileText, ScrollText, Sparkles, Lock, Image as ImageIcon,
-  Package, ToggleRight, Eye, X,
+  Package, ToggleRight, Eye, X, Download,
 } from "lucide-react";
 import { FloatingChatButton } from "@/components/ProjectChat";
 
@@ -293,6 +293,8 @@ function UpgradeSelectionsSection({
     onError: (e) => toast.error(e.message),
   });
 
+  const startingTier = project.startingTier ?? 1;
+
   const selectionMap = useMemo(() => {
     const m: Record<string, number> = {};
     if (mySelections) for (const s of mySelections) m[s.itemKey] = s.selectedTier;
@@ -309,16 +311,23 @@ function UpgradeSelectionsSection({
     return Array.from(map.entries()).map(([cat, items]) => ({ category: cat, items }));
   }, [priceData]);
 
+  // Calculate deltas relative to starting tier
+  const getRelativeDelta = (item: any, targetTier: number) => {
+    if (targetTier <= startingTier) return 0;
+    const baseDelta = startingTier === 1 ? 0 : startingTier === 2 ? Number(item.tier2Delta || 0) : Number(item.tier3Delta || 0);
+    const targetDelta = targetTier === 1 ? 0 : targetTier === 2 ? Number(item.tier2Delta || 0) : Number(item.tier3Delta || 0);
+    return targetDelta - baseDelta;
+  };
+
   const upgradeTotal = useMemo(() => {
     if (!priceData?.lineItems) return 0;
     let total = 0;
     for (const item of priceData.lineItems) {
-      const tier = selectionMap[item.itemKey] ?? 1;
-      if (tier === 2) total += Number(item.tier2Delta || 0);
-      else if (tier === 3) total += Number(item.tier3Delta || 0);
+      const tier = selectionMap[item.itemKey] ?? startingTier;
+      total += getRelativeDelta(item, tier);
     }
     return total;
-  }, [priceData, selectionMap]);
+  }, [priceData, selectionMap, startingTier]);
 
   useEffect(() => { onTotalChange(upgradeTotal); }, [upgradeTotal]);
 
@@ -348,14 +357,14 @@ function UpgradeSelectionsSection({
           </div>
         </div>
 
-        {/* Tier legend */}
+        {/* Tier legend — only show tiers >= startingTier */}
         <div className="flex flex-wrap gap-2 mt-6 mb-8">
-          {TIER_META.map(t => {
+          {TIER_META.filter(t => t.tier >= startingTier).map(t => {
             const Icon = t.icon;
             return (
               <div key={t.tier} className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-['Lato'] font-semibold ${t.bg} ${t.border} border shadow-sm`}>
                 <Icon className="h-3.5 w-3.5" style={{ color: t.accent }} />
-                <span style={{ color: t.accent }}>{t.name}</span>
+                <span style={{ color: t.accent }}>{t.name}{t.tier === startingTier ? " (Included)" : ""}</span>
               </div>
             );
           })}
@@ -365,10 +374,8 @@ function UpgradeSelectionsSection({
           {grouped.map(({ category, items }) => {
             const isOpen = expandedCats.has(category);
             const catUpgrade = items.reduce((sum, item) => {
-              const tier = selectionMap[item.itemKey] ?? 1;
-              if (tier === 2) return sum + Number(item.tier2Delta || 0);
-              if (tier === 3) return sum + Number(item.tier3Delta || 0);
-              return sum;
+              const tier = selectionMap[item.itemKey] ?? startingTier;
+              return sum + getRelativeDelta(item, tier);
             }, 0);
 
             return (
@@ -391,7 +398,15 @@ function UpgradeSelectionsSection({
                 {isOpen && (
                   <div className="divide-y">
                     {items.map(item => {
-                      const currentTier = selectionMap[item.itemKey] ?? 1;
+                      const currentTier = selectionMap[item.itemKey] ?? startingTier;
+                      // Build visible tier cards based on startingTier
+                      const tierCards: Array<{ tier: number; label: string | null; desc: string | null; img: string | null; delta: number; meta: typeof TIER_META[0] }> = [];
+                      if (startingTier <= 1) tierCards.push({ tier: 1, label: item.tier1Label, desc: null, img: item.tier1ImageUrl, delta: 0, meta: TIER_META[0] });
+                      if (startingTier <= 2) tierCards.push({ tier: 2, label: item.tier2Label, desc: item.tier2Description, img: item.tier2ImageUrl, delta: getRelativeDelta(item, 2), meta: TIER_META[1] });
+                      tierCards.push({ tier: 3, label: item.tier3Label, desc: item.tier3Description, img: item.tier3ImageUrl, delta: getRelativeDelta(item, 3), meta: TIER_META[2] });
+
+                      const gridCols = tierCards.length === 3 ? "sm:grid-cols-3" : tierCards.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-1";
+
                       return (
                         <div key={item.itemKey} className="px-5 py-5">
                           <div className="flex items-center justify-between mb-4">
@@ -402,88 +417,44 @@ function UpgradeSelectionsSection({
                               </span>
                             )}
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {/* Tier 1 — Base (included) */}
-                            <button
-                              onClick={() => handleSelect(item.itemKey, 1)}
-                              className={`relative rounded-xl border-2 p-4 text-left transition-all group ${
-                                currentTier === 1
-                                  ? "border-[#203E4A] bg-[#203E4A]/5 shadow-md ring-1 ring-[#203E4A]/20"
-                                  : "border-gray-200 hover:border-[#203E4A]/40 hover:shadow-sm"
-                              }`}
-                            >
-                              {currentTier === 1 && (
-                                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-[#203E4A] flex items-center justify-center">
-                                  <Check className="h-3 w-3 text-white" />
-                                </div>
-                              )}
-                              {/* Image */}
-                              {item.tier1ImageUrl && (
-                                <img src={item.tier1ImageUrl} alt="" className="w-full h-20 object-cover rounded-lg mb-3" />
-                              )}
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <Shield className="h-3.5 w-3.5 text-[#203E4A]" />
-                                <span className="text-[10px] uppercase tracking-[0.12em] font-bold text-[#203E4A] font-['Lato']">Base</span>
-                              </div>
-                              <p className="text-xs text-[#203E4A] font-['Lato'] leading-relaxed line-clamp-2">{item.tier1Label || "Standard inclusion"}</p>
-                              <p className="text-sm font-bold text-[#203E4A] mt-2 font-['Lato']">Included</p>
-                            </button>
-
-                            {/* Tier 2 */}
-                            <button
-                              onClick={() => handleSelect(item.itemKey, 2)}
-                              className={`relative rounded-xl border-2 p-4 text-left transition-all group ${
-                                currentTier === 2
-                                  ? "border-amber-500 bg-amber-50 shadow-md ring-1 ring-amber-200"
-                                  : "border-gray-200 hover:border-amber-300 hover:shadow-sm"
-                              }`}
-                            >
-                              {currentTier === 2 && (
-                                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
-                                  <Check className="h-3 w-3 text-white" />
-                                </div>
-                              )}
-                              {item.tier2ImageUrl && (
-                                <img src={item.tier2ImageUrl} alt="" className="w-full h-20 object-cover rounded-lg mb-3" />
-                              )}
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <Star className="h-3.5 w-3.5 text-amber-600" />
-                                <span className="text-[10px] uppercase tracking-[0.12em] font-bold text-amber-700 font-['Lato']">Tailored</span>
-                              </div>
-                              <p className="text-xs text-gray-700 font-['Lato'] leading-relaxed line-clamp-2">{item.tier2Label || "Upgrade option"}</p>
-                              {item.tier2Description && <p className="text-[11px] text-gray-500 mt-1 font-['Lato'] line-clamp-1">{item.tier2Description}</p>}
-                              <p className="text-sm font-bold text-amber-700 mt-2 font-['Lato']">
-                                {Number(item.tier2Delta) > 0 ? `+${fmt(item.tier2Delta)}` : Number(item.tier2Delta) < 0 ? fmt(item.tier2Delta) : "Included"}
-                              </p>
-                            </button>
-
-                            {/* Tier 3 */}
-                            <button
-                              onClick={() => handleSelect(item.itemKey, 3)}
-                              className={`relative rounded-xl border-2 p-4 text-left transition-all group ${
-                                currentTier === 3
-                                  ? "border-purple-500 bg-purple-50 shadow-md ring-1 ring-purple-200"
-                                  : "border-gray-200 hover:border-purple-300 hover:shadow-sm"
-                              }`}
-                            >
-                              {currentTier === 3 && (
-                                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center">
-                                  <Check className="h-3 w-3 text-white" />
-                                </div>
-                              )}
-                              {item.tier3ImageUrl && (
-                                <img src={item.tier3ImageUrl} alt="" className="w-full h-20 object-cover rounded-lg mb-3" />
-                              )}
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <Crown className="h-3.5 w-3.5 text-purple-600" />
-                                <span className="text-[10px] uppercase tracking-[0.12em] font-bold text-purple-700 font-['Lato']">Signature</span>
-                              </div>
-                              <p className="text-xs text-gray-700 font-['Lato'] leading-relaxed line-clamp-2">{item.tier3Label || "Premium option"}</p>
-                              {item.tier3Description && <p className="text-[11px] text-gray-500 mt-1 font-['Lato'] line-clamp-1">{item.tier3Description}</p>}
-                              <p className="text-sm font-bold text-purple-700 mt-2 font-['Lato']">
-                                {Number(item.tier3Delta) > 0 ? `+${fmt(item.tier3Delta)}` : Number(item.tier3Delta) < 0 ? fmt(item.tier3Delta) : "Included"}
-                              </p>
-                            </button>
+                          <div className={`grid grid-cols-1 ${gridCols} gap-3`}>
+                            {tierCards.map(tc => {
+                              const isSelected = currentTier === tc.tier;
+                              const isBase = tc.tier === startingTier;
+                              const Icon = tc.meta.icon;
+                              return (
+                                <button
+                                  key={tc.tier}
+                                  onClick={() => handleSelect(item.itemKey, tc.tier)}
+                                  className={`relative rounded-xl border-2 p-4 text-left transition-all group ${
+                                    isSelected
+                                      ? `border-[${tc.meta.accent}] ${tc.meta.bg} shadow-md ring-1 ${tc.meta.ring}/20`
+                                      : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                                  }`}
+                                  style={isSelected ? { borderColor: tc.meta.accent } : undefined}
+                                >
+                                  {isSelected && (
+                                    <div className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: tc.meta.accent }}>
+                                      <Check className="h-3 w-3 text-white" />
+                                    </div>
+                                  )}
+                                  {tc.img && (
+                                    <img src={tc.img} alt="" className="w-full h-20 object-cover rounded-lg mb-3" />
+                                  )}
+                                  <div className="flex items-center gap-1.5 mb-2">
+                                    <Icon className="h-3.5 w-3.5" style={{ color: tc.meta.accent }} />
+                                    <span className="text-[10px] uppercase tracking-[0.12em] font-bold font-['Lato']" style={{ color: tc.meta.accent }}>
+                                      {isBase ? "Included" : tc.meta.name.split(" ")[0]}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-700 font-['Lato'] leading-relaxed line-clamp-2">{tc.label || (isBase ? "Standard inclusion" : "Upgrade option")}</p>
+                                  {tc.desc && <p className="text-[11px] text-gray-500 mt-1 font-['Lato'] line-clamp-1">{tc.desc}</p>}
+                                  <p className="text-sm font-bold mt-2 font-['Lato']" style={{ color: tc.meta.accent }}>
+                                    {isBase ? "Included" : tc.delta > 0 ? `+${fmt(tc.delta)}` : tc.delta < 0 ? fmt(tc.delta) : "Included"}
+                                  </p>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       );
@@ -923,6 +894,10 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
                   </div>
                 )}
                 <p className="text-[11px] text-[#6D7E94] font-['Lato'] mt-4">Responded on {fmtDate(adminResponse.adminRespondedAt)}</p>
+                <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
+                  className="mt-4 font-['Lato'] h-10 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
+                  <Download className="mr-2 h-4 w-4" /> Download Selections Summary (PDF)
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -938,10 +913,14 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
                 <p className="text-sm text-[#6D7E94] font-['Lato'] mb-6 max-w-md mx-auto">
                   Your selections have been submitted. The B Modern team will review and respond with a confirmed price.
                 </p>
-                <div className="flex justify-center gap-8 text-sm">
+                <div className="flex justify-center gap-8 text-sm mb-6">
                   <div><p className="text-[10px] uppercase tracking-[0.15em] text-[#6D7E94] font-['Lato'] font-semibold">Submitted</p><p className="font-bold text-[#203E4A] font-['Lato'] mt-0.5">{fmtDate(existing.submittedAt)}</p></div>
                   <div><p className="text-[10px] uppercase tracking-[0.15em] text-[#6D7E94] font-['Lato'] font-semibold">Upgrade Total</p><p className="font-bold text-amber-700 font-['Lato'] mt-0.5">+{fmt(existing.totalUpgradeCost)}</p></div>
                 </div>
+                <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
+                  className="font-['Lato'] h-10 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
+                  <Download className="mr-2 h-4 w-4" /> Download Selections Summary (PDF)
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -977,6 +956,10 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
                 <p className="text-[11px] text-[#6D7E94] font-['Lato'] text-center mt-3">
                   The B Modern team will review your selections and respond with a confirmed price.
                 </p>
+                <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
+                  className="w-full mt-3 font-['Lato'] h-10 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
+                  <Download className="mr-2 h-4 w-4" /> Download Selections Summary (PDF)
+                </Button>
               </CardContent>
             </Card>
           )}
