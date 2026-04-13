@@ -305,6 +305,27 @@ const projectsRouter = router({
       await updateProject(input.id, { portalLockedAt: input.lock ? new Date() : null });
       return { success: true };
     }),
+  uploadSignedContract: publicProcedure
+    .input(z.object({ projectId: z.number(), contractUrl: z.string().url() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await updateProject(input.projectId, {
+        signedContractUrl: input.contractUrl,
+        signedContractUploadedAt: new Date(),
+        status: "contract_signed",
+      });
+      return { success: true };
+    }),
+  removeSignedContract: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await updateProject(input.projectId, {
+        signedContractUrl: null,
+        signedContractUploadedAt: null,
+      });
+      return { success: true };
+    }),
 });
 
 // ─── Inclusions ───────────────────────────────────────────────────────────────
@@ -769,14 +790,35 @@ const portalRouter = router({
     }),
 
   submitSelections: publicProcedure
-    .input(z.object({ token: z.string(), totalUpgradeCost: z.string(), notes: z.string().optional() }))
-    .mutation(async ({ input }) => {
+    .input(z.object({
+      token: z.string(),
+      totalUpgradeCost: z.string(),
+      notes: z.string().optional(),
+      signoffName: z.string().min(1, "Full name is required"),
+      signoffSignature: z.string().min(1, "Signature is required"),
+      userAgent: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
       const tokenRecord = await getClientTokenRecord(input.token);
       if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
       const project = await getProjectById(tokenRecord.projectId);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
       if (project.portalLockedAt) throw new TRPCError({ code: "FORBIDDEN", message: "This portal has been locked" });
-      await createUpgradeSubmission(tokenRecord.projectId, input.token, input.totalUpgradeCost, input.notes);
+      // Capture IP from request headers
+      const ip = (ctx as any).req?.headers?.["x-forwarded-for"]?.toString()?.split(",")[0]?.trim()
+        || (ctx as any).req?.headers?.["x-real-ip"]
+        || (ctx as any).req?.socket?.remoteAddress
+        || "unknown";
+      const { documentRefId } = await createUpgradeSubmission({
+        projectId: tokenRecord.projectId,
+        clientToken: input.token,
+        totalUpgradeCost: input.totalUpgradeCost,
+        notes: input.notes,
+        signoffName: input.signoffName,
+        signoffSignature: input.signoffSignature,
+        signoffIp: ip,
+        signoffUserAgent: input.userAgent || "unknown",
+      });
       // Send notifications
       await notifyUpgradeSubmission(
         project.id,
@@ -785,9 +827,8 @@ const portalRouter = router({
         project.clientEmail,
         input.totalUpgradeCost
       );
-      return { success: true };
+       return { success: true, documentRefId };
     }),
-
   getSubmission: publicProcedure
     .input(z.object({ token: z.string() }))
     .query(async ({ input }) => {

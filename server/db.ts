@@ -268,10 +268,35 @@ export async function getUpgradeSubmission(projectId: number, clientToken: strin
   return result[0] ?? null;
 }
 
-export async function createUpgradeSubmission(projectId: number, clientToken: string, totalUpgradeCost: string, notes?: string) {
+export async function createUpgradeSubmission(data: {
+  projectId: number;
+  clientToken: string;
+  totalUpgradeCost: string;
+  notes?: string;
+  signoffName: string;
+  signoffSignature: string;
+  signoffIp: string;
+  signoffUserAgent: string;
+}) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
-  await db.insert(upgradeSubmissions).values({ projectId, clientToken, totalUpgradeCost, notes });
+  // Generate unique document reference: BM-YYYY-XXXX
+  const year = new Date().getFullYear();
+  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const documentRefId = `BM-${year}-${rand}`;
+  await db.insert(upgradeSubmissions).values({
+    projectId: data.projectId,
+    clientToken: data.clientToken,
+    totalUpgradeCost: data.totalUpgradeCost,
+    notes: data.notes ?? null,
+    signoffName: data.signoffName,
+    signoffSignature: data.signoffSignature,
+    signedOffAt: new Date(),
+    signoffIp: data.signoffIp,
+    signoffUserAgent: data.signoffUserAgent,
+    documentRefId,
+  });
+  return { documentRefId };
 }
 
 export async function getAllUpgradeSubmissions(projectId: number) {

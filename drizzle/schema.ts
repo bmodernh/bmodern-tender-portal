@@ -60,6 +60,8 @@ export const projects = mysqlTable("projects", {
   portalLockedAt: timestamp("portalLockedAt"),
   notes: text("notes"),
   selectedPackageId: int("selectedPackageId"),
+  signedContractUrl: text("signed_contract_url"),
+  signedContractUploadedAt: timestamp("signed_contract_uploaded_at"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -208,6 +210,13 @@ export const upgradeSubmissions = mysqlTable("upgrade_submissions", {
   submittedAt: timestamp("submittedAt").defaultNow().notNull(),
   lockedAt: timestamp("lockedAt"),
   notes: text("notes"),
+  // Client sign-off & audit trail
+  signoffName: text("signoffName"),                    // Full legal name entered by client
+  signoffSignature: text("signoffSignature"),            // Base64 data URL of drawn signature
+  signedOffAt: timestamp("signedOffAt"),                // When the client signed off
+  signoffIp: varchar("signoffIp", { length: 64 }),      // Client IP address at time of signing
+  signoffUserAgent: text("signoffUserAgent"),            // Browser user agent string
+  documentRefId: varchar("documentRefId", { length: 32 }), // Unique document reference e.g. BM-2026-0001
   // Admin price response
   adminResponsePrice: decimal("adminResponsePrice", { precision: 12, scale: 2 }),
   adminResponseNotes: text("adminResponseNotes"),

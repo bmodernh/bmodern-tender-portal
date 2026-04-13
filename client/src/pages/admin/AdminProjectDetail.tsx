@@ -547,6 +547,9 @@ function ClientPortalTab({ projectId, project }: { projectId: number; project: a
         </div>
       )}
 
+      {/* Signed Contract Upload */}
+      <SignedContractSection projectId={projectId} project={project} />
+
       {/* Custom item requests */}
       <CustomItemRequestsAdmin projectId={projectId} />
 
@@ -591,6 +594,127 @@ function ClientPortalTab({ projectId, project }: { projectId: number; project: a
             ))}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Signed Contract Upload ──────────────────────────────────────────────────
+function SignedContractSection({ projectId, project }: { projectId: number; project: any }) {
+  const utils = trpc.useUtils();
+  const [uploading, setUploading] = useState(false);
+  const uploadMut = trpc.projects.uploadSignedContract.useMutation({
+    onSuccess: () => {
+      utils.projects.get.invalidate();
+      toast.success("Signed contract uploaded");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const removeMut = trpc.projects.removeSignedContract.useMutation({
+    onSuccess: () => {
+      utils.projects.get.invalidate();
+      toast.success("Signed contract removed");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const uploadFileMut = trpc.upload.getUploadUrl.useMutation();
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("File must be under 20MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const result = await uploadFileMut.mutateAsync({
+        fileName: file.name,
+        mimeType: file.type,
+        fileData: base64,
+        folder: `contracts/${projectId}`,
+      });
+      await uploadMut.mutateAsync({ projectId, contractUrl: result.url });
+    } catch (err: any) {
+      toast.error("Upload failed: " + (err.message || "Unknown error"));
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const hasContract = !!project.signedContractUrl;
+
+  return (
+    <div className="bg-card border rounded p-4" style={{ borderColor: "var(--border)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>Signed Contract</h3>
+          <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "Lato, sans-serif" }}>
+            Upload the signed building contract for this project.
+          </p>
+        </div>
+        {hasContract && (
+          <Badge className="bg-green-100 text-green-800 border-green-200">
+            <Check size={11} className="mr-1" /> Contract Uploaded
+          </Badge>
+        )}
+      </div>
+
+      {hasContract ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 bg-secondary rounded-lg px-4 py-3">
+            <FileText size={20} style={{ color: "var(--bm-petrol)" }} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate" style={{ fontFamily: "Lato, sans-serif" }}>Signed Contract</p>
+              {project.signedContractUploadedAt && (
+                <p className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                  Uploaded {new Date(project.signedContractUploadedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              )}
+            </div>
+            <a href={project.signedContractUrl} target="_blank" rel="noopener noreferrer"
+              className="shrink-0">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
+                <ExternalLink size={12} /> View
+              </Button>
+            </a>
+            <Button size="sm" variant="outline" onClick={() => removeMut.mutate({ projectId })}
+              disabled={removeMut.isPending}
+              className="gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
+              style={{ fontFamily: "Lato, sans-serif" }}>
+              <Trash2 size={12} /> Remove
+            </Button>
+          </div>
+          <label className="cursor-pointer">
+            <input type="file" accept=".pdf,.doc,.docx" onChange={handleFileSelect} className="hidden" />
+            <span className="text-xs text-muted-foreground hover:underline" style={{ fontFamily: "Lato, sans-serif" }}>Replace with a different file</span>
+          </label>
+        </div>
+      ) : (
+        <label className="cursor-pointer">
+          <input type="file" accept=".pdf,.doc,.docx" onChange={handleFileSelect} className="hidden" />
+          <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${uploading ? "border-muted bg-muted/30" : "border-muted-foreground/20 hover:border-[var(--bm-petrol)]/40 hover:bg-secondary/50"}`}>
+            {uploading ? (
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 size={16} className="animate-spin" style={{ color: "var(--bm-petrol)" }} />
+                <span className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>Uploading...</span>
+              </div>
+            ) : (
+              <>
+                <Upload size={24} className="mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>Click to upload signed contract</p>
+                <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: "Lato, sans-serif" }}>PDF, DOC, or DOCX up to 20MB</p>
+              </>
+            )}
+          </div>
+        </label>
       )}
     </div>
   );

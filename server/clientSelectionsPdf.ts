@@ -126,6 +126,14 @@ export interface ClientSelectionsPdfData {
     email: string | null;
   } | null;
   submittedAt: Date | null;
+  signoff: {
+    name: string;
+    signature: string; // base64 data URL
+    signedAt: Date;
+    ip: string;
+    userAgent: string;
+    documentRefId: string;
+  } | null;
 }
 
 const TIER_NAMES: Record<number, string> = {
@@ -342,9 +350,97 @@ export async function generateClientSelectionsPdf(data: ClientSelectionsPdfData)
 
   y += 76;
 
-  // Disclaimer
-  doc.fillColor(MID).fontSize(7).font("Helvetica")
-    .text("This document summarises the client's upgrade selections. Final pricing is subject to confirmation by B Modern Homes.", MARGIN, y, { width: CONTENT_W, lineGap: 2 });
+  // ─── Signed Tender Certificate ──────────────────────────────────────────────
+  if (data.signoff) {
+    // Always start signature block on a new page for formality
+    drawFooter(doc, pageNum);
+    y = startContentPage();
+
+    y = sectionTitle(doc, "Signed Tender Certificate", y);
+    y += 4;
+
+    // Document Reference Box
+    doc.rect(MARGIN, y, CONTENT_W, 36).fill("#F8F6F1");
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("DOCUMENT REFERENCE", MARGIN + 12, y + 6, { characterSpacing: 1 });
+    doc.fillColor(PETROL).fontSize(14).font("Helvetica-Bold").text(data.signoff.documentRefId, MARGIN + 12, y + 18, { width: CONTENT_W * 0.4 });
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("SIGNED DATE & TIME", MARGIN + CONTENT_W * 0.5, y + 6, { characterSpacing: 1 });
+    doc.fillColor(PETROL).fontSize(11).font("Helvetica-Bold")
+      .text(fmtDate(data.signoff.signedAt) + " at " + new Date(data.signoff.signedAt).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: true }),
+        MARGIN + CONTENT_W * 0.5, y + 18, { width: CONTENT_W * 0.5 });
+    y += 46;
+
+    // Declaration
+    doc.rect(MARGIN, y, CONTENT_W, 0).fill(WHITE);
+    doc.fillColor(PETROL).fontSize(9).font("Helvetica-Bold").text("Declaration", MARGIN, y);
+    y = doc.y + 4;
+    doc.fillColor(DARK).fontSize(8).font("Helvetica")
+      .text("I confirm that I have reviewed all upgrade selections and optional extras listed in this document. " +
+        "I understand that these selections are subject to final pricing confirmation by B Modern Homes. " +
+        "The estimated total shown is indicative and may vary upon final review. " +
+        "I acknowledge that once submitted, changes may require a new submission. " +
+        "I agree that my digital signature on this document is legally binding and equivalent to a handwritten signature.",
+        MARGIN, y, { width: CONTENT_W, lineGap: 2 });
+    y = doc.y + 16;
+
+    // Signatory Details
+    doc.fillColor(PETROL).fontSize(9).font("Helvetica-Bold").text("Signatory", MARGIN, y);
+    y = doc.y + 6;
+    doc.fillColor(DARK).fontSize(10).font("Helvetica-Bold").text(data.signoff.name, MARGIN, y);
+    y = doc.y + 12;
+
+    // Signature Image
+    if (data.signoff.signature && data.signoff.signature.startsWith("data:image")) {
+      try {
+        const base64Data = data.signoff.signature.split(",")[1];
+        const sigBuffer = Buffer.from(base64Data, "base64");
+        doc.rect(MARGIN, y, CONTENT_W * 0.5, 80).lineWidth(0.5).strokeColor(BORDER).stroke();
+        doc.image(sigBuffer, MARGIN + 8, y + 4, { fit: [CONTENT_W * 0.5 - 16, 72] });
+        y += 88;
+      } catch {
+        doc.fillColor(MID).fontSize(8).font("Helvetica").text("[Signature on file]", MARGIN, y);
+        y = doc.y + 12;
+      }
+    } else {
+      doc.fillColor(MID).fontSize(8).font("Helvetica").text("[Signature on file]", MARGIN, y);
+      y = doc.y + 12;
+    }
+
+    // Signature line
+    doc.moveTo(MARGIN, y).lineTo(MARGIN + CONTENT_W * 0.5, y).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Authorised Signature", MARGIN, y + 3);
+    y += 20;
+
+    // Audit Trail
+    y += 8;
+    doc.rect(MARGIN, y, CONTENT_W, 0.5).fill(BORDER);
+    y += 8;
+    doc.fillColor(PETROL).fontSize(8).font("Helvetica-Bold").text("Audit Trail", MARGIN, y);
+    y = doc.y + 6;
+
+    const auditItems = [
+      ["Document Reference", data.signoff.documentRefId],
+      ["Signed By", data.signoff.name],
+      ["Date & Time", fmtDate(data.signoff.signedAt) + " at " + new Date(data.signoff.signedAt).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })],
+      ["IP Address", data.signoff.ip],
+      ["Browser", data.signoff.userAgent.length > 80 ? data.signoff.userAgent.substring(0, 80) + "..." : data.signoff.userAgent],
+    ];
+
+    for (const [label, value] of auditItems) {
+      doc.fillColor(MID).fontSize(7).font("Helvetica-Bold").text(label.toUpperCase(), MARGIN + 4, y, { width: CONTENT_W * 0.25, characterSpacing: 0.5 });
+      doc.fillColor(DARK).fontSize(7.5).font("Helvetica").text(value, MARGIN + CONTENT_W * 0.25, y, { width: CONTENT_W * 0.75 });
+      y = Math.max(doc.y, y) + 6;
+    }
+
+    y += 10;
+    doc.rect(MARGIN, y, CONTENT_W, 28).fill("#F0FDF4");
+    doc.fillColor(GREEN).fontSize(7.5).font("Helvetica-Bold")
+      .text("\u2713 This document has been digitally signed and is a legally binding record of the client\u2019s upgrade selections.", MARGIN + 12, y + 8, { width: CONTENT_W - 24 });
+    y += 36;
+  } else {
+    // No sign-off yet — show disclaimer
+    doc.fillColor(MID).fontSize(7).font("Helvetica")
+      .text("This document summarises the client's upgrade selections. Final pricing is subject to confirmation by B Modern Homes. This document has not yet been signed.", MARGIN, y, { width: CONTENT_W, lineGap: 2 });
+  }
 
   // Footer on last page
   drawFooter(doc, pageNum);

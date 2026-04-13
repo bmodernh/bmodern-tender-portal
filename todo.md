@@ -363,3 +363,22 @@
 - [x] Extend inclusion_items.description from varchar(255) to TEXT for long descriptive tender wording
 - [x] Also check inclusion_items.name column length — extended to TEXT
 - [x] Also check upgrade_pricing_rules description columns — tier labels extended to TEXT, label to varchar(512)
+
+## Client Sign-Off Feature (DocuSign-Level)
+- [x] Add signoff fields to upgrade_submissions table (signoffName, signoffSignature, signedOffAt)
+- [x] Add full audit trail fields: signoffIp, signoffUserAgent, documentRefId (unique hash)
+- [x] Build multi-step guided sign-off flow: Step 1 Review Selections → Step 2 Accept Terms → Step 3 Draw Signature
+- [x] Legal declaration text with explicit checkbox acknowledgement
+- [x] Digital signature pad (draw signature with stylus/finger/mouse)
+- [x] Capture IP address and browser user agent on server side
+- [x] Generate unique document reference ID (e.g. BM-2026-XXXX) for each signed submission
+- [x] Build signed PDF certificate: selections summary + signature block + audit trail + document ref + timestamp
+- [x] Lock portal after signing — no modifications possible
+- [x] Admin can see full sign-off details (name, signature, IP, timestamp, document ref)
+- [ ] Email confirmation to client with signed PDF attached (future enhancement)
+
+## Signed Contract Upload (Admin)
+- [x] Add signedContractUrl and signedContractUploadedAt fields to projects table
+- [x] Add "Signed Contract" upload section in admin project detail
+- [x] Admin can upload the signed building contract PDF
+- [ ] Client portal shows signed contract status/download when available (future enhancement)

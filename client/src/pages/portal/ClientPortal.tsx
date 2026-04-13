@@ -15,6 +15,7 @@ import {
   Package, ToggleRight, Eye, X, Download,
 } from "lucide-react";
 import { FloatingChatButton } from "@/components/ProjectChat";
+import { SignaturePad } from "@/components/SignaturePad";
 
 const LOGO_WHITE = "https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-White_RGB_82d45951.png";
 const LOGO_DARK = "https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB_233b3af0.png";
@@ -837,13 +838,45 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
   const { data: existing } = trpc.portal.getSubmission.useQuery({ token });
   const { data: adminResponse } = trpc.portal.getAdminResponse.useQuery({ token });
   const submitMut = trpc.portal.submitSelections.useMutation({
-    onSuccess: () => { utils.portal.getSubmission.invalidate(); utils.portal.getAdminResponse.invalidate(); toast.success("Selections submitted for review!"); },
+    onSuccess: () => {
+      utils.portal.getSubmission.invalidate();
+      utils.portal.getAdminResponse.invalidate();
+      setShowSignoff(false);
+      toast.success("Selections submitted and signed off!");
+    },
     onError: (e) => toast.error(e.message),
   });
   const [notes, setNotes] = useState("");
+  const [showSignoff, setShowSignoff] = useState(false);
+  const [signoffName, setSignoffName] = useState("");
+  const [signoffSignature, setSignoffSignature] = useState<string | null>(null);
 
   const hasSubmitted = !!existing;
   const hasAdminResponse = adminResponse?.adminResponsePrice;
+  const canSubmit = signoffName.trim().length > 0 && signoffSignature;
+
+  const [signoffStep, setSignoffStep] = useState<1 | 2 | 3>(1);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
+  const handleSubmit = () => {
+    if (!canSubmit || !termsAccepted) return;
+    submitMut.mutate({
+      token,
+      totalUpgradeCost: upgradeTotal.toFixed(2),
+      notes: notes || undefined,
+      signoffName: signoffName.trim(),
+      signoffSignature: signoffSignature!,
+      userAgent: navigator.userAgent,
+    });
+  };
+
+  const handleStartSignoff = () => {
+    setShowSignoff(true);
+    setSignoffStep(1);
+    setTermsAccepted(false);
+    setSignoffName("");
+    setSignoffSignature(null);
+  };
 
   return (
     <section className="py-12 md:py-16">
@@ -854,10 +887,10 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
           </div>
           <div>
             <h2 className="font-['Playfair_Display_SC'] text-xl md:text-2xl text-[#203E4A] tracking-wider">
-              {hasSubmitted ? "Submission Status" : "Submit for Review"}
+              {hasSubmitted ? "Submission Status" : "Review & Sign Off"}
             </h2>
             <p className="text-xs text-[#6D7E94] font-['Lato'] mt-0.5">
-              {hasSubmitted ? "Your selections are being reviewed by the B Modern team" : "Send your selections to B Modern for a confirmed price"}
+              {hasSubmitted ? "Your selections are being reviewed by the B Modern team" : "Review your selections, sign off, and submit for a confirmed price"}
             </p>
           </div>
         </div>
@@ -893,6 +926,20 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
                     <p className="text-sm text-[#203E4A] font-['Lato'] leading-relaxed">{adminResponse.adminResponseNotes}</p>
                   </div>
                 )}
+                {existing?.signoffName && (
+                  <div className="mt-4 p-4 bg-white rounded-xl shadow-sm border border-green-200">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-green-700 font-['Lato'] font-semibold mb-2">Signed Off By</p>
+                    <div className="flex items-end gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-[#203E4A] font-['Lato']">{existing.signoffName}</p>
+                        <p className="text-xs text-[#6D7E94] font-['Lato']">{fmtDate(existing.signedOffAt)}</p>
+                      </div>
+                      {existing.signoffSignature && (
+                        <img src={existing.signoffSignature} alt="Client signature" className="h-12 object-contain" />
+                      )}
+                    </div>
+                  </div>
+                )}
                 <p className="text-[11px] text-[#6D7E94] font-['Lato'] mt-4">Responded on {fmtDate(adminResponse.adminRespondedAt)}</p>
                 <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
                   className="mt-4 font-['Lato'] h-10 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
@@ -911,22 +958,30 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
                 </div>
                 <h3 className="font-['Playfair_Display_SC'] text-lg text-[#203E4A] tracking-wider mb-2">Under Review</h3>
                 <p className="text-sm text-[#6D7E94] font-['Lato'] mb-6 max-w-md mx-auto">
-                  Your selections have been submitted. The B Modern team will review and respond with a confirmed price.
+                  Your selections have been submitted and signed off. The B Modern team will review and respond with a confirmed price.
                 </p>
-                <div className="flex justify-center gap-8 text-sm mb-6">
+                <div className="flex justify-center gap-8 text-sm mb-4">
                   <div><p className="text-[10px] uppercase tracking-[0.15em] text-[#6D7E94] font-['Lato'] font-semibold">Submitted</p><p className="font-bold text-[#203E4A] font-['Lato'] mt-0.5">{fmtDate(existing.submittedAt)}</p></div>
                   <div><p className="text-[10px] uppercase tracking-[0.15em] text-[#6D7E94] font-['Lato'] font-semibold">Upgrade Total</p><p className="font-bold text-amber-700 font-['Lato'] mt-0.5">+{fmt(existing.totalUpgradeCost)}</p></div>
                 </div>
-                <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
-                  className="font-['Lato'] h-10 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
-                  <Download className="mr-2 h-4 w-4" /> Download Selections Summary (PDF)
-                </Button>
+                {existing?.signoffName && (
+                  <div className="inline-flex items-center gap-2 bg-white rounded-lg px-4 py-2 shadow-sm border border-amber-200 mb-4">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-xs font-['Lato'] text-[#203E4A]">Signed by <strong>{existing.signoffName}</strong></span>
+                  </div>
+                )}
+                <div>
+                  <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
+                    className="font-['Lato'] h-10 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
+                    <Download className="mr-2 h-4 w-4" /> Download Selections Summary (PDF)
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Submit form */}
-          {!hasSubmitted && (
+          {/* Submit form with sign-off */}
+          {!hasSubmitted && !showSignoff && (
             <Card className="shadow-lg border-[#203E4A]/10">
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -948,18 +1003,218 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
                   <Textarea placeholder="Any comments or questions about your selections..." value={notes} onChange={e => setNotes(e.target.value)}
                     className="font-['Lato'] text-sm" rows={3} />
                 </div>
-                <Button onClick={() => submitMut.mutate({ token, totalUpgradeCost: upgradeTotal.toFixed(2), notes: notes || undefined })}
-                  disabled={submitMut.isPending} className="w-full bg-[#203E4A] hover:bg-[#2a5060] text-white font-['Lato'] h-12 text-sm tracking-wide shadow-lg">
-                  {submitMut.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
-                  Submit Selections for Review
+                <Button onClick={handleStartSignoff}
+                  className="w-full bg-[#203E4A] hover:bg-[#2a5060] text-white font-['Lato'] h-12 text-sm tracking-wide shadow-lg">
+                  <ScrollText className="mr-2 h-4 w-4" />
+                  Proceed to Sign Tender
                 </Button>
                 <p className="text-[11px] text-[#6D7E94] font-['Lato'] text-center mt-3">
-                  The B Modern team will review your selections and respond with a confirmed price.
+                  You will be guided through a 3-step sign-off process to finalise your selections.
                 </p>
                 <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
                   className="w-full mt-3 font-['Lato'] h-10 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
-                  <Download className="mr-2 h-4 w-4" /> Download Selections Summary (PDF)
+                  <Download className="mr-2 h-4 w-4" /> Preview Selections Summary (PDF)
                 </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Multi-step Sign Tender Flow */}
+          {!hasSubmitted && showSignoff && (
+            <Card className="shadow-xl border-[#203E4A]/15 overflow-hidden">
+              {/* Step Progress Bar */}
+              <div className="bg-[#203E4A] px-6 py-4">
+                <div className="flex items-center justify-between max-w-md mx-auto">
+                  {["Review", "Terms", "Sign"].map((label, i) => {
+                    const stepNum = (i + 1) as 1 | 2 | 3;
+                    const isActive = signoffStep === stepNum;
+                    const isDone = signoffStep > stepNum;
+                    return (
+                      <div key={label} className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-['Lato'] transition-all ${
+                          isDone ? "bg-green-500 text-white" : isActive ? "bg-white text-[#203E4A]" : "bg-white/20 text-white/60"
+                        }`}>
+                          {isDone ? <Check className="h-4 w-4" /> : stepNum}
+                        </div>
+                        <span className={`text-xs font-['Lato'] font-semibold tracking-wide hidden sm:inline ${
+                          isActive ? "text-white" : isDone ? "text-green-300" : "text-white/40"
+                        }`}>{label}</span>
+                        {i < 2 && <div className={`w-12 sm:w-20 h-0.5 mx-2 ${isDone ? "bg-green-400" : "bg-white/15"}`} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <CardContent className="p-6 sm:p-8">
+                {/* STEP 1: Review Selections */}
+                {signoffStep === 1 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-6">
+                      <FileText className="h-5 w-5 text-[#203E4A]" />
+                      <h3 className="font-['Playfair_Display_SC'] text-lg text-[#203E4A] tracking-wider">Review Your Selections</h3>
+                    </div>
+                    <p className="text-sm text-[#6D7E94] font-['Lato'] mb-6 leading-relaxed">
+                      Please review the summary of your upgrade selections below. Once you are satisfied, proceed to accept the terms and conditions.
+                    </p>
+                    <div className="bg-gray-50 rounded-xl p-5 mb-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                        <div className="bg-white rounded-lg p-4 shadow-sm">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6D7E94] font-['Lato'] font-semibold mb-1">Base Contract</p>
+                          <p className="text-xl font-bold text-[#203E4A] font-['Lato']">{fmt(basePrice)}</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-4 shadow-sm">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6D7E94] font-['Lato'] font-semibold mb-1">Selected Upgrades</p>
+                          <p className="text-xl font-bold text-amber-700 font-['Lato']">{upgradeTotal > 0 ? `+${fmt(upgradeTotal)}` : fmt(0)}</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-4 shadow-sm border-2 border-[#203E4A]/20">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6D7E94] font-['Lato'] font-semibold mb-1">Estimated Total</p>
+                          <p className="text-xl font-bold text-[#203E4A] font-['Lato']">{fmt(basePrice + upgradeTotal)}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mb-5">
+                      <label className="text-xs font-medium text-[#203E4A] font-['Lato'] mb-1.5 block">Additional Notes (optional)</label>
+                      <Textarea placeholder="Any comments or questions about your selections..." value={notes} onChange={e => setNotes(e.target.value)}
+                        className="font-['Lato'] text-sm" rows={3} />
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
+                      <p className="text-xs text-blue-800 font-['Lato']">
+                        <AlertCircle className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />
+                        You can download a detailed PDF of your selections for your records before proceeding.
+                      </p>
+                    </div>
+                    <div className="flex gap-3">
+                      <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
+                        className="font-['Lato'] h-11 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
+                        <Download className="mr-2 h-4 w-4" /> Download PDF
+                      </Button>
+                      <Button onClick={() => setSignoffStep(2)}
+                        className="flex-1 bg-[#203E4A] hover:bg-[#2a5060] text-white font-['Lato'] h-11 text-sm tracking-wide shadow-lg">
+                        Continue to Terms
+                        <ChevronDown className="ml-2 h-4 w-4 rotate-[-90deg]" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 2: Accept Terms */}
+                {signoffStep === 2 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-6">
+                      <Shield className="h-5 w-5 text-[#203E4A]" />
+                      <h3 className="font-['Playfair_Display_SC'] text-lg text-[#203E4A] tracking-wider">Terms & Conditions</h3>
+                    </div>
+                    <div className="bg-[#203E4A]/[0.03] border border-[#203E4A]/10 rounded-xl p-6 mb-6 max-h-[400px] overflow-y-auto">
+                      <h4 className="text-sm font-bold text-[#203E4A] font-['Lato'] mb-3">Upgrade Selection Agreement</h4>
+                      <div className="text-sm text-[#203E4A]/80 font-['Lato'] leading-relaxed space-y-3">
+                        <p><strong>1. Selection Confirmation</strong><br />
+                        By signing this tender, I confirm that I have carefully reviewed all upgrade selections and optional extras detailed in this document. I understand that these selections represent my preferred specifications for the project.</p>
+                        <p><strong>2. Pricing</strong><br />
+                        I acknowledge that all prices shown are estimates based on current rates and specifications. The final contract price will be confirmed by B Modern Homes following their review of my selections. Prices may vary based on availability, market conditions, and final engineering requirements.</p>
+                        <p><strong>3. Scope of Upgrades</strong><br />
+                        Upgrades and optional extras are additions to the base contract inclusions. The base contract inclusions remain as specified in the original building agreement unless explicitly modified by an upgrade selection in this document.</p>
+                        <p><strong>4. Modifications After Signing</strong><br />
+                        I understand that once this tender is signed and submitted, any changes to my selections will require a new submission and may be subject to revised pricing. B Modern Homes reserves the right to adjust pricing for any modifications requested after signing.</p>
+                        <p><strong>5. Product Availability</strong><br />
+                        Selected products and finishes are subject to availability at the time of procurement. In the event that a selected item becomes unavailable, B Modern Homes will offer a suitable alternative of equal or greater value for my approval.</p>
+                        <p><strong>6. Construction Timeline</strong><br />
+                        I acknowledge that certain upgrade selections may affect the construction timeline. B Modern Homes will advise of any timeline implications during their review process.</p>
+                        <p><strong>7. Digital Signature</strong><br />
+                        I agree that my digital signature on this document is legally binding and equivalent to a handwritten signature for the purposes of this upgrade selection agreement.</p>
+                      </div>
+                    </div>
+                    <label className="flex items-start gap-3 p-4 bg-white rounded-xl border-2 border-[#203E4A]/10 cursor-pointer hover:border-[#203E4A]/30 transition-colors mb-6">
+                      <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)}
+                        className="mt-0.5 h-5 w-5 rounded border-[#203E4A]/30 text-[#203E4A] focus:ring-[#203E4A] cursor-pointer" />
+                      <span className="text-sm text-[#203E4A] font-['Lato'] leading-relaxed">
+                        I have read and agree to the terms and conditions above. I confirm that I am authorised to sign this upgrade selection tender on behalf of the contracting party.
+                      </span>
+                    </label>
+                    <div className="flex gap-3">
+                      <Button variant="outline" onClick={() => setSignoffStep(1)}
+                        className="font-['Lato'] h-11 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
+                        <X className="mr-2 h-4 w-4" /> Back
+                      </Button>
+                      <Button onClick={() => setSignoffStep(3)} disabled={!termsAccepted}
+                        className="flex-1 bg-[#203E4A] hover:bg-[#2a5060] text-white font-['Lato'] h-11 text-sm tracking-wide shadow-lg disabled:opacity-50">
+                        Continue to Signature
+                        <ChevronDown className="ml-2 h-4 w-4 rotate-[-90deg]" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 3: Draw Signature & Submit */}
+                {signoffStep === 3 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-6">
+                      <ScrollText className="h-5 w-5 text-[#203E4A]" />
+                      <h3 className="font-['Playfair_Display_SC'] text-lg text-[#203E4A] tracking-wider">Sign Your Tender</h3>
+                    </div>
+                    <p className="text-sm text-[#6D7E94] font-['Lato'] mb-6 leading-relaxed">
+                      Please enter your full legal name and draw your signature below to complete the sign-off process.
+                    </p>
+
+                    {/* Full Name */}
+                    <div className="mb-5">
+                      <label className="text-xs font-medium text-[#203E4A] font-['Lato'] mb-1.5 block">
+                        Full Legal Name <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        placeholder="Enter your full legal name as it appears on the contract"
+                        value={signoffName}
+                        onChange={e => setSignoffName(e.target.value)}
+                        className="font-['Lato'] text-sm h-12 text-base"
+                      />
+                    </div>
+
+                    {/* Signature Pad */}
+                    <div className="mb-5">
+                      <label className="text-xs font-medium text-[#203E4A] font-['Lato'] mb-1.5 block">
+                        Draw Your Signature <span className="text-red-500">*</span>
+                      </label>
+                      <SignaturePad onSignatureChange={setSignoffSignature} />
+                    </div>
+
+                    {/* Date & Timestamp */}
+                    <div className="flex items-center justify-between mb-6 px-1">
+                      <div className="text-xs text-[#6D7E94] font-['Lato']">
+                        <span className="font-semibold">Date:</span> {new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}
+                      </div>
+                      <div className="text-xs text-[#6D7E94] font-['Lato']">
+                        <span className="font-semibold">Time:</span> {new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    </div>
+
+                    {/* Security Notice */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-6">
+                      <p className="text-xs text-green-800 font-['Lato']">
+                        <Lock className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />
+                        Your signature is securely recorded with a timestamp, IP address, and unique document reference for audit purposes.
+                      </p>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                      <Button variant="outline" onClick={() => setSignoffStep(2)}
+                        className="font-['Lato'] h-12 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
+                        <X className="mr-2 h-4 w-4" /> Back
+                      </Button>
+                      <Button onClick={handleSubmit}
+                        disabled={!canSubmit || !termsAccepted || submitMut.isPending}
+                        className="flex-[2] bg-[#203E4A] hover:bg-[#2a5060] text-white font-['Lato'] h-12 text-sm tracking-wide shadow-lg disabled:opacity-50">
+                        {submitMut.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                        Sign & Submit Tender
+                      </Button>
+                    </div>
+                    {!canSubmit && (
+                      <p className="text-[11px] text-amber-600 font-['Lato'] text-center mt-3">
+                        Please enter your full legal name and draw your signature to complete.
+                      </p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

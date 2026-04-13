@@ -4,7 +4,7 @@
  * GET /api/pdf/portal/:token        — client download (uses portal token)
  */
 import type { Express, Request, Response } from "express";
-import { getDb } from "./db";
+import { getDb, getUpgradeSubmission } from "./db";
 import { generateProposalPdf, type PdfData } from "./pdf";
 import { generateClientSelectionsPdf, type ClientSelectionsPdfData } from "./clientSelectionsPdf";
 import {
@@ -312,6 +312,9 @@ export function registerPdfRoute(app: Express) {
       const basePrice = parseFloat(project.baseContractPrice ?? "0");
       const [company] = await db.select().from(companySettings).limit(1);
 
+      // Get submission sign-off data if available
+      const submission = await getUpgradeSubmission(projectId, tokenRow.token);
+
       const pdfData: ClientSelectionsPdfData = {
         project: {
           clientName: project.clientName,
@@ -334,7 +337,15 @@ export function registerPdfRoute(app: Express) {
           phone: company.phone,
           email: company.email,
         } : null,
-        submittedAt: new Date(),
+        submittedAt: submission?.submittedAt ? new Date(submission.submittedAt) : new Date(),
+        signoff: submission?.signoffName ? {
+          name: submission.signoffName,
+          signature: submission.signoffSignature || "",
+          signedAt: submission.signedOffAt ? new Date(submission.signedOffAt) : new Date(),
+          ip: submission.signoffIp || "—",
+          userAgent: submission.signoffUserAgent || "—",
+          documentRefId: submission.documentRefId || "—",
+        } : null,
       };
 
       const pdfBuffer = await generateClientSelectionsPdf(pdfData);
