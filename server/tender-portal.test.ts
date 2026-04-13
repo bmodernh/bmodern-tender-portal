@@ -43,6 +43,26 @@ vi.mock("./db", () => ({
   createClientFile: vi.fn().mockResolvedValue(undefined),
   getUserByOpenId: vi.fn(),
   upsertUser: vi.fn(),
+  getAllMasterPackages: vi.fn().mockResolvedValue([
+    { id: 1, name: "Built for Excellence", tier: "entry", tagline: "Quality foundations", description: "Entry package", isRecommended: false, position: 1, heroImageUrl: null },
+    { id: 2, name: "Tailored Living", tier: "mid", tagline: "Elevated style", description: "Mid package", isRecommended: true, position: 2, heroImageUrl: null },
+    { id: 3, name: "Signature Series", tier: "premium", tagline: "Uncompromising luxury", description: "Premium package", isRecommended: false, position: 3, heroImageUrl: null },
+  ]),
+  getMasterPackageWithItems: vi.fn().mockResolvedValue({ id: 1, name: "Built for Excellence", items: [] }),
+  applyMasterPackageToProject: vi.fn().mockResolvedValue({ sectionsCreated: 5, itemsCreated: 30 }),
+  getExclusionsByProject: vi.fn().mockResolvedValue([]),
+  createExclusion: vi.fn().mockResolvedValue(undefined),
+  updateExclusion: vi.fn().mockResolvedValue(undefined),
+  deleteExclusion: vi.fn().mockResolvedValue(undefined),
+  getProvisionalSumsByProject: vi.fn().mockResolvedValue([]),
+  createProvisionalSum: vi.fn().mockResolvedValue(undefined),
+  updateProvisionalSum: vi.fn().mockResolvedValue(undefined),
+  deleteProvisionalSum: vi.fn().mockResolvedValue(undefined),
+  getPlanImagesByProject: vi.fn().mockResolvedValue([]),
+  createPlanImage: vi.fn().mockResolvedValue(undefined),
+  deletePlanImage: vi.fn().mockResolvedValue(undefined),
+  getCompanySettings: vi.fn().mockResolvedValue(null),
+  upsertCompanySettings: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("./email", () => ({
@@ -230,5 +250,66 @@ describe("inbox", () => {
     const caller = appRouter.createCaller(makeAdminCtx());
     const result = await caller.inbox.listAll();
     expect(Array.isArray(result)).toBe(true);
+  });
+});
+
+describe("packages", () => {
+  it("lists all master packages when admin is authenticated", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.packages.list();
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(3);
+    expect(result[1].isRecommended).toBe(true); // Tailored Living is recommended
+  });
+
+  it("throws UNAUTHORIZED when listing packages without admin session", async () => {
+    const caller = appRouter.createCaller(makePublicCtx());
+    await expect(caller.packages.list()).rejects.toThrow();
+  });
+
+  it("applies a package to a project when admin is authenticated", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.packages.applyPackage({ projectId: 1, packageId: 1 });
+    expect(result).toMatchObject({ sectionsCreated: 5, itemsCreated: 30 });
+  });
+});
+
+describe("portal package selection", () => {
+  beforeEach(() => {
+    (db.getClientTokenRecord as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 1, projectId: 42, token: "valid-token", expiresAt: null, lastAccessedAt: null,
+    });
+    (db.getProjectById as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 42, clientName: "Test Client", projectAddress: "123 Test St",
+      proposalNumber: "P-001", projectType: "Residential", buildType: "New Build",
+      baseContractPrice: "500000", status: "presented", heroImageUrl: null,
+      tenderExpiryDate: null, portalLockedAt: null, notes: null, selectedPackageId: null,
+    });
+  });
+
+  it("returns packages for a valid portal token", async () => {
+    const caller = appRouter.createCaller(makePublicCtx());
+    const result = await caller.portal.getPackages({ token: "valid-token" });
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(3);
+  });
+
+  it("saves selectedPackageId when client selects a package", async () => {
+    const caller = appRouter.createCaller(makePublicCtx());
+    const result = await caller.portal.selectPackage({ token: "valid-token", packageId: 2 });
+    expect(result).toEqual({ success: true });
+    expect((db.updateProject as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(42, { selectedPackageId: 2 });
+  });
+
+  it("returns selectedPackageId in getProject response", async () => {
+    (db.getProjectById as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 42, clientName: "Test Client", projectAddress: "123 Test St",
+      proposalNumber: "P-001", projectType: "Residential", buildType: "New Build",
+      baseContractPrice: "500000", status: "presented", heroImageUrl: null,
+      tenderExpiryDate: null, portalLockedAt: null, notes: null, selectedPackageId: 2,
+    });
+    const caller = appRouter.createCaller(makePublicCtx());
+    const result = await caller.portal.getProject({ token: "valid-token" });
+    expect((result as any).selectedPackageId).toBe(2);
   });
 });

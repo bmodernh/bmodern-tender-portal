@@ -8,11 +8,267 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ChevronDown, ChevronUp, Upload, Check, AlertCircle,
-  Clock, FileText, Plus, Eye, EyeOff, Send, Download, Lock
+  Clock, FileText, Plus, Eye, EyeOff, Send, Download, Lock, Sparkles, ArrowRight, Star
 } from "lucide-react";
 
 const LOGO_URL = "https://cdn-bmodern.manus.space/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB.jpg";
 const LOGO_WHITE_URL = "https://cdn-bmodern.manus.space/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB.jpg";
+
+// Key differences for each package tier (for the comparison table)
+const PACKAGE_HIGHLIGHTS: Record<string, { label: string; entry: string; mid: string; premium: string }[]> = {
+  rows: [
+    { label: "Tapware", entry: "Caroma Luna", mid: "ABI Interiors Milani", premium: "ABI Interiors Milani" },
+    { label: "Appliances", entry: "Westinghouse", mid: "SMEG Classic", premium: "Fisher & Paykel" },
+    { label: "Benchtop", entry: "20mm Engineered Stone", mid: "40mm Engineered Stone", premium: "40mm Marble" },
+    { label: "Joinery", entry: "Laminate Soft-Close", mid: "Laminate Soft-Close", premium: "Shaker Joinery" },
+    { label: "Tile Allowance", entry: "$40/m²", mid: "$50/m²", premium: "$60/m²" },
+    { label: "Power Points", entry: "15 double", mid: "20 double", premium: "30 double" },
+    { label: "Downlights", entry: "25 LED", mid: "40 LED", premium: "50 LED" },
+    { label: "Air Conditioning", entry: "Ducted 12kW", mid: "Ducted 16kW", premium: "Ducted 20kW" },
+    { label: "Smart Home", entry: "—", mid: "—", premium: "Loxone Automation" },
+    { label: "Cornice", entry: "Standard Cove", mid: "Square Set", premium: "Square Set + Windows" },
+  ] as any,
+};
+
+// ─── Package Selection Screen ─────────────────────────────────────────────────
+function PackageSelectionScreen({
+  token,
+  project,
+  onPackageSelected,
+}: {
+  token: string;
+  project: any;
+  onPackageSelected: (packageId: number) => void;
+}) {
+  const utils = trpc.useUtils();
+  const { data: packages, isLoading } = trpc.portal.getPackages.useQuery({ token });
+  const [selectedId, setSelectedId] = useState<number | null>(project.selectedPackageId ?? null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [showComparison, setShowComparison] = useState(false);
+  const selectMutation = trpc.portal.selectPackage.useMutation({
+    onSuccess: () => {
+      utils.portal.getProject.invalidate();
+      toast.success("Package selected! Explore your inclusions and upgrades below.");
+      onPackageSelected(selectedId!);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const TIER_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; badge: string }> = {
+    entry: { label: "Entry", color: "#4a5568", bg: "#f7f8fa", border: "#cbd5e0", badge: "bg-slate-100 text-slate-700" },
+    mid: { label: "Mid", color: "var(--bm-petrol)", bg: "rgba(32,62,74,0.03)", border: "var(--bm-petrol)", badge: "bg-amber-100 text-amber-800" },
+    premium: { label: "Premium", color: "#6b46c1", bg: "rgba(107,70,193,0.03)", border: "#9f7aea", badge: "bg-purple-100 text-purple-800" },
+  };
+
+  const highlights = (PACKAGE_HIGHLIGHTS as any).rows as { label: string; entry: string; mid: string; premium: string }[];
+
+  return (
+    <div className="min-h-screen" style={{ background: "var(--bm-cream)" }}>
+      {/* Header */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
+          <img
+            src={LOGO_URL}
+            alt="B Modern Homes"
+            className="h-7 object-contain"
+            style={{ filter: "brightness(0) saturate(100%) invert(18%) sepia(28%) saturate(700%) hue-rotate(162deg) brightness(95%) contrast(95%)" }}
+          />
+          <div className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.1em" }}>TENDER PORTAL</div>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <div
+        className="py-16 sm:py-20 text-center"
+        style={{ background: "linear-gradient(135deg, var(--bm-petrol) 0%, #1a3540 100%)" }}
+      >
+        <div className="max-w-2xl mx-auto px-4">
+          <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "Lato, sans-serif" }}>
+            Welcome, {project.clientName}
+          </p>
+          <h1 className="text-3xl sm:text-4xl mb-4" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "white" }}>
+            Choose Your Package
+          </h1>
+          <p className="text-sm" style={{ color: "rgba(255,255,255,0.75)", fontFamily: "Lato, sans-serif", lineHeight: "1.8" }}>
+            Select the package that best suits your vision for {project.projectAddress}.
+            Each package includes a full set of standard inclusions — you can customise further with upgrades after selecting.
+          </p>
+        </div>
+      </div>
+
+      {/* Package Cards */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12">
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {[1,2,3].map(i => <div key={i} className="h-96 rounded-xl bg-secondary animate-pulse" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {packages?.map((pkg) => {
+              const cfg = TIER_CONFIG[pkg.tier] || TIER_CONFIG.entry;
+              const isSelected = selectedId === pkg.id;
+              const isExpanded = expandedId === pkg.id;
+              return (
+                <div
+                  key={pkg.id}
+                  className="relative rounded-xl overflow-hidden transition-all duration-200"
+                  style={{
+                    border: `2px solid ${isSelected ? cfg.border : "var(--border)"}`,
+                    boxShadow: isSelected ? `0 8px 32px ${cfg.color}22` : "0 2px 8px rgba(0,0,0,0.06)",
+                    background: "white",
+                  }}
+                >
+                  {/* Recommended badge */}
+                  {pkg.isRecommended && (
+                    <div
+                      className="absolute top-3 right-3 z-10 flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full"
+                      style={{ background: "var(--bm-petrol)", color: "white", fontFamily: "Lato, sans-serif", letterSpacing: "0.08em" }}
+                    >
+                      <Sparkles size={9} /> RECOMMENDED
+                    </div>
+                  )}
+
+                  {/* Hero image */}
+                  {pkg.heroImageUrl && (
+                    <div className="relative h-48 overflow-hidden">
+                      <img src={pkg.heroImageUrl} alt={pkg.name} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.4) 100%)" }} />
+                    </div>
+                  )}
+
+                  <div className="p-5">
+                    {/* Tier badge */}
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.badge}`} style={{ fontFamily: "Lato, sans-serif" }}>
+                      {cfg.label.toUpperCase()}
+                    </span>
+
+                    <h2 className="text-xl mt-2 mb-1" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--bm-petrol)" }}>
+                      {pkg.name}
+                    </h2>
+                    <p className="text-xs text-muted-foreground mb-4" style={{ fontFamily: "Lato, sans-serif", lineHeight: "1.6" }}>
+                      {pkg.tagline}
+                    </p>
+
+                    {/* Key highlights */}
+                    <div className="space-y-1.5 mb-5">
+                      {highlights.slice(0, 4).map((row) => (
+                        <div key={row.label} className="flex items-start gap-2 text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
+                          <span className="shrink-0 mt-0.5" style={{ color: cfg.color }}>&#8226;</span>
+                          <span className="text-muted-foreground">{row.label}:</span>
+                          <span className="font-medium" style={{ color: "var(--bm-petrol)" }}>
+                            {(row as any)[pkg.tier]}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Expand/collapse more details */}
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : pkg.id)}
+                      className="flex items-center gap-1 text-xs mb-4 transition-colors"
+                      style={{ color: cfg.color, fontFamily: "Lato, sans-serif" }}
+                    >
+                      {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                      {isExpanded ? "Show less" : "View all inclusions"}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="mb-4 space-y-1.5">
+                        {highlights.slice(4).map((row) => (
+                          <div key={row.label} className="flex items-start gap-2 text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
+                            <span className="shrink-0 mt-0.5" style={{ color: cfg.color }}>&#8226;</span>
+                            <span className="text-muted-foreground">{row.label}:</span>
+                            <span className="font-medium" style={{ color: "var(--bm-petrol)" }}>
+                              {(row as any)[pkg.tier]}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Select button */}
+                    <button
+                      onClick={() => setSelectedId(pkg.id)}
+                      className="w-full py-2.5 rounded text-sm font-semibold transition-all"
+                      style={{
+                        background: isSelected ? cfg.color : "transparent",
+                        color: isSelected ? "white" : cfg.color,
+                        border: `1.5px solid ${cfg.color}`,
+                        fontFamily: "Lato, sans-serif",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      {isSelected ? (
+                        <span className="flex items-center justify-center gap-2"><Check size={14} /> Selected</span>
+                      ) : (
+                        "Select Package"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Comparison table toggle */}
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => setShowComparison(!showComparison)}
+            className="text-sm flex items-center gap-2 mx-auto transition-colors"
+            style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
+          >
+            {showComparison ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            {showComparison ? "Hide comparison" : "Compare all packages"}
+          </button>
+        </div>
+
+        {/* Comparison table */}
+        {showComparison && (
+          <div className="mt-6 rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background: "var(--bm-petrol)", color: "white" }}>
+                  <th className="py-3 px-4 text-left text-xs" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.08em", fontWeight: 600 }}>FEATURE</th>
+                  <th className="py-3 px-4 text-center text-xs" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.08em", fontWeight: 600 }}>BUILT FOR EXCELLENCE</th>
+                  <th className="py-3 px-4 text-center text-xs" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.08em", fontWeight: 600, background: "rgba(255,255,255,0.1)" }}>TAILORED LIVING ★</th>
+                  <th className="py-3 px-4 text-center text-xs" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.08em", fontWeight: 600 }}>SIGNATURE SERIES</th>
+                </tr>
+              </thead>
+              <tbody>
+                {highlights.map((row, idx) => (
+                  <tr key={row.label} style={{ background: idx % 2 === 0 ? "white" : "var(--bm-cream)" }}>
+                    <td className="py-2.5 px-4 text-xs font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>{row.label}</td>
+                    <td className="py-2.5 px-4 text-xs text-center text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>{row.entry}</td>
+                    <td className="py-2.5 px-4 text-xs text-center font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)", background: idx % 2 === 0 ? "rgba(32,62,74,0.04)" : "rgba(32,62,74,0.08)" }}>{row.mid}</td>
+                    <td className="py-2.5 px-4 text-xs text-center text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>{row.premium}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Confirm selection CTA */}
+        <div className="mt-10 text-center">
+          <Button
+            disabled={!selectedId || selectMutation.isPending}
+            onClick={() => selectedId && selectMutation.mutate({ token, packageId: selectedId })}
+            className="gap-2 px-8 py-3 text-sm tracking-widest uppercase"
+            style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif", fontWeight: 700 }}
+          >
+            {selectMutation.isPending ? "Confirming..." : (
+              <><ArrowRight size={15} /> Confirm Package &amp; View Proposal</>
+            )}
+          </Button>
+          {!selectedId && (
+            <p className="text-xs text-muted-foreground mt-3" style={{ fontFamily: "Lato, sans-serif" }}>Please select a package above to continue</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Portal Header ─────────────────────────────────────────────────────────────
 function PortalHeader({ project, token }: { project: any; token: string }) {
@@ -987,6 +1243,8 @@ export default function ClientPortal() {
   const [upgradeTotal, setUpgradeTotal] = useState(0);
   const [upgradeSelections, setUpgradeSelections] = useState<Record<number, number>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  // Track whether the client has completed package selection (stores the selected packageId)
+  const [packageConfirmed, setPackageConfirmed] = useState<number | null>(null);
 
   const utils = trpc.useUtils();
   const submitMutation = trpc.portal.submitSelections.useMutation({
@@ -1046,6 +1304,21 @@ export default function ClientPortal() {
   const isLocked = !!project.portalLockedAt;
   const isPostContract = project.status === "contract_signed" || project.status === "post_contract";
   const basePrice = Number(project.baseContractPrice || 0);
+
+  // Show package selection screen if no package has been selected yet
+  // (and the portal is not locked / post-contract)
+  const hasPackageSelected = project.selectedPackageId != null;
+  const showPackageSelection = !hasPackageSelected && !isLocked && packageConfirmed === null && !isPostContract;
+
+  if (showPackageSelection) {
+    return (
+      <PackageSelectionScreen
+        token={token}
+        project={project}
+        onPackageSelected={(pkgId) => setPackageConfirmed(pkgId)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bm-cream)", paddingBottom: upgradeTotal > 0 ? "80px" : "0" }}>

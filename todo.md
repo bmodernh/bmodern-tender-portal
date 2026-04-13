@@ -92,10 +92,25 @@
 - [x] PWA: splash screen and app icon using B Modern logo
 
 ## Bug Fixes
-- [ ] Fix admin login — sign in button does nothing on published URL (bmodernportal-imexqjpp.manus.space)
+- [x] Fix admin login — sign in button does nothing on published URL (bmodernportal-imexqjpp.manus.space)
 
 ## Phase 3 — Future Enhancements
 - [ ] Preliminary estimate calculator (port from bmodernhomes.com.au/get-a-quote/)
 - [ ] Buildxact BOQ integration
 - [ ] Client email + password login option
 - [ ] Multi-project client accounts
+
+## Phase 3 — Master Package Library
+
+- [x] Add master_packages and master_package_items tables to DB schema
+- [x] Seed 3 master packages: Built for Excellence, Tailored Living, Signature Series with all items
+- [x] Add tRPC procedures: list packages, get package detail, applyPackage to project
+- [x] Admin: "Apply Standard Package" button on Inclusions tab — opens modal to select package and apply
+- [x] Applying a package creates editable project-level inclusions (does NOT link back to master template)
+- [x] Client portal: package selection screen as first step (shows key inclusions, visuals, key differences)
+- [x] Mark "Tailored Living" as Recommended on client portal
+- [x] Find and upload product images for each package (Caroma, ABI, Westinghouse, SMEG, Fisher & Paykel)
+- [x] Store package images in DB and display on client portal package cards
+- [x] Add selectedPackageId to projects table for persistent client selection
+- [x] Add portal.getPackages, portal.selectPackage, portal.getPackageDetail procedures
+- [x] Package comparison table on client portal (all 10 key differences)

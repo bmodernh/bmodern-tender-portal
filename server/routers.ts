@@ -71,6 +71,9 @@ import {
   updateClientTokenLastAccess,
   getUserByOpenId,
   upsertUser,
+  getAllMasterPackages,
+  getMasterPackageWithItems,
+  applyMasterPackageToProject,
 } from "./db";
 import { storagePut } from "./storage";
 import {
@@ -561,7 +564,39 @@ const portalRouter = router({
         tenderExpiryDate: project.tenderExpiryDate,
         portalLockedAt: project.portalLockedAt,
         notes: project.notes,
+        selectedPackageId: project.selectedPackageId ?? null,
       };
+    }),
+
+  // Client selects a package from the portal
+  selectPackage: publicProcedure
+    .input(z.object({ token: z.string(), packageId: z.number() }))
+    .mutation(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const project = await getProjectById(tokenRecord.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.portalLockedAt) throw new TRPCError({ code: "FORBIDDEN", message: "This portal has been locked" });
+      await updateProject(tokenRecord.projectId, { selectedPackageId: input.packageId });
+      return { success: true };
+    }),
+
+  // Get all packages for the portal package selection screen
+  getPackages: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getAllMasterPackages();
+    }),
+
+  // Get a single package with items for the portal
+  getPackageDetail: publicProcedure
+    .input(z.object({ token: z.string(), packageId: z.number() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getMasterPackageWithItems(input.packageId);
     }),
 
   getInclusions: publicProcedure
@@ -770,6 +805,24 @@ const companySettingsRouter = router({
     .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await upsertCompanySettings(input); return { success: true }; }),
 });
 
+// ─── Packages Router ─────────────────────────────────────────────────────────────────
+const packagesRouter = router({
+  list: publicProcedure
+    .query(async ({ ctx }) => { await requireAdmin(ctx); return getAllMasterPackages(); }),
+
+  get: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input, ctx }) => { await requireAdmin(ctx); return getMasterPackageWithItems(input.id); }),
+
+  applyPackage: publicProcedure
+    .input(z.object({ projectId: z.number(), packageId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const result = await applyMasterPackageToProject(input.projectId, input.packageId);
+      return result;
+    }),
+});
+
 // ─── App Router ────────────────────────────────────────────────────────────────────
 export const appRouter = router({
   system: systemRouter,
@@ -793,5 +846,6 @@ export const appRouter = router({
   provisionalSums: provisionalSumsRouter,
   planImages: planImagesRouter,
   companySettings: companySettingsRouter,
+  packages: packagesRouter,
 });
 export type AppRouter = typeof appRouter;

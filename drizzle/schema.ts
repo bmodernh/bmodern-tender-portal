@@ -58,6 +58,7 @@ export const projects = mysqlTable("projects", {
   tenderExpiryDate: timestamp("tenderExpiryDate"),
   portalLockedAt: timestamp("portalLockedAt"),
   notes: text("notes"),
+  selectedPackageId: int("selectedPackageId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -267,6 +268,30 @@ export const companySettings = mysqlTable("company_settings", {
   address: text("address"),
   logoUrl: text("logoUrl"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Master Package Templates ───────────────────────────────────────────────
+export const masterPackages = mysqlTable("master_packages", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 256 }).notNull(),
+  tier: mysqlEnum("tier", ["entry", "mid", "premium"]).notNull(),
+  tagline: varchar("tagline", { length: 512 }),
+  description: text("description"),
+  isRecommended: boolean("isRecommended").default(false).notNull(),
+  position: int("position").default(0).notNull(),
+  heroImageUrl: text("heroImageUrl"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const masterPackageItems = mysqlTable("master_package_items", {
+  id: int("id").autoincrement().primaryKey(),
+  packageId: int("packageId").notNull(),
+  section: varchar("section", { length: 128 }).notNull(), // e.g. "PC Items", "Electrical", "Tiles"
+  item: text("item").notNull(),
+  imageUrl: text("imageUrl"),
+  position: int("position").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────

@@ -22,6 +22,20 @@
       "when": 1776049794764,
       "tag": "0002_sleepy_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1776053617365,
+      "tag": "0003_left_epoch",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1776054786954,
+      "tag": "0004_aspiring_magdalene",
+      "breakpoints": true
     }
   ]
 }

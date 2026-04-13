@@ -9,6 +9,8 @@ import {
   companySettings,
   exclusions,
   inclusionSections,
+  masterPackageItems,
+  masterPackages,
   planImages,
   projects,
   provisionalSums,
@@ -392,4 +394,51 @@ export async function upsertCompanySettings(data: {
   } else {
     await db.insert(companySettings).values(data);
   }
+}
+
+// --- Master Packages -----------------------------------------------------------
+export async function getAllMasterPackages() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(masterPackages).orderBy(masterPackages.position);
+}
+
+export async function getMasterPackageWithItems(packageId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [pkg] = await db.select().from(masterPackages).where(eq(masterPackages.id, packageId));
+  if (!pkg) return null;
+  const items = await db.select().from(masterPackageItems)
+    .where(eq(masterPackageItems.packageId, packageId))
+    .orderBy(masterPackageItems.section, masterPackageItems.position);
+  return { ...pkg, items };
+}
+
+export async function applyMasterPackageToProject(projectId: number, packageId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  // Get all items from the master package
+  const items = await db.select().from(masterPackageItems)
+    .where(eq(masterPackageItems.packageId, packageId))
+    .orderBy(masterPackageItems.section, masterPackageItems.position);
+  // Group by section using a plain object
+  const sectionObj: Record<string, Array<{ item: string; imageUrl: string | null }>> = {};
+  for (const row of items) {
+    if (!sectionObj[row.section]) sectionObj[row.section] = [];
+    sectionObj[row.section].push({ item: row.item, imageUrl: row.imageUrl });
+  }
+  const sections = Object.entries(sectionObj);
+  let position = 0;
+  for (const [section, sectionItems] of sections) {
+    const description = sectionItems.map((i: { item: string; imageUrl: string | null }) => i.item).join("\n");
+    const imageUrl = sectionItems.find((i: { item: string; imageUrl: string | null }) => i.imageUrl)?.imageUrl ?? null;
+    await db.insert(inclusionSections).values({
+      projectId,
+      title: section,
+      description,
+      imageUrl,
+      position: position++,
+    });
+  }
+  return { sectionsCreated: sections.length };
 }

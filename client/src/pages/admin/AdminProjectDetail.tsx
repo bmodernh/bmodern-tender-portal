@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   Edit, Link2, Lock, Unlock, Plus, Trash2, Upload, X, GripVertical,
-  ExternalLink, Copy, Check, ChevronDown, ChevronUp, Eye, EyeOff, FileDown
+  ExternalLink, Copy, Check, ChevronDown, ChevronUp, Eye, EyeOff, FileDown, Package, Sparkles
 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -30,6 +30,7 @@ function InclusionsTab({ projectId }: { projectId: number }) {
   const updateMutation = trpc.inclusions.update.useMutation({ onSuccess: () => { utils.inclusions.list.invalidate(); setEditing(null); }, onError: (e) => toast.error(e.message) });
   const deleteMutation = trpc.inclusions.delete.useMutation({ onSuccess: () => utils.inclusions.list.invalidate(), onError: (e) => toast.error(e.message) });
   const uploadMutation = trpc.upload.getUploadUrl.useMutation();
+  const handlePackageApplied = () => utils.inclusions.list.invalidate();
 
   const [showAdd, setShowAdd] = useState(false);
   const [newSection, setNewSection] = useState({ title: "", description: "", imageUrl: "" });
@@ -61,9 +62,12 @@ function InclusionsTab({ projectId }: { projectId: number }) {
         <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
           Add room-by-room sections that will be displayed to the client.
         </p>
-        <Button onClick={() => setShowAdd(true)} size="sm" className="gap-1.5 text-xs" style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>
-          <Plus size={13} /> Add Section
-        </Button>
+        <div className="flex items-center gap-2">
+          <ApplyPackageDialog projectId={projectId} onApplied={handlePackageApplied} />
+          <Button onClick={() => setShowAdd(true)} size="sm" className="gap-1.5 text-xs" style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>
+            <Plus size={13} /> Add Section
+          </Button>
+        </div>
       </div>
 
       {/* Suggested rooms */}
@@ -631,7 +635,137 @@ function ClientPortalTab({ projectId, project }: { projectId: number; project: a
   );
 }
 
-// ─── Plan Images Tab ────────────────────────────────────────────────────────────────────
+// ─── Apply Package Dialog ─────────────────────────────────────────────────────────────────
+function ApplyPackageDialog({ projectId, onApplied }: { projectId: number; onApplied: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [previewId, setPreviewId] = useState<number | null>(null);
+  const { data: packages } = trpc.packages.list.useQuery();
+  const { data: preview } = trpc.packages.get.useQuery(
+    { id: previewId! },
+    { enabled: previewId !== null }
+  );
+  const applyMutation = trpc.packages.applyPackage.useMutation({
+    onSuccess: (res) => {
+      toast.success(`Package applied — ${res.sectionsCreated} sections added`);
+      onApplied();
+      setOpen(false);
+      setSelectedId(null);
+      setPreviewId(null);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const TIER_BADGE: Record<string, string> = {
+    entry: "bg-slate-100 text-slate-700",
+    mid: "bg-amber-100 text-amber-700",
+    premium: "bg-purple-100 text-purple-700",
+  };
+  const TIER_LABEL: Record<string, string> = { entry: "Entry", mid: "Mid", premium: "Premium" };
+
+  // Group preview items by section
+  const previewSections = preview?.items
+    ? Object.entries(
+        preview.items.reduce((acc: Record<string, typeof preview.items>, item) => {
+          if (!acc[item.section]) acc[item.section] = [];
+          acc[item.section].push(item);
+          return acc;
+        }, {})
+      )
+    : [];
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1.5 text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
+          <Package size={13} /> Apply Standard Package
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle style={{ fontFamily: "Playfair Display, serif" }}>Apply Standard Package</DialogTitle>
+          <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+            Selecting a package will add its inclusions as sections to this project. You can edit or remove them afterwards.
+          </p>
+        </DialogHeader>
+
+        {/* Package cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+          {packages?.map((pkg) => (
+            <button
+              key={pkg.id}
+              onClick={() => { setSelectedId(pkg.id); setPreviewId(pkg.id); }}
+              className={`relative text-left rounded-lg border-2 p-3 transition-all ${
+                selectedId === pkg.id
+                  ? "border-[var(--bm-petrol)] bg-[var(--bm-petrol)]/5"
+                  : "border-border hover:border-[var(--bm-petrol)]/50"
+              }`}
+            >
+              {pkg.isRecommended && (
+                <div className="absolute -top-2.5 left-3 flex items-center gap-1 bg-amber-400 text-amber-900 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                  <Sparkles size={9} /> Recommended
+                </div>
+              )}
+              {pkg.heroImageUrl && (
+                <img src={pkg.heroImageUrl} className="w-full h-24 object-cover rounded mb-2" alt={pkg.name} />
+              )}
+              <div className="flex items-start justify-between gap-1 mb-1">
+                <span className="font-semibold text-sm" style={{ fontFamily: "Playfair Display, serif" }}>{pkg.name}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${TIER_BADGE[pkg.tier] || ""}`}>
+                  {TIER_LABEL[pkg.tier]}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground line-clamp-2" style={{ fontFamily: "Lato, sans-serif" }}>{pkg.tagline}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* Preview of selected package */}
+        {preview && previewSections.length > 0 && (
+          <div className="mt-4 border rounded-lg p-4 bg-muted/30">
+            <h4 className="text-sm font-semibold mb-3" style={{ fontFamily: "Playfair Display, serif" }}>
+              {preview.name} — Inclusions Preview
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {previewSections.map(([section, items]) => (
+                <div key={section} className="bg-card rounded p-3 border">
+                  <div className="flex items-center gap-2 mb-2">
+                    {items.find((i) => i.imageUrl) && (
+                      <img src={items.find((i) => i.imageUrl)!.imageUrl!} className="w-10 h-8 object-cover rounded" />
+                    )}
+                    <span className="text-xs font-semibold" style={{ fontFamily: "Lato, sans-serif" }}>{section}</span>
+                  </div>
+                  <ul className="space-y-0.5">
+                    {items.map((item) => (
+                      <li key={item.id} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                        <span className="mt-0.5 shrink-0 text-[var(--bm-petrol)]">&#8226;</span>
+                        {item.item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" size="sm" onClick={() => setOpen(false)} style={{ fontFamily: "Lato, sans-serif" }}>Cancel</Button>
+          <Button
+            size="sm"
+            disabled={!selectedId || applyMutation.isPending}
+            onClick={() => selectedId && applyMutation.mutate({ projectId, packageId: selectedId })}
+            style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
+          >
+            {applyMutation.isPending ? "Applying..." : "Apply Package"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Inclusions Tab ─────────────────────────────────────────────────────────────────────
 function PlanImagesTab({ projectId }: { projectId: number }) {
   const utils = trpc.useUtils();
   const { data: images } = trpc.planImages.list.useQuery({ projectId });
