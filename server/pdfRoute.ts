@@ -139,8 +139,9 @@ export function registerPdfRoute(app: Express) {
       res.setHeader("Content-Length", pdfBuffer.length);
       res.send(pdfBuffer);
     } catch (err) {
-      console.error("[PDF] Admin generation error:", err);
-      res.status(500).json({ error: "PDF generation failed" });
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[PDF] Admin generation error:", msg, err);
+      res.status(500).json({ error: `PDF generation failed: ${msg}` });
     }
   });
 
