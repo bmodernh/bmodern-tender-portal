@@ -91,6 +91,9 @@
 - [x] PWA: iOS and Android home screen install support for admin and client portal
 - [x] PWA: splash screen and app icon using B Modern logo
 
+## Bug Fixes
+- [ ] Fix admin login — sign in fails with correct credentials
+
 ## Phase 3 — Future Enhancements
 - [ ] Preliminary estimate calculator (port from bmodernhomes.com.au/get-a-quote/)
 - [ ] Buildxact BOQ integration
