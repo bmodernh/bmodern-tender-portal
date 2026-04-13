@@ -698,10 +698,10 @@ function SectionHeading({ eyebrow, title }: { eyebrow: string; title: string }) 
 
 // ─── Inclusions Section ────────────────────────────────────────────────────────
 function InclusionsSection({ token }: { token: string }) {
-  const { data: sections } = trpc.portal.getInclusions.useQuery({ token });
+  const { data: categories } = trpc.portal.getBaseInclusions.useQuery({ token });
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
-  if (!sections?.length) return null;
+  if (!categories?.length) return null;
 
   const toggleSection = (id: number) => {
     setExpanded((prev) => {
@@ -716,11 +716,11 @@ function InclusionsSection({ token }: { token: string }) {
       <div className="max-w-6xl mx-auto px-4 sm:px-8">
         <SectionHeading eyebrow="What's Included" title="Base Inclusions" />
         <div className="space-y-3">
-          {sections.map((section) => {
-            const isOpen = expanded.has(section.id);
+          {categories.map((category) => {
+            const isOpen = expanded.has(category.id);
             return (
               <div
-                key={section.id}
+                key={category.id}
                 className="overflow-hidden rounded"
                 style={{ border: "1px solid var(--border)" }}
               >
@@ -730,7 +730,7 @@ function InclusionsSection({ token }: { token: string }) {
                     background: isOpen ? "var(--bm-petrol)" : "white",
                     fontFamily: "Lato, sans-serif"
                   }}
-                  onClick={() => toggleSection(section.id)}
+                  onClick={() => toggleSection(category.id)}
                 >
                   <span
                     className="font-medium text-sm tracking-wide"
@@ -739,34 +739,49 @@ function InclusionsSection({ token }: { token: string }) {
                       letterSpacing: "0.05em"
                     }}
                   >
-                    {section.title.toUpperCase()}
+                    {category.name.toUpperCase()}
                   </span>
-                  {isOpen
-                    ? <ChevronUp size={16} style={{ color: "white" }} className="shrink-0" />
-                    : <ChevronDown size={16} style={{ color: "var(--bm-bluegum)" }} className="shrink-0" />
-                  }
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs" style={{ color: isOpen ? "rgba(255,255,255,0.65)" : "var(--bm-bluegum)" }}>
+                      {category.items.length} {category.items.length === 1 ? "item" : "items"}
+                    </span>
+                    {isOpen
+                      ? <ChevronUp size={16} style={{ color: "white" }} />
+                      : <ChevronDown size={16} style={{ color: "var(--bm-bluegum)" }} />
+                    }
+                  </div>
                 </button>
                 {isOpen && (
                   <div className="border-t" style={{ borderColor: "var(--border)" }}>
-                    {section.imageUrl && (
-                      <div className="w-full h-56 sm:h-72 overflow-hidden">
+                    {category.imageUrl && (
+                      <div className="w-full h-48 sm:h-64 overflow-hidden">
                         <img
-                          src={section.imageUrl}
-                          alt={section.title}
+                          src={category.imageUrl}
+                          alt={category.name}
                           className="w-full h-full object-cover"
                         />
                       </div>
                     )}
-                    {section.description && (
-                      <div className="px-6 py-5">
-                        <p
-                          className="text-sm leading-relaxed"
-                          style={{ fontFamily: "Lato, sans-serif", color: "var(--foreground)", lineHeight: "1.8" }}
-                        >
-                          {section.description}
-                        </p>
-                      </div>
-                    )}
+                    <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+                      {(category.items as any[]).map((item) => (
+                        <div key={item.id} className="flex items-start justify-between gap-6 px-6 py-3.5">
+                          <p
+                            className="text-sm flex-1"
+                            style={{ fontFamily: "Lato, sans-serif", color: "var(--foreground)", lineHeight: "1.75" }}
+                          >
+                            {item.description || item.name}
+                          </p>
+                          {item.qty && (
+                            <span
+                              className="text-xs shrink-0 tabular-nums pt-0.5"
+                              style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif" }}
+                            >
+                              {item.qty}{item.unit ? ` ${item.unit}` : ""}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

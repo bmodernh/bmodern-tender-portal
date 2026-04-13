@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import * as bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { invokeLLM } from "./_core/llm";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -92,6 +93,16 @@ import {
   upsertTermsAndConditions,
   hasAcknowledgedTc,
   recordTcAcknowledgement,
+  getInclusionCategoriesByProject,
+  createInclusionCategory,
+  updateInclusionCategory,
+  deleteInclusionCategory,
+  getInclusionItemsByProject,
+  getInclusionItemsByCategory,
+  upsertInclusionItem,
+  deleteInclusionItem,
+  bulkUpsertInclusionItems,
+  updateInclusionItemQtyByBoqField,
 } from "./db";
 import { storagePut } from "./storage";
 import {
@@ -633,6 +644,20 @@ const portalRouter = router({
       if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
       return getInclusionsByProject(tokenRecord.projectId);
     }),
+  // Base Inclusions (contract schedule from inclusionItems)
+  getBaseInclusions: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const projectId = tokenRecord.projectId;
+      const categories = await getInclusionCategoriesByProject(projectId);
+      const items = await getInclusionItemsByProject(projectId);
+      return categories.map(cat => ({
+        ...cat,
+        items: items.filter(i => i.categoryId === cat.id && i.included),
+      })).filter(cat => cat.items.length > 0);
+    }),
 
   getUpgradeGroups: publicProcedure
     .input(z.object({ token: z.string() }))
@@ -1006,7 +1031,12 @@ const boqRouter = router({
         }
       }
       if (Object.keys(quantityUpdate).length > 0) {
+        // Update legacy quantities table
         await upsertQuantities(input.projectId, quantityUpdate);
+        // Also push into Base Inclusions items that have matching boqFieldKey
+        for (const [fieldKey, qty] of Object.entries(quantityUpdate)) {
+          await updateInclusionItemQtyByBoqField(input.projectId, fieldKey, qty);
+        }
       }
       return { success: true, filledCount: Object.keys(quantityUpdate).length };
     }),
@@ -1021,6 +1051,284 @@ const boqRouter = router({
 });
 
 // ─── Terms & Conditions Router ────────────────────────────────────────────────────────
+// ─── Inclusion Master (Base Inclusions tab) ─────────────────────────────────
+const inclusionMasterRouter = router({
+  // List all categories with their items for a project
+  listCategories: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input }) => {
+      const categories = await getInclusionCategoriesByProject(input.projectId);
+      const items = await getInclusionItemsByProject(input.projectId);
+      return categories.map(cat => ({
+        ...cat,
+        items: items.filter(i => i.categoryId === cat.id),
+      }));
+    }),
+
+  // Add a new category
+  addCategory: publicProcedure
+    .input(z.object({
+      projectId: z.number(),
+      name: z.string().min(1),
+      imageUrl: z.string().optional(),
+      position: z.number().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      return createInclusionCategory({
+        projectId: input.projectId,
+        name: input.name,
+        imageUrl: input.imageUrl,
+        position: input.position ?? 0,
+      });
+    }),
+
+  // Update a category (name, image, position)
+  updateCategory: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      name: z.string().optional(),
+      imageUrl: z.string().nullable().optional(),
+      position: z.number().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { id, ...data } = input;
+      await updateInclusionCategory(id, data);
+      return { success: true };
+    }),
+
+  // Delete a category and all its items
+  deleteCategory: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await deleteInclusionCategory(input.id);
+      return { success: true };
+    }),
+
+  // Upsert a single item (create if no id, update if id provided)
+  upsertItem: publicProcedure
+    .input(z.object({
+      id: z.number().optional(),
+      categoryId: z.number(),
+      projectId: z.number(),
+      name: z.string().min(1),
+      qty: z.string().nullable().optional(),
+      unit: z.string().optional(),
+      description: z.string().nullable().optional(),
+      specLevel: z.string().nullable().optional(),
+      upgradeEligible: z.boolean().optional(),
+      included: z.boolean().optional(),
+      boqFieldKey: z.string().nullable().optional(),
+      position: z.number().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const id = await upsertInclusionItem({
+        ...input,
+        qty: input.qty ?? undefined,
+        description: input.description ?? undefined,
+        specLevel: input.specLevel ?? undefined,
+        boqFieldKey: input.boqFieldKey ?? undefined,
+        position: input.position ?? 0,
+      });
+      return { id };
+    }),
+
+  // Delete a single item
+  deleteItem: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await deleteInclusionItem(input.id);
+      return { success: true };
+    }),
+
+  // Seed default categories and items for a new project
+  seedDefaults: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .mutation(async ({ input }) => {
+      const existing = await getInclusionCategoriesByProject(input.projectId);
+      if (existing.length > 0) return { skipped: true };
+
+      type DefaultItem = { name: string; unit: string; boqFieldKey?: string; upgradeEligible?: boolean; description?: string };
+      const defaultStructure: { name: string; position: number; items: DefaultItem[] }[] = [
+        { name: "Electrical", position: 0, items: [
+          { name: "Downlights", unit: "each", boqFieldKey: "downlightsQty", upgradeEligible: true },
+          { name: "Power Points (GPOs)", unit: "each", boqFieldKey: "powerPointsQty" },
+          { name: "Pendant Points", unit: "each", boqFieldKey: "pendantPointsQty", upgradeEligible: true },
+          { name: "Switch Plates", unit: "each", boqFieldKey: "switchPlatesQty" },
+          { name: "Data Points", unit: "each", boqFieldKey: "dataPointsQty" },
+          { name: "Exhaust Fans", unit: "each", boqFieldKey: "exhaustFansQty" },
+        ]},
+        { name: "Tiles", position: 1, items: [
+          { name: "Floor Tiles", unit: "m²", boqFieldKey: "floorTileM2", upgradeEligible: true },
+          { name: "Wall Tiles", unit: "m²", boqFieldKey: "wallTileM2", upgradeEligible: true },
+          { name: "Splashback Tiles", unit: "m²", boqFieldKey: "splashbackTileM2", upgradeEligible: true },
+        ]},
+        { name: "Fixtures & Tapware", position: 2, items: [
+          { name: "Basin Mixers", unit: "each", boqFieldKey: "basinMixersQty", upgradeEligible: true },
+          { name: "Shower Sets", unit: "each", boqFieldKey: "showerSetsQty", upgradeEligible: true },
+          { name: "Kitchen Mixer", unit: "each", boqFieldKey: "kitchenMixersQty", upgradeEligible: true },
+          { name: "Toilets", unit: "each", boqFieldKey: "toiletsQty" },
+          { name: "Bathtubs", unit: "each", boqFieldKey: "bathtubsQty", upgradeEligible: true },
+        ]},
+        { name: "Joinery", position: 3, items: [
+          { name: "Kitchen Base Cabinetry", unit: "lm", boqFieldKey: "kitchenBaseCabinetryLm", upgradeEligible: true },
+          { name: "Kitchen Overhead Cabinetry", unit: "lm", boqFieldKey: "kitchenOverheadCabinetryLm", upgradeEligible: true },
+          { name: "Wardrobe Joinery", unit: "lm", boqFieldKey: "wardrobeLm", upgradeEligible: true },
+          { name: "Laundry Joinery", unit: "each", boqFieldKey: "laundryJoineryQty" },
+        ]},
+        { name: "Stone & Benchtops", position: 4, items: [
+          { name: "Kitchen Benchtop", unit: "m²", boqFieldKey: "kitchenBenchtopArea", upgradeEligible: true },
+          { name: "Island Benchtop", unit: "m²", boqFieldKey: "islandBenchtopArea", upgradeEligible: true },
+          { name: "Vanity Stone Tops", unit: "each", boqFieldKey: "vanityStoneTopQty", upgradeEligible: true },
+        ]},
+        { name: "Doors & Hardware", position: 5, items: [
+          { name: "Internal Doors", unit: "each", boqFieldKey: "internalDoorsQty", upgradeEligible: true },
+          { name: "External Doors", unit: "each", boqFieldKey: "externalDoorsQty", upgradeEligible: true },
+          { name: "Door Handles", unit: "each", boqFieldKey: "doorHandlesQty", upgradeEligible: true },
+        ]},
+        { name: "Flooring", position: 6, items: [
+          { name: "Timber / Hybrid Flooring", unit: "m²", boqFieldKey: "timberHybridM2", upgradeEligible: true },
+          { name: "Carpet", unit: "m²", boqFieldKey: "carpetM2", upgradeEligible: true },
+        ]},
+        { name: "Air Conditioning", position: 7, items: [
+          { name: "AC Zones", unit: "zones", boqFieldKey: "acZonesQty", upgradeEligible: true },
+        ]},
+        { name: "Facade & External", position: 8, items: [
+          { name: "Facade Cladding", unit: "m²", boqFieldKey: "facadeCladdingM2", upgradeEligible: true },
+        ]},
+        { name: "Insulation", position: 9, items: [
+          { name: "Ceiling Insulation", unit: "R-value", boqFieldKey: "insulationCeilingR" },
+          { name: "Wall Insulation", unit: "R-value", boqFieldKey: "insulationWallR" },
+        ]},
+        { name: "Appliances", position: 10, items: [
+          { name: "Appliance Set", unit: "set", boqFieldKey: "applianceSetsQty", upgradeEligible: true },
+        ]},
+        { name: "Preliminaries", position: 11, items: [
+          { name: "Site Supervisor", unit: "each" },
+          { name: "Builders Insurance", unit: "each" },
+          { name: "Long Service Levy", unit: "each" },
+          { name: "Engineering Plans", unit: "each" },
+        ]},
+      ];
+
+      for (const cat of defaultStructure) {
+        const catId = await createInclusionCategory({ projectId: input.projectId, name: cat.name, position: cat.position });
+        if (!catId) continue;
+        for (let i = 0; i < cat.items.length; i++) {
+          const item = cat.items[i];
+          await upsertInclusionItem({
+            categoryId: catId,
+            projectId: input.projectId,
+            name: item.name,
+            unit: item.unit,
+            boqFieldKey: item.boqFieldKey,
+            upgradeEligible: item.upgradeEligible ?? false,
+            included: true,
+            position: i,
+          });
+        }
+      }
+      return { seeded: true };
+    }),
+
+  // AI wording suggestion for a single inclusion item
+  suggestWording: publicProcedure
+    .input(z.object({
+      itemName: z.string(),
+      categoryName: z.string(),
+      qty: z.string().optional(),
+      unit: z.string().optional(),
+      currentDescription: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const qtyContext = input.qty && input.unit
+        ? `Quantity: ${input.qty} ${input.unit}.`
+        : input.qty
+        ? `Quantity: ${input.qty}.`
+        : "";
+      const currentContext = input.currentDescription
+        ? `Current description: "${input.currentDescription}".`
+        : "";
+      const prompt = `You are a professional construction tender writer for a premium Australian home builder called B Modern Homes.
+
+Generate 3 distinct professional tender specification descriptions for the following inclusion item:
+
+Category: ${input.categoryName}
+Item: ${input.itemName}
+${qtyContext}
+${currentContext}
+
+Requirements:
+- Write in formal Australian construction tender language
+- Each description should be 1–3 sentences, precise and specific
+- Include relevant standards, finishes, or specifications where appropriate (e.g. AS/NZS standards, brand tiers, installation method)
+- Vary the length and focus: one brief/concise, one medium with spec detail, one comprehensive with full scope
+- Do NOT include pricing or cost references
+- Do NOT use bullet points — write as flowing specification text
+- Suitable for inclusion in a formal Head Contract or Tender document
+
+Return ONLY a JSON object with this exact structure:
+{
+  "suggestions": [
+    { "label": "Concise", "text": "..." },
+    { "label": "Standard", "text": "..." },
+    { "label": "Comprehensive", "text": "..." }
+  ]
+}`;
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: "You are a professional construction tender specification writer. Always respond with valid JSON only." },
+          { role: "user", content: prompt },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "wording_suggestions",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                suggestions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      label: { type: "string" },
+                      text: { type: "string" },
+                    },
+                    required: ["label", "text"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["suggestions"],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+      const rawContent = response.choices?.[0]?.message?.content;
+      const content = typeof rawContent === "string" ? rawContent : null;
+      if (!content) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No response from AI" });
+      const parsed = JSON.parse(content) as { suggestions: { label: string; text: string }[] };
+      return parsed;
+    }),
+  // Bulk update quantities from BOQ field keys
+  applyBoqQuantities: publicProcedure
+    .input(z.object({
+      projectId: z.number(),
+      quantities: z.record(z.string(), z.number()),  // { downlightsQty: 45, floorTileM2: 120, ... }
+    }))
+    .mutation(async ({ input }) => {
+      let updated = 0;
+      for (const [fieldKey, qty] of Object.entries(input.quantities)) {
+        await updateInclusionItemQtyByBoqField(input.projectId, fieldKey, qty);
+        updated++;
+      }
+      return { updated };
+    }),
+});
+
 const termsRouter = router({
   get: publicProcedure
     .query(async () => getTermsAndConditions()),
@@ -1061,5 +1369,6 @@ export const appRouter = router({
   pricingRules: pricingRulesRouter,
   boq: boqRouter,
   terms: termsRouter,
+  inclusionMaster: inclusionMasterRouter,
 });
 export type AppRouter = typeof appRouter;

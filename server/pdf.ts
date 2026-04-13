@@ -19,10 +19,16 @@ export interface PdfProject {
   heroImageUrl: string | null;
 }
 
+export interface PdfInclusionItem {
+  name: string;
+  qty: string | null;
+  unit: string | null;
+}
 export interface PdfInclusion {
   title: string;
   description: string | null;
   imageUrl: string | null;
+  items?: PdfInclusionItem[];
 }
 
 export interface PdfExclusion {
@@ -261,39 +267,47 @@ export async function generateProposalPdf(data: PdfData): Promise<Buffer> {
     }
   }
 
-  // ─── Inclusions ─────────────────────────────────────────────────────────────
+  // ─── Inclusions (Base Inclusions Schedule) ──────────────────────────────────
   if (inclusions.length > 0) {
     if (y > PAGE_H - 150) { drawFooter(doc, pageNum, company); y = startContentPage(); }
-    y = sectionTitle(doc, "Inclusions", y);
+    y = sectionTitle(doc, "Base Inclusions", y);
 
     for (const inc of inclusions) {
-      if (y > PAGE_H - 100) { drawFooter(doc, pageNum, company); y = startContentPage(); }
+      if (y > PAGE_H - 80) { drawFooter(doc, pageNum, company); y = startContentPage(); }
 
-      // Inclusion row: optional image left, text right
-      const incImgBuf = await tryFetchImage(inc.imageUrl);
-      const imgW = 80;
-      const textX = incImgBuf ? MARGIN + imgW + 10 : MARGIN;
-      const textW = incImgBuf ? CONTENT_W - imgW - 10 : CONTENT_W;
+      // Category header bar
+      doc.rect(MARGIN, y, CONTENT_W, 20).fill("#EEF2F4");
+      doc.fillColor(PETROL).fontSize(9).font("Helvetica-Bold")
+        .text(inc.title.toUpperCase(), MARGIN + 8, y + 5, { width: CONTENT_W - 16, characterSpacing: 0.5 });
+      y += 24;
 
-      const rowStartY = y;
-      if (incImgBuf) {
-        try {
-          doc.image(incImgBuf, MARGIN, y, { width: imgW, height: 60, cover: [imgW, 60] });
-        } catch { /* skip */ }
+      // Items list
+      if (inc.items && inc.items.length > 0) {
+        for (const item of inc.items) {
+          if (y > PAGE_H - 50) { drawFooter(doc, pageNum, company); y = startContentPage(); }
+          const rowY = y;
+          // Description
+          doc.fillColor(DARK).fontSize(8.5).font("Helvetica")
+            .text(item.name, MARGIN + 8, rowY, { width: CONTENT_W * 0.78, lineGap: 1 });
+          // Qty + unit right-aligned
+          if (item.qty) {
+            const qtyText = item.unit ? `${item.qty} ${item.unit}` : item.qty;
+            doc.fillColor(MID).fontSize(8).font("Helvetica")
+              .text(qtyText, MARGIN + CONTENT_W * 0.78, rowY, { width: CONTENT_W * 0.22, align: "right" });
+          }
+          y = Math.max(doc.y, rowY) + 5;
+          doc.moveTo(MARGIN + 8, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.2).stroke();
+          y += 3;
+        }
+      } else if (inc.description) {
+        doc.fillColor(DARK).fontSize(8.5).font("Helvetica")
+          .text(inc.description, MARGIN + 8, y, { width: CONTENT_W - 16, lineGap: 2 });
+        y = doc.y + 6;
       }
 
-      doc.fillColor(PETROL).fontSize(10).font("Helvetica-Bold").text(inc.title, textX, rowStartY, { width: textW });
-      if (inc.description) {
-        doc.fillColor(DARK).fontSize(8.5).font("Helvetica").text(inc.description, textX, doc.y + 2, { width: textW, lineGap: 2 });
-      }
-
-      const rowEndY = Math.max(doc.y, rowStartY + (incImgBuf ? 64 : 0));
-      y = rowEndY + 12;
-
-      // Thin divider
-      doc.moveTo(MARGIN, y - 4).lineTo(PAGE_W - MARGIN, y - 4).strokeColor(BORDER).lineWidth(0.3).stroke();
+      y += 8;
     }
-    y += 8;
+    y += 4;
   }
 
   // ─── Exclusions ─────────────────────────────────────────────────────────────

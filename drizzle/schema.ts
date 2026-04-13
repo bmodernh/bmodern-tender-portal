@@ -381,6 +381,38 @@ export const boqItems = mysqlTable("boq_items", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+// ─── Inclusion Categories (master control — per project) ────────────────────────
+export const inclusionCategories = mysqlTable("inclusion_categories", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  name: varchar("name", { length: 128 }).notNull(),  // e.g. "Electrical"
+  imageUrl: text("imageUrl"),
+  position: int("position").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Inclusion Items (child rows under each category) ────────────────────────
+export const inclusionItems = mysqlTable("inclusion_items", {
+  id: int("id").autoincrement().primaryKey(),
+  categoryId: int("categoryId").notNull(),
+  projectId: int("projectId").notNull(),
+  name: varchar("name", { length: 256 }).notNull(),       // e.g. "Downlights"
+  qty: decimal("qty", { precision: 10, scale: 2 }),       // editable quantity
+  unit: varchar("unit", { length: 32 }).default("each"),  // each / lm / m2 / item
+  description: text("description"),                       // e.g. "LED downlights throughout home"
+  specLevel: varchar("specLevel", { length: 128 }),       // e.g. "Builder Range"
+  upgradeEligible: boolean("upgradeEligible").default(false).notNull(),
+  included: boolean("included").default(true).notNull(),  // include/exclude checkbox
+  boqFieldKey: varchar("boqFieldKey", { length: 64 }),    // matches quantities column e.g. "downlightsQty"
+  rate: decimal("rate", { precision: 12, scale: 2 }),      // unit rate (for contract pricing)
+  amount: decimal("amount", { precision: 12, scale: 2 }), // total amount (qty * rate or fixed)
+  isBoqImported: boolean("isBoqImported").default(false).notNull(), // true = came from BOQ upload
+  position: int("position").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 // ─── Terms & Conditions (global, single row, editable by admin) ──────────────────
 export const termsAndConditions = mysqlTable("terms_and_conditions", {
   id: int("id").autoincrement().primaryKey(),

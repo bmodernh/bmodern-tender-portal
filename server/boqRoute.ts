@@ -8,6 +8,11 @@ import {
   saveBoqItems,
   deleteBoqItemsByDocument,
   getBoqDocument,
+  getInclusionCategoriesByProject,
+  createInclusionCategory,
+  upsertInclusionItem,
+  getInclusionItemsByProject,
+  deleteBoqImportedItemsByProject,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import * as cookie from "cookie";
@@ -271,6 +276,49 @@ export function registerBoqRoutes(app: Express) {
                 position: idx,
               }))
             );
+            // ── Import all BOQ line items into Base Inclusions ──────────────
+            // Remove previous BOQ-imported items so re-upload is clean
+            await deleteBoqImportedItemsByProject(projectId);
+
+            // Group extracted items by category
+            const categoryMap = new Map<string, typeof items>();
+            for (const item of items) {
+              const cat = item.category || "General";
+              if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+              categoryMap.get(cat)!.push(item);
+            }
+
+            // Get existing categories so we can reuse them
+            const existingCats = await getInclusionCategoriesByProject(projectId);
+            const existingCatMap = new Map(existingCats.map(c => [c.name.toLowerCase(), c.id]));
+
+            let catPos = existingCats.length;
+            for (const [catName, catItems] of Array.from(categoryMap.entries())) {
+              let catId = existingCatMap.get(catName.toLowerCase());
+              if (!catId) {
+                catId = await createInclusionCategory({ projectId, name: catName, position: catPos++ }) ?? undefined;
+              }
+              if (!catId) continue;
+              const existingItems = await getInclusionItemsByProject(projectId);
+              const existingInCat = existingItems.filter(i => i.categoryId === catId);
+              let itemPos = existingInCat.length;
+              for (const boqItem of catItems) {
+                await upsertInclusionItem({
+                  categoryId: catId,
+                  projectId,
+                  name: boqItem.description,
+                  qty: boqItem.quantity != null ? String(boqItem.quantity) : undefined,
+                  unit: boqItem.unit || "item",
+                  description: boqItem.description,
+                  boqFieldKey: boqItem.mappedQuantityField || undefined,
+                  isBoqImported: true,
+                  included: true,
+                  position: itemPos++,
+                });
+              }
+            }
+            // ────────────────────────────────────────────────────────────────
+
             await updateBoqDocumentStatus(docId, "extracted");
           } catch (err: any) {
             clearTimeout(timeoutId);

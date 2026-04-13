@@ -211,8 +211,45 @@
 - [ ] Update pricing engine: T2 uplift = (T2qty - T1qty) × T2unitPrice; T3 uplift = T3qty × T3unitPrice
 - [ ] Update portal getPackagePrices to use new quantity-based calculation for electrical
 
+## Base Inclusions Restructure (HIGHEST PRIORITY)
+
+- [ ] Add `inclusionCategories` table (id, projectId, name, position, imageUrl)
+- [ ] Add `inclusionItems` table (id, categoryId, projectId, name, qty, unit, description, specLevel, upgradeEligible, included, boqFieldKey, position)
+- [ ] Generate and apply migration SQL for new tables
+- [ ] Add tRPC procedures: listInclusionCategories, upsertInclusionItem, deleteInclusionItem, addInclusionCategory, deleteInclusionCategory, reorderItems
+- [ ] Add BOQ auto-population: after BOQ extraction push mapped quantities into inclusionItems
+- [ ] Build Base Inclusions master screen UI with category cards and child item rows
+- [ ] Inline editing for qty, description, spec, unit on each item row
+- [ ] Include/exclude checkbox toggle per item
+- [ ] Add custom inclusion item button per category
+- [ ] Add custom category button
+- [ ] Update upgrade engine to read quantities only from checked inclusionItems
+- [ ] Update client portal to display Base Inclusions categories and items
+- [ ] Update PDF to use inclusionItems as inclusions schedule
+- [ ] Phase out Quantities tab (hide from nav, keep data)
+
 ## Phase 7 — Wizard BOQ Upload Step
 
 - [ ] Add Step 4 (BOQ Upload) to the new project creation wizard — upload PDF/Excel BOQ right after creating the project
 - [ ] Step 4 is optional (can skip) but shows the upload UI immediately after project is saved
 - [ ] After BOQ upload in wizard, trigger AI extraction and show a preview before finishing
+
+## BOQ as Contract Items (PRIORITY)
+
+- [ ] Add `rate` and `amount` columns to inclusionItems table
+- [ ] Update BOQ extraction to import ALL line items into inclusionItems grouped by BOQ category
+- [ ] BOQ import: create category per BOQ category, create child item per BOQ line item (with qty, unit, description)
+- [ ] Allow re-import: re-running BOQ upload merges/updates items (does not duplicate)
+- [ ] Update BaseInclusionsTab to show rate and amount columns with inline editing
+- [ ] Update client portal to render full contract schedule from inclusionItems
+- [ ] Update PDF to render full contract schedule from inclusionItems
+
+## AI Wording Suggestions for Base Inclusions
+
+- [x] Backend: Add `inclusionMaster.suggestWording` tRPC procedure — takes item name, category, qty/unit and returns 3 professional tender-quality description options
+- [x] Frontend: Add "AI Suggest" sparkle button next to description field in BaseInclusionsTab item editor
+- [x] Frontend: Show inline suggestion panel with 3 AI-generated wording options, each with "Use this" button
+- [x] Frontend: Clicking "Use this" populates the description field and closes the panel
+- [x] Frontend: Show loading spinner while AI is generating suggestions
+- [x] Update client portal to use getBaseInclusions (inclusionItems/inclusionCategories) instead of old inclusions
+- [x] Update PDF generator to pull from inclusionItems/inclusionCategories tables

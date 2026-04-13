@@ -17,6 +17,7 @@ import {
   ExternalLink, Copy, Check, ChevronDown, ChevronUp, Eye, EyeOff, FileDown, Package, Sparkles,
   FileText, RefreshCw, Wand2, CheckCheck, AlertCircle, Loader2
 } from "lucide-react";
+import BaseInclusionsTab from "@/components/admin/BaseInclusionsTab";
 
 // ─── PDF Download Button ─────────────────────────────────────────────────────
 function PdfDownloadButton({ projectId, proposalNumber }: { projectId: number; proposalNumber: string | null }) {
@@ -1176,13 +1177,13 @@ export default function AdminProjectDetail() {
       {/* Tabs */}
       <Tabs defaultValue="inclusions">
         <TabsList className="mb-6 h-9 flex-wrap">
-          {["inclusions", "boq", "quantities", "upgrades", "plans", "portal"].map((tab) => (
+          {["inclusions", "boq", "upgrades", "plans", "portal"].map((tab) => (
             <TabsTrigger key={tab} value={tab} className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
-              {tab === "portal" ? "Client Portal" : tab === "plans" ? "Plan Images" : tab === "boq" ? "BOQ" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === "portal" ? "Client Portal" : tab === "plans" ? "Plan Images" : tab === "boq" ? "BOQ" : tab === "inclusions" ? "Base Inclusions" : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </TabsTrigger>
           ))}
         </TabsList>
-        <TabsContent value="inclusions"><InclusionsTab projectId={projectId} /></TabsContent>
+        <TabsContent value="inclusions"><BaseInclusionsTab projectId={projectId} /></TabsContent>
         <TabsContent value="quantities"><QuantitiesTab projectId={projectId} /></TabsContent>
         <TabsContent value="boq"><BoqTab projectId={projectId} /></TabsContent>
         <TabsContent value="upgrades"><UpgradesTab projectId={projectId} /></TabsContent>

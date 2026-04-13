@@ -26,6 +26,8 @@ import {
   termsAndConditions,
   portalTcAcknowledgements,
   users,
+  inclusionCategories,
+  inclusionItems,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -779,4 +781,108 @@ export async function recordTcAcknowledgement(projectId: number, clientToken: st
   const db = await getDb();
   if (!db) return;
   await db.insert(portalTcAcknowledgements).values({ projectId, clientToken, ipAddress });
+}
+
+// ─── Inclusion Categories ──────────────────────────────────────────────────────
+export async function getInclusionCategoriesByProject(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(inclusionCategories)
+    .where(eq(inclusionCategories.projectId, projectId))
+    .orderBy(inclusionCategories.position);
+}
+
+export async function createInclusionCategory(data: Omit<typeof inclusionCategories.$inferInsert, "id" | "createdAt" | "updatedAt">) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(inclusionCategories).values(data);
+  return (result as any).insertId as number;
+}
+
+export async function updateInclusionCategory(id: number, data: Partial<typeof inclusionCategories.$inferInsert>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(inclusionCategories).set(data).where(eq(inclusionCategories.id, id));
+}
+
+export async function deleteInclusionCategory(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  // Delete all items in this category first
+  await db.delete(inclusionItems).where(eq(inclusionItems.categoryId, id));
+  await db.delete(inclusionCategories).where(eq(inclusionCategories.id, id));
+}
+
+// ─── Inclusion Items ───────────────────────────────────────────────────────────
+export async function getInclusionItemsByProject(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(inclusionItems)
+    .where(eq(inclusionItems.projectId, projectId))
+    .orderBy(inclusionItems.categoryId, inclusionItems.position);
+}
+
+export async function getInclusionItemsByCategory(categoryId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(inclusionItems)
+    .where(eq(inclusionItems.categoryId, categoryId))
+    .orderBy(inclusionItems.position);
+}
+
+export async function upsertInclusionItem(data: Omit<typeof inclusionItems.$inferInsert, "createdAt" | "updatedAt">) {
+  const db = await getDb();
+  if (!db) return null;
+  if (data.id) {
+    const { id, ...rest } = data;
+    await db.update(inclusionItems).set(rest).where(eq(inclusionItems.id, id));
+    return id;
+  } else {
+    const [result] = await db.insert(inclusionItems).values(data);
+    return (result as any).insertId as number;
+  }
+}
+
+export async function deleteInclusionItem(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(inclusionItems).where(eq(inclusionItems.id, id));
+}
+
+export async function bulkUpsertInclusionItems(items: Omit<typeof inclusionItems.$inferInsert, "createdAt" | "updatedAt">[]) {
+  const db = await getDb();
+  if (!db || items.length === 0) return;
+  for (const item of items) {
+    if (item.id) {
+      const { id, ...rest } = item;
+      await db.update(inclusionItems).set(rest).where(eq(inclusionItems.id, id));
+    } else {
+      await db.insert(inclusionItems).values(item);
+    }
+  }
+}
+
+export async function updateInclusionItemQtyByBoqField(projectId: number, boqFieldKey: string, qty: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(inclusionItems)
+    .set({ qty: qty.toString() })
+    .where(and(
+      eq(inclusionItems.projectId, projectId),
+      eq(inclusionItems.boqFieldKey, boqFieldKey),
+    ));
+}
+
+export async function deleteBoqImportedItemsByProject(projectId: number) {
+  const db = await getDb();
+  if (!db) return;
+  // Delete all BOQ-imported items for this project
+  const cats = await db.select().from(inclusionCategories).where(eq(inclusionCategories.projectId, projectId));
+  for (const cat of cats) {
+    await db.delete(inclusionItems).where(
+      and(eq(inclusionItems.categoryId, cat.id), eq(inclusionItems.isBoqImported, true))
+    );
+  }
+  // Also delete categories that are now empty and were BOQ-sourced (name ends with BOQ marker)
+  // We mark BOQ-sourced categories with isBoqImported flag — need to add that too
 }

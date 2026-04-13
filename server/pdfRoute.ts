@@ -1,21 +1,21 @@
 /**
  * Express route for PDF generation.
- * GET /api/pdf/proposal/:projectId?adminToken=xxx  — admin download
- * GET /api/pdf/portal/:token                       — client download (uses portal token)
+ * GET /api/pdf/proposal/:projectId  — admin download (requires bm_admin_session cookie)
+ * GET /api/pdf/portal/:token        — client download (uses portal token)
  */
 import type { Express, Request, Response } from "express";
 import { getDb } from "./db";
 import { generateProposalPdf, type PdfData } from "./pdf";
 import {
   projects,
-  inclusionSections,
+  inclusionCategories,
+  inclusionItems,
   exclusions,
   provisionalSums,
   upgradeGroups,
   upgradeOptions,
   planImages,
   companySettings,
-  adminCredentials,
   clientTokens,
 } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
@@ -29,8 +29,13 @@ async function buildPdfData(projectId: number): Promise<PdfData | null> {
   const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
   if (!project) return null;
 
-  const [inclusions, excls, ps, groups, opts, imgs, [company]] = await Promise.all([
-    db.select().from(inclusionSections).where(eq(inclusionSections.projectId, projectId)).orderBy(inclusionSections.position),
+  const [categories, items, excls, ps, groups, opts, imgs, [company]] = await Promise.all([
+    db.select().from(inclusionCategories)
+      .where(eq(inclusionCategories.projectId, projectId))
+      .orderBy(inclusionCategories.position),
+    db.select().from(inclusionItems)
+      .where(eq(inclusionItems.projectId, projectId))
+      .orderBy(inclusionItems.categoryId, inclusionItems.position),
     db.select().from(exclusions).where(eq(exclusions.projectId, projectId)).orderBy(exclusions.id),
     db.select().from(provisionalSums).where(eq(provisionalSums.projectId, projectId)).orderBy(provisionalSums.id),
     db.select().from(upgradeGroups).where(eq(upgradeGroups.projectId, projectId)).orderBy(upgradeGroups.id),
@@ -38,6 +43,20 @@ async function buildPdfData(projectId: number): Promise<PdfData | null> {
     db.select().from(planImages).where(eq(planImages.projectId, projectId)).orderBy(planImages.position),
     db.select().from(companySettings).limit(1),
   ]);
+
+  // Build category+items structure (only included items)
+  const inclusionsData = categories.map(cat => ({
+    title: cat.name,
+    description: null as string | null,
+    imageUrl: cat.imageUrl,
+    items: items
+      .filter(i => i.categoryId === cat.id && i.included)
+      .map(i => ({
+        name: i.description || i.name,
+        qty: i.qty,
+        unit: i.unit,
+      })),
+  })).filter(cat => cat.items.length > 0);
 
   // Group upgrade options by group
   const upgradeGroupsWithOptions = groups.map((g) => ({
@@ -64,10 +83,11 @@ async function buildPdfData(projectId: number): Promise<PdfData | null> {
       tenderExpiry: project.tenderExpiryDate,
       heroImageUrl: project.heroImageUrl,
     },
-    inclusions: inclusions.map((i) => ({
-      title: i.title,
-      description: i.description,
-      imageUrl: i.imageUrl,
+    inclusions: inclusionsData.map((cat) => ({
+      title: cat.title,
+      description: cat.description,
+      imageUrl: cat.imageUrl,
+      items: cat.items,
     })),
     exclusions: excls.map((e) => ({ description: e.description })),
     provisionalSums: ps.map((p) => ({
