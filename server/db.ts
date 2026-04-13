@@ -28,6 +28,8 @@ import {
   users,
   inclusionCategories,
   inclusionItems,
+  customItemRequests,
+  projectMessages,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -261,9 +263,9 @@ export async function upsertUpgradeSelection(projectId: number, clientToken: str
 
 export async function getUpgradeSubmission(projectId: number, clientToken: string) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return null;
   const result = await db.select().from(upgradeSubmissions).where(and(eq(upgradeSubmissions.projectId, projectId), eq(upgradeSubmissions.clientToken, clientToken))).limit(1);
-  return result[0];
+  return result[0] ?? null;
 }
 
 export async function createUpgradeSubmission(projectId: number, clientToken: string, totalUpgradeCost: string, notes?: string) {
@@ -885,4 +887,102 @@ export async function deleteBoqImportedItemsByProject(projectId: number) {
   }
   // Also delete categories that are now empty and were BOQ-sourced (name ends with BOQ marker)
   // We mark BOQ-sourced categories with isBoqImported flag — need to add that too
+}
+
+
+// ─── Custom Item Requests ─────────────────────────────────────────────────────
+export async function createCustomItemRequest(data: {
+  projectId: number;
+  clientToken: string;
+  itemName: string;
+  description?: string;
+  preferredBrand?: string;
+  referenceUrl?: string;
+  quantity?: number;
+  room?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const [result] = await db.insert(customItemRequests).values(data);
+  return (result as any).insertId as number;
+}
+
+export async function getCustomItemRequestsByProject(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(customItemRequests)
+    .where(eq(customItemRequests.projectId, projectId))
+    .orderBy(desc(customItemRequests.createdAt));
+}
+
+export async function getCustomItemRequestsByToken(projectId: number, clientToken: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(customItemRequests)
+    .where(and(
+      eq(customItemRequests.projectId, projectId),
+      eq(customItemRequests.clientToken, clientToken),
+    ))
+    .orderBy(desc(customItemRequests.createdAt));
+}
+
+export async function updateCustomItemRequest(id: number, data: {
+  status?: "submitted" | "under_review" | "priced" | "approved" | "declined";
+  adminPrice?: string;
+  adminNotes?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(customItemRequests).set({
+    ...data,
+    ...(data.adminPrice !== undefined || data.adminNotes !== undefined ? { adminRespondedAt: new Date() } : {}),
+  }).where(eq(customItemRequests.id, id));
+}
+
+export async function getAllCustomItemRequests() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(customItemRequests).orderBy(desc(customItemRequests.createdAt));
+}
+
+// ─── Admin Price Response on Submissions ──────────────────────────────────────
+export async function respondToSubmission(id: number, adminResponsePrice: string, adminResponseNotes?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(upgradeSubmissions).set({
+    adminResponsePrice,
+    adminResponseNotes,
+    adminRespondedAt: new Date(),
+  }).where(eq(upgradeSubmissions.id, id));
+}
+
+export async function getSubmissionById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [sub] = await db.select().from(upgradeSubmissions).where(eq(upgradeSubmissions.id, id));
+  return sub ?? null;
+}
+
+
+// ─── Project Messages (Admin-to-Client Chat) ──────────────────────────────────
+export async function createProjectMessage(data: { projectId: number; senderType: "admin" | "client"; senderName: string; message: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const [result] = await db.insert(projectMessages).values(data);
+  return { id: result.insertId };
+}
+
+export async function getProjectMessages(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(projectMessages)
+    .where(eq(projectMessages.projectId, projectId))
+    .orderBy(projectMessages.createdAt);
+}
+
+// ─── Inclusion Item Image Update ──────────────────────────────────────────────
+export async function updateInclusionItemImage(id: number, imageUrl: string | null) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(inclusionItems).set({ imageUrl }).where(eq(inclusionItems.id, id));
 }

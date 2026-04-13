@@ -104,6 +104,16 @@ import {
   bulkUpsertInclusionItems,
   updateInclusionItemQtyByBoqField,
   deleteBoqImportedItemsByProject,
+  createCustomItemRequest,
+  getCustomItemRequestsByProject,
+  getCustomItemRequestsByToken,
+  updateCustomItemRequest,
+  getAllCustomItemRequests,
+  respondToSubmission,
+  getSubmissionById,
+  createProjectMessage,
+  getProjectMessages,
+  updateInclusionItemImage,
 } from "./db";
 import { storagePut } from "./storage";
 import {
@@ -572,6 +582,54 @@ const inboxRouter = router({
       await requireAdmin(ctx);
       return getClientFilesByProject(input.projectId);
     }),
+
+  // Custom item requests management
+  listCustomItemRequests: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getCustomItemRequestsByProject(input.projectId);
+    }),
+
+  listAllCustomItemRequests: publicProcedure
+    .query(async ({ ctx }) => {
+      await requireAdmin(ctx);
+      return getAllCustomItemRequests();
+    }),
+
+  updateCustomItemRequest: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      status: z.enum(["submitted", "under_review", "priced", "approved", "declined"]).optional(),
+      adminPrice: z.string().optional(),
+      adminNotes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const { id, ...data } = input;
+      await updateCustomItemRequest(id, data);
+      return { success: true };
+    }),
+
+  // Admin responds to a submission with final price
+  listSubmissions: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getAllUpgradeSubmissions(input.projectId);
+    }),
+
+  respondToSubmission: publicProcedure
+    .input(z.object({
+      submissionId: z.number(),
+      adminResponsePrice: z.string(),
+      adminResponseNotes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await respondToSubmission(input.submissionId, input.adminResponsePrice, input.adminResponseNotes);
+      return { success: true };
+    }),
 });
 
 // ─── Client Portal ────────────────────────────────────────────────────────────
@@ -852,6 +910,86 @@ const portalRouter = router({
       const ipAddress = ctx.req.headers["x-forwarded-for"]?.toString() || ctx.req.socket?.remoteAddress;
       await recordTcAcknowledgement(tokenRecord.projectId, input.token, ipAddress);
       return { success: true };
+    }),
+
+  // Custom item requests — client asks for items not on the upgrade list
+  submitCustomItemRequest: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      itemName: z.string().min(1),
+      description: z.string().optional(),
+      preferredBrand: z.string().optional(),
+      referenceUrl: z.string().optional(),
+      quantity: z.number().optional(),
+      room: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const project = await getProjectById(tokenRecord.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.portalLockedAt) throw new TRPCError({ code: "FORBIDDEN", message: "Portal is locked" });
+      const id = await createCustomItemRequest({
+        projectId: tokenRecord.projectId,
+        clientToken: input.token,
+        itemName: input.itemName,
+        description: input.description,
+        preferredBrand: input.preferredBrand,
+        referenceUrl: input.referenceUrl,
+        quantity: input.quantity,
+        room: input.room,
+      });
+      // Notify admin
+      await notifyChangeRequest(project.projectAddress, project.clientName, "Custom Item Request", `${input.itemName}${input.description ? ': ' + input.description : ''}`);
+      return { success: true, id };
+    }),
+
+  getMyCustomItemRequests: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getCustomItemRequestsByToken(tokenRecord.projectId, input.token);
+    }),
+
+  // Get admin response on submission (client-facing)
+  getAdminResponse: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const sub = await getUpgradeSubmission(tokenRecord.projectId, input.token);
+      if (!sub) return null;
+      return {
+        submittedAt: sub.submittedAt,
+        totalUpgradeCost: sub.totalUpgradeCost,
+        adminResponsePrice: sub.adminResponsePrice ?? null,
+        adminResponseNotes: sub.adminResponseNotes ?? null,
+        adminRespondedAt: sub.adminRespondedAt ?? null,
+      };
+    }),
+
+  // Chat: list messages (client side)
+  listMessages: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getProjectMessages(tokenRecord.projectId);
+    }),
+
+  // Chat: send message (client side)
+  sendMessage: publicProcedure
+    .input(z.object({ token: z.string(), message: z.string().min(1), senderName: z.string().default("Client") }))
+    .mutation(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return createProjectMessage({
+        projectId: tokenRecord.projectId,
+        senderType: "client",
+        senderName: input.senderName,
+        message: input.message,
+      });
     }),
 });
 // ─── Exclusions Router ──────────────────────────────────────────────────────────────
@@ -1384,6 +1522,33 @@ Return ONLY a JSON object with this exact structure:
       }
       return { updated };
     }),
+  // Update item image
+  updateItemImage: publicProcedure
+    .input(z.object({ id: z.number(), imageUrl: z.string().nullable() }))
+    .mutation(async ({ input }) => {
+      await updateInclusionItemImage(input.id, input.imageUrl);
+      return { success: true };
+    }),
+});
+
+// ─── Chat Router (admin side) ─────────────────────────────────────────────────
+const chatRouter = router({
+  listMessages: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input }) => getProjectMessages(input.projectId)),
+
+  sendMessage: publicProcedure
+    .input(z.object({ projectId: z.number(), message: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const user = ctx.user;
+      const senderName = user?.name || "B Modern Team";
+      return createProjectMessage({
+        projectId: input.projectId,
+        senderType: "admin",
+        senderName,
+        message: input.message,
+      });
+    }),
 });
 
 const termsRouter = router({
@@ -1427,5 +1592,6 @@ export const appRouter = router({
   boq: boqRouter,
   terms: termsRouter,
   inclusionMaster: inclusionMasterRouter,
+  chat: chatRouter,
 });
 export type AppRouter = typeof appRouter;

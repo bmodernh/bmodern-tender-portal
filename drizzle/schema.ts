@@ -207,6 +207,10 @@ export const upgradeSubmissions = mysqlTable("upgrade_submissions", {
   submittedAt: timestamp("submittedAt").defaultNow().notNull(),
   lockedAt: timestamp("lockedAt"),
   notes: text("notes"),
+  // Admin price response
+  adminResponsePrice: decimal("adminResponsePrice", { precision: 12, scale: 2 }),
+  adminResponseNotes: text("adminResponseNotes"),
+  adminRespondedAt: timestamp("adminRespondedAt"),
 });
 
 // ─── Client Uploaded Files ────────────────────────────────────────────────────
@@ -408,6 +412,7 @@ export const inclusionItems = mysqlTable("inclusion_items", {
   rate: decimal("rate", { precision: 12, scale: 2 }),      // unit rate (for contract pricing)
   amount: decimal("amount", { precision: 12, scale: 2 }), // total amount (qty * rate or fixed)
   isBoqImported: boolean("isBoqImported").default(false).notNull(), // true = came from BOQ upload
+  imageUrl: text("imageUrl"),                                        // product photo URL
   position: int("position").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -427,6 +432,35 @@ export const portalTcAcknowledgements = mysqlTable("portal_tc_acknowledgements",
   clientToken: varchar("clientToken", { length: 128 }).notNull(),
   acknowledgedAt: timestamp("acknowledgedAt").defaultNow().notNull(),
   ipAddress: varchar("ipAddress", { length: 64 }),
+});
+
+// ─── Custom Item Requests (client requests items not on the upgrade list) ─────
+export const customItemRequests = mysqlTable("custom_item_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  clientToken: varchar("clientToken", { length: 128 }).notNull(),
+  itemName: varchar("itemName", { length: 256 }).notNull(),
+  description: text("description"),
+  preferredBrand: varchar("preferredBrand", { length: 256 }),
+  referenceUrl: text("referenceUrl"),
+  quantity: int("quantity").default(1),
+  room: varchar("room", { length: 128 }),
+  status: mysqlEnum("status", ["submitted", "under_review", "priced", "approved", "declined"]).default("submitted").notNull(),
+  adminPrice: decimal("adminPrice", { precision: 12, scale: 2 }),
+  adminNotes: text("adminNotes"),
+  adminRespondedAt: timestamp("adminRespondedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Project Messages (admin-to-client chat per project) ────────────────────
+export const projectMessages = mysqlTable("project_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  senderType: mysqlEnum("senderType", ["admin", "client"]).notNull(),
+  senderName: varchar("senderName", { length: 256 }).notNull(),
+  message: text("message").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────

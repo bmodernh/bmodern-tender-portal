@@ -36,9 +36,9 @@ export default function AdminLogin() {
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-16" style={{ background: "var(--bm-petrol-dark, oklch(18% 0.04 220))" }}>
         <div>
           <img
-            src="https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB_ec48343d.jpg"
+            src="https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-White_RGB_82d45951.png"
             alt="B Modern Homes"
-            className="h-10 mb-12 brightness-0 invert opacity-80"
+            className="h-10 mb-12 opacity-90"
           />
           <h1 className="text-white text-4xl leading-tight mb-6" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", fontWeight: 400 }}>
             Tender<br />Portal

@@ -261,3 +261,48 @@
 - [x] Added "Import to Base Inclusions" button in BOQ tab for re-importing existing extracted items
 - [x] Ensure Base Inclusions tab displays BOQ-imported items after upload — verified 82 items across 7 categories
 - [x] Verify AI wording suggestion button works on BOQ-imported items — tested with Long Service Levy, 3 options generated
+
+## Client Portal Rebuild — Polished B Modern Branded Experience
+- [x] Remove package selection gate screen — go straight to main portal
+- [x] Show Base Inclusions (Built for Excellence Tier 1) FIRST as the base tender presentation
+- [x] Rework Upgrades section: show tier-based items with cross-tier pick-and-choose
+- [x] Each upgrade item shows price delta (+ or -) and clients can select from any tier
+- [x] Sticky running total bar always visible: Base Contract + Selected Upgrades = Estimated Total
+- [x] Add "Request Custom Item" form for items not on the list
+- [x] Submit selections for review sends to admin with notification
+- [x] Admin can respond to submissions with a final price
+- [x] Client sees admin's price response on their portal
+- [x] DB schema: add custom_item_requests table
+- [x] DB schema: add adminResponsePrice and adminResponseNotes to upgrade_submissions
+- [x] Polished B Modern branding throughout (Playfair Display SC, Lato, petrol/cream palette)
+- [x] Interactive and responsive design (mobile + desktop)
+- [x] Smooth animations and micro-interactions
+
+## Admin-to-Client Chat Feature
+- [x] Add `project_messages` DB table (projectId, senderType admin/client, senderName, message, createdAt)
+- [x] Add backend tRPC procedures: sendMessage, listMessages (both admin and portal routers)
+- [x] Build chat panel in admin project detail (Client Portal tab)
+- [x] Build chat panel in client portal (floating button + drawer)
+- [x] Messages timestamped and attributed (B Modern team vs Client)
+- [x] Polling for new messages (5s admin, 10s client)
+
+## Admin UI Fixes
+- [x] Wire SubmissionResponseCard into AdminProjectDetail
+- [x] Wire CustomItemRequestsAdmin into AdminProjectDetail
+
+## Product Images on Every Inclusion Item
+- [x] Add `imageUrl` column to `inclusion_items` table
+- [x] Update BaseInclusionsTab admin UI: add image upload button per item row
+- [x] Admin can upload product photos for taps, basins, downlights, cornices, appliances, etc.
+- [x] Client portal: display product images alongside each inclusion item (visual card layout)
+- [x] Upgrade items also show product images for visual comparison
+- [x] Gallery-style interactive layout — items as visual cards, not just text rows
+
+## Complete Pricing Audit + Plus Options
+- [ ] Audit all 3 upgrade tiers — ensure every line item has pricing for Tier 1, 2, and 3
+- [ ] Verify master packages have complete item lists with descriptions and images
+- [ ] Ensure pricing rules cover all categories (Electrical, Plumbing, Tiles, Joinery, etc.)
+- [ ] Add "Plus" options — additional add-on items clients can select beyond the 3 tiers
+- [ ] Admin UI for managing Plus options with pricing
+- [ ] Client portal shows Plus options alongside tier upgrades
+- [x] Update logos throughout: white logo for dark backgrounds, monochrome for light backgrounds

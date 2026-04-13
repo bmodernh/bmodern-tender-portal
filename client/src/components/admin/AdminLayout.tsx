@@ -71,10 +71,9 @@ export default function AdminLayout({ children, title, breadcrumbs }: AdminLayou
       {/* Logo */}
       <div className="px-6 py-8 border-b" style={{ borderColor: "var(--sidebar-border)" }}>
         <img
-          src="https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB_ec48343d.jpg"
+          src="https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB_233b3af0.png"
           alt="B Modern Homes"
           className="h-8 mb-3"
-          style={{ filter: "brightness(0) saturate(100%) invert(23%) sepia(30%) saturate(500%) hue-rotate(160deg) brightness(85%)" }}
         />
         <div className="text-xs tracking-wider" style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif", fontWeight: 300 }}>
           Tender Portal

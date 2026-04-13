@@ -18,6 +18,9 @@ import {
   FileText, RefreshCw, Wand2, CheckCheck, AlertCircle, Loader2, Layers
 } from "lucide-react";
 import BaseInclusionsTab from "@/components/admin/BaseInclusionsTab";
+import { SubmissionResponseCard } from "@/components/admin/SubmissionResponseCard";
+import { CustomItemRequestsAdmin } from "@/components/admin/CustomItemRequestsAdmin";
+import { AdminProjectChat } from "@/components/ProjectChat";
 
 // ─── PDF Download Button ─────────────────────────────────────────────────────
 function PdfDownloadButton({ projectId, proposalNumber }: { projectId: number; proposalNumber: string | null }) {
@@ -846,22 +849,28 @@ function ClientPortalTab({ projectId, project }: { projectId: number; project: a
         </Button>
       </div>
 
-      {/* Submissions */}
+      {/* Submissions with admin response */}
       {submissions && submissions.length > 0 && (
         <div className="bg-card border rounded p-4" style={{ borderColor: "var(--border)" }}>
           <h3 className="text-sm font-medium mb-3" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>Upgrade Submissions</h3>
-          <div className="space-y-2">
-            {submissions.map((sub) => (
-              <div key={sub.id} className="flex items-center justify-between bg-secondary rounded px-3 py-2 text-sm">
-                <span style={{ fontFamily: "Lato, sans-serif" }}>{new Date(sub.submittedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</span>
-                <span className="font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>
-                  ${Number(sub.totalUpgradeCost).toLocaleString("en-AU")}
-                </span>
-              </div>
+          <div className="space-y-3">
+            {submissions.map((sub: any) => (
+              <SubmissionResponseCard key={sub.id} submission={sub} projectId={projectId} />
             ))}
           </div>
         </div>
       )}
+
+      {/* Custom item requests */}
+      <CustomItemRequestsAdmin projectId={projectId} />
+
+      {/* Chat with client */}
+      <div className="bg-card border rounded overflow-hidden" style={{ borderColor: "var(--border)" }}>
+        <div className="px-4 py-3 border-b" style={{ borderColor: "var(--border)", background: "var(--bm-petrol)" }}>
+          <h3 className="text-sm font-medium text-white" style={{ fontFamily: "var(--font-heading)" }}>Chat with Client</h3>
+        </div>
+        <AdminProjectChat projectId={projectId} />
+      </div>
 
       {/* Uploaded files */}
       {files && files.length > 0 && (

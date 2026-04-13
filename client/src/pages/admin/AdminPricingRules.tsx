@@ -256,10 +256,12 @@ export default function AdminPricingRules() {
       tier2CostPerUnit: data.tier2CostPerUnit as string | undefined,
       tier2ImageUrl: data.tier2ImageUrl as string | null | undefined,
       tier2Description: data.tier2Description as string | null | undefined,
+      tier2Qty: data.tier2Qty as number | null | undefined,
       tier3Label: data.tier3Label as string | null | undefined,
       tier3CostPerUnit: data.tier3CostPerUnit as string | undefined,
       tier3ImageUrl: data.tier3ImageUrl as string | null | undefined,
       tier3Description: data.tier3Description as string | null | undefined,
+      tier3Qty: data.tier3Qty as number | null | undefined,
     });
     toast.success("Pricing rule updated", { description: "Changes will apply to all future package calculations." });
     refetch();

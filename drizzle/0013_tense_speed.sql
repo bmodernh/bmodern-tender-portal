@@ -1,0 +1,1 @@
+ALTER TABLE `inclusion_items` ADD `imageUrl` text;
