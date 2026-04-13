@@ -8,25 +8,48 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ChevronDown, ChevronUp, Upload, Check, AlertCircle,
-  Clock, FileText, Plus, Eye, EyeOff, Send
+  Clock, FileText, Plus, Eye, EyeOff, Send, Download, Lock
 } from "lucide-react";
 
+const LOGO_URL = "https://cdn-bmodern.manus.space/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB.jpg";
+const LOGO_WHITE_URL = "https://cdn-bmodern.manus.space/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB.jpg";
+
 // ─── Portal Header ─────────────────────────────────────────────────────────────
-function PortalHeader({ project }: { project: any }) {
+function PortalHeader({ project, token }: { project: any; token: string }) {
   return (
-    <header className="sticky top-0 z-30 border-b bg-white/95 backdrop-blur-sm" style={{ borderColor: "var(--border)" }}>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm" style={{ borderBottom: "1px solid var(--border)" }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
+        <img
+          src={LOGO_URL}
+          alt="B Modern Homes"
+          className="h-7 object-contain"
+          style={{ filter: "brightness(0) saturate(100%) invert(18%) sepia(28%) saturate(700%) hue-rotate(162deg) brightness(95%) contrast(95%)" }}
+        />
         <div className="flex items-center gap-3">
-          <div className="text-xs tracking-[0.3em] uppercase" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif", fontWeight: 700 }}>
-            B Modern Homes
+          <div className="hidden sm:block text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.1em" }}>
+            TENDER PORTAL
           </div>
-          <div className="w-px h-4 bg-border" />
-          <div className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
-            Tender Portal
+          <a
+            href={`/api/pdf/portal/${token}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border hover:bg-secondary transition-colors"
+            style={{ fontFamily: "Lato, sans-serif", textDecoration: "none", color: "var(--bm-petrol)", borderColor: "var(--bm-petrol)" }}
+          >
+            <Download size={12} /> Proposal PDF
+          </a>
+          <div
+            className="text-xs px-3 py-1 rounded-full"
+            style={{
+              background: "var(--bm-petrol)",
+              color: "white",
+              fontFamily: "Lato, sans-serif",
+              letterSpacing: "0.1em",
+              fontSize: "0.65rem"
+            }}
+          >
+            #{project.proposalNumber}
           </div>
-        </div>
-        <div className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
-          #{project.proposalNumber}
         </div>
       </div>
     </header>
@@ -35,80 +58,195 @@ function PortalHeader({ project }: { project: any }) {
 
 // ─── Hero Section ──────────────────────────────────────────────────────────────
 function HeroSection({ project }: { project: any }) {
-  return (
-    <section className="relative">
-      {project.heroImageUrl ? (
-        <div className="relative h-64 sm:h-96 overflow-hidden">
-          <img src={project.heroImageUrl} alt={project.projectAddress} className="w-full h-full object-cover" />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(32,62,74,0.3) 0%, rgba(32,62,74,0.75) 100%)" }} />
-          <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-10">
-            <div className="max-w-5xl mx-auto w-full">
-              <div className="text-white/70 text-xs tracking-[0.25em] uppercase mb-2" style={{ fontFamily: "Lato, sans-serif" }}>
-                {project.projectType || "Residential"} &bull; {project.buildType || "New Build"}
+  if (project.heroImageUrl) {
+    return (
+      <section className="relative">
+        <div className="relative h-[55vh] min-h-[380px] max-h-[600px] overflow-hidden">
+          <img
+            src={project.heroImageUrl}
+            alt={project.projectAddress}
+            className="w-full h-full object-cover"
+          />
+          {/* Gradient overlay */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "linear-gradient(to bottom, rgba(32,62,74,0.15) 0%, rgba(32,62,74,0.5) 50%, rgba(32,62,74,0.88) 100%)"
+            }}
+          />
+          {/* Content */}
+          <div className="absolute inset-0 flex flex-col justify-end">
+            <div className="max-w-6xl mx-auto px-4 sm:px-8 pb-10 w-full">
+              <div
+                className="text-white/60 text-xs mb-3"
+                style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.3em" }}
+              >
+                {[project.projectType, project.buildType].filter(Boolean).join(" · ").toUpperCase() || "RESIDENTIAL · NEW BUILD"}
               </div>
-              <h1 className="text-white text-2xl sm:text-4xl mb-1" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", fontWeight: 400 }}>
+              <h1
+                className="text-white text-3xl sm:text-5xl mb-2 leading-tight"
+                style={{ fontFamily: "'Playfair Display SC', Georgia, serif", fontWeight: 400 }}
+              >
                 {project.clientName}
               </h1>
-              <p className="text-white/80 text-sm" style={{ fontFamily: "Lato, sans-serif" }}>
+              <p className="text-white/75 text-sm sm:text-base" style={{ fontFamily: "Lato, sans-serif" }}>
                 {project.projectAddress}
               </p>
             </div>
           </div>
         </div>
-      ) : (
-        <div className="h-40 flex flex-col justify-end p-6">
-          <div className="max-w-5xl mx-auto w-full">
-            <div className="text-muted-foreground text-xs tracking-[0.25em] uppercase mb-2" style={{ fontFamily: "Lato, sans-serif" }}>
-              {project.projectType || "Residential"} &bull; {project.buildType || "New Build"}
-            </div>
-            <h1 className="text-2xl sm:text-3xl mb-1" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)", fontWeight: 400 }}>
-              {project.clientName}
-            </h1>
-            <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
-              {project.projectAddress}
-            </p>
-          </div>
+      </section>
+    );
+  }
+
+  // No hero image fallback
+  return (
+    <section
+      className="py-16 sm:py-24"
+      style={{ background: "var(--bm-petrol)" }}
+    >
+      <div className="max-w-6xl mx-auto px-4 sm:px-8">
+        <div
+          className="text-white/50 text-xs mb-3"
+          style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.3em" }}
+        >
+          {[project.projectType, project.buildType].filter(Boolean).join(" · ").toUpperCase() || "RESIDENTIAL · NEW BUILD"}
         </div>
-      )}
+        <h1
+          className="text-white text-3xl sm:text-5xl mb-2 leading-tight"
+          style={{ fontFamily: "'Playfair Display SC', Georgia, serif", fontWeight: 400 }}
+        >
+          {project.clientName}
+        </h1>
+        <p className="text-white/70 text-sm sm:text-base" style={{ fontFamily: "Lato, sans-serif" }}>
+          {project.projectAddress}
+        </p>
+      </div>
     </section>
   );
 }
 
-// ─── Proposal Summary ──────────────────────────────────────────────────────────
-function ProposalSummary({ project, upgradeTotal }: { project: any; upgradeTotal: number }) {
+// ─── Proposal Summary Bar ──────────────────────────────────────────────────────
+function ProposalSummaryBar({ project, upgradeTotal }: { project: any; upgradeTotal: number }) {
+  const basePrice = Number(project.baseContractPrice || 0);
+  const total = basePrice + upgradeTotal;
+
   return (
-    <section className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <div className="bg-white border rounded p-5" style={{ borderColor: "var(--border)" }}>
-          <div className="text-xs tracking-wider uppercase mb-2" style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif" }}>Proposal</div>
-          <div className="text-sm font-medium" style={{ fontFamily: "Lato, sans-serif" }}>#{project.proposalNumber}</div>
+    <section style={{ background: "white", borderBottom: "1px solid var(--border)" }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
+          {/* Proposal number */}
+          <div>
+            <div
+              className="text-xs mb-1.5"
+              style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif", letterSpacing: "0.15em" }}
+            >
+              PROPOSAL
+            </div>
+            <div className="text-base font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>
+              #{project.proposalNumber}
+            </div>
+          </div>
+
+          {/* Base contract */}
+          <div>
+            <div
+              className="text-xs mb-1.5"
+              style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif", letterSpacing: "0.15em" }}
+            >
+              BASE CONTRACT
+            </div>
+            <div
+              className="text-xl"
+              style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)", fontWeight: 400 }}
+            >
+              ${basePrice.toLocaleString("en-AU")}
+            </div>
+          </div>
+
+          {/* Upgrades */}
+          <div>
+            <div
+              className="text-xs mb-1.5"
+              style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif", letterSpacing: "0.15em" }}
+            >
+              SELECTED UPGRADES
+            </div>
+            <div
+              className="text-xl"
+              style={{
+                fontFamily: "'Playfair Display SC', Georgia, serif",
+                color: upgradeTotal > 0 ? "var(--bm-petrol)" : "var(--muted-foreground)",
+                fontWeight: 400
+              }}
+            >
+              {upgradeTotal > 0 ? `+$${upgradeTotal.toLocaleString("en-AU")}` : "—"}
+            </div>
+          </div>
+
+          {/* Expiry */}
+          {project.tenderExpiryDate ? (
+            <div>
+              <div
+                className="text-xs mb-1.5"
+                style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif", letterSpacing: "0.15em" }}
+              >
+                TENDER EXPIRY
+              </div>
+              <div
+                className="text-sm flex items-center gap-1.5"
+                style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}
+              >
+                <Clock size={13} />
+                {new Date(project.tenderExpiryDate).toLocaleDateString("en-AU", {
+                  day: "numeric", month: "long", year: "numeric"
+                })}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div
+                className="text-xs mb-1.5"
+                style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif", letterSpacing: "0.15em" }}
+              >
+                ESTIMATED TOTAL
+              </div>
+              <div
+                className="text-xl"
+                style={{
+                  fontFamily: "'Playfair Display SC', Georgia, serif",
+                  color: "var(--bm-petrol)",
+                  fontWeight: 400
+                }}
+              >
+                ${total.toLocaleString("en-AU")}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="bg-white border rounded p-5" style={{ borderColor: "var(--border)" }}>
-          <div className="text-xs tracking-wider uppercase mb-2" style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif" }}>Base Contract</div>
-          <div className="text-xl font-light" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)" }}>
-            ${Number(project.baseContractPrice || 0).toLocaleString("en-AU")}
-          </div>
-        </div>
-        {upgradeTotal > 0 && (
-          <div className="bg-white border-2 rounded p-5 col-span-2 sm:col-span-1" style={{ borderColor: "var(--bm-petrol)" }}>
-            <div className="text-xs tracking-wider uppercase mb-2" style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif" }}>Selected Upgrades</div>
-            <div className="text-xl font-light" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)" }}>
-              +${upgradeTotal.toLocaleString("en-AU")}
-            </div>
-          </div>
-        )}
-        {project.tenderExpiryDate && (
-          <div className="bg-amber-50 border border-amber-200 rounded p-5 col-span-2 sm:col-span-1">
-            <div className="flex items-center gap-1.5 text-xs tracking-wider uppercase mb-2 text-amber-700" style={{ fontFamily: "Lato, sans-serif" }}>
-              <Clock size={12} /> Tender Expiry
-            </div>
-            <div className="text-sm font-medium text-amber-800" style={{ fontFamily: "Lato, sans-serif" }}>
-              {new Date(project.tenderExpiryDate).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}
-            </div>
-          </div>
-        )}
       </div>
     </section>
+  );
+}
+
+// ─── Section Heading ───────────────────────────────────────────────────────────
+function SectionHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div className="mb-8 sm:mb-10">
+      <div
+        className="text-xs mb-2"
+        style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif", letterSpacing: "0.3em" }}
+      >
+        {eyebrow.toUpperCase()}
+      </div>
+      <h2
+        className="text-2xl sm:text-3xl"
+        style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)", fontWeight: 400 }}
+      >
+        {title}
+      </h2>
+      <div className="w-10 h-px mt-4" style={{ background: "var(--bm-petrol)" }} />
+    </div>
   );
 }
 
@@ -119,46 +257,76 @@ function InclusionsSection({ token }: { token: string }) {
 
   if (!sections?.length) return null;
 
+  const toggleSection = (id: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
   return (
-    <section className="max-w-5xl mx-auto px-4 sm:px-6 py-8 border-t" style={{ borderColor: "var(--border)" }}>
-      <div className="mb-6">
-        <div className="text-xs tracking-[0.25em] uppercase mb-2" style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif" }}>What's Included</div>
-        <h2 className="text-2xl" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)", fontWeight: 400 }}>
-          Base Inclusions
-        </h2>
-        <div className="w-12 h-px mt-3" style={{ background: "var(--bm-petrol)" }} />
-      </div>
-      <div className="space-y-2">
-        {sections.map((section) => {
-          const isOpen = expanded.has(section.id);
-          return (
-            <div key={section.id} className="bg-white border rounded overflow-hidden" style={{ borderColor: "var(--border)" }}>
-              <button
-                className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-secondary/50 transition-colors"
-                onClick={() => {
-                  const next = new Set(expanded);
-                  isOpen ? next.delete(section.id) : next.add(section.id);
-                  setExpanded(next);
-                }}
+    <section className="py-12 sm:py-16" style={{ background: "white" }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-8">
+        <SectionHeading eyebrow="What's Included" title="Base Inclusions" />
+        <div className="space-y-3">
+          {sections.map((section) => {
+            const isOpen = expanded.has(section.id);
+            return (
+              <div
+                key={section.id}
+                className="overflow-hidden rounded"
+                style={{ border: "1px solid var(--border)" }}
               >
-                <span className="font-medium text-sm" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>{section.title}</span>
-                {isOpen ? <ChevronUp size={16} className="text-muted-foreground shrink-0" /> : <ChevronDown size={16} className="text-muted-foreground shrink-0" />}
-              </button>
-              {isOpen && (
-                <div className="px-5 pb-5 border-t" style={{ borderColor: "var(--border)" }}>
-                  {section.imageUrl && (
-                    <img src={section.imageUrl} alt={section.title} className="w-full h-48 object-cover rounded mt-4 mb-4" />
-                  )}
-                  {section.description && (
-                    <p className="text-sm text-muted-foreground leading-relaxed mt-4" style={{ fontFamily: "Lato, sans-serif" }}>
-                      {section.description}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                <button
+                  className="w-full flex items-center justify-between px-6 py-5 text-left transition-colors"
+                  style={{
+                    background: isOpen ? "var(--bm-petrol)" : "white",
+                    fontFamily: "Lato, sans-serif"
+                  }}
+                  onClick={() => toggleSection(section.id)}
+                >
+                  <span
+                    className="font-medium text-sm tracking-wide"
+                    style={{
+                      color: isOpen ? "white" : "var(--bm-petrol)",
+                      letterSpacing: "0.05em"
+                    }}
+                  >
+                    {section.title.toUpperCase()}
+                  </span>
+                  {isOpen
+                    ? <ChevronUp size={16} style={{ color: "white" }} className="shrink-0" />
+                    : <ChevronDown size={16} style={{ color: "var(--bm-bluegum)" }} className="shrink-0" />
+                  }
+                </button>
+                {isOpen && (
+                  <div className="border-t" style={{ borderColor: "var(--border)" }}>
+                    {section.imageUrl && (
+                      <div className="w-full h-56 sm:h-72 overflow-hidden">
+                        <img
+                          src={section.imageUrl}
+                          alt={section.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    {section.description && (
+                      <div className="px-6 py-5">
+                        <p
+                          className="text-sm leading-relaxed"
+                          style={{ fontFamily: "Lato, sans-serif", color: "var(--foreground)", lineHeight: "1.8" }}
+                        >
+                          {section.description}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
@@ -178,7 +346,7 @@ function UpgradesSection({
   const { data: options } = trpc.portal.getUpgradeOptions.useQuery({ token });
   const { data: existingSelections } = trpc.portal.getMySelections.useQuery({ token });
 
-  const [selections, setSelections] = useState<Record<number, number>>({}); // groupId -> optionId
+  const [selections, setSelections] = useState<Record<number, number>>({});
   const [revealedImages, setRevealedImages] = useState<Set<number>>(new Set());
   const [initialised, setInitialised] = useState(false);
 
@@ -211,7 +379,8 @@ function UpgradesSection({
     saveSelectionMutation.mutate({ token, upgradeOptionId: optionId, selected: true });
   };
 
-  const toggleImage = (optId: number) => {
+  const toggleImage = (optId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
     setRevealedImages((prev) => {
       const next = new Set(prev);
       next.has(optId) ? next.delete(optId) : next.add(optId);
@@ -222,169 +391,339 @@ function UpgradesSection({
   if (!groups?.length) return null;
 
   return (
-    <section className="max-w-5xl mx-auto px-4 sm:px-6 py-8 border-t" style={{ borderColor: "var(--border)" }}>
-      <div className="mb-6">
-        <div className="text-xs tracking-[0.25em] uppercase mb-2" style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif" }}>Personalise Your Home</div>
-        <h2 className="text-2xl" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)", fontWeight: 400 }}>
-          Upgrade Options
-        </h2>
-        <div className="w-12 h-px mt-3" style={{ background: "var(--bm-petrol)" }} />
+    <section className="py-12 sm:py-16" style={{ background: "var(--bm-cream)" }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-8">
+        <SectionHeading eyebrow="Personalise Your Home" title="Upgrade Options" />
+
         {isLocked && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 w-fit">
-            <AlertCircle size={14} />
-            <span style={{ fontFamily: "Lato, sans-serif" }}>Upgrade selections are locked for this project.</span>
+          <div
+            className="mb-8 flex items-center gap-3 px-5 py-4 rounded"
+            style={{ background: "white", border: "1px solid var(--border)" }}
+          >
+            <Lock size={15} style={{ color: "var(--bm-petrol)" }} className="shrink-0" />
+            <p className="text-sm" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>
+              Upgrade selections are locked for this project. Please contact your B Modern representative.
+            </p>
           </div>
         )}
-      </div>
 
-      <div className="space-y-8">
-        {groups.map((group: any) => {
-          const groupOptions = options?.filter((o: any) => o.groupId === group.id) || [];
-          const selectedId = selections[group.id];
-          return (
-            <div key={group.id}>
-              <h3 className="text-sm tracking-wider uppercase mb-3" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif", fontWeight: 700 }}>
-                {group.category}
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {groupOptions.map((opt: any) => {
-                  const isSelected = selectedId === opt.id;
-                  const showImg = revealedImages.has(opt.id);
-                  return (
-                    <div
-                      key={opt.id}
-                      className={`bg-white border rounded overflow-hidden cursor-pointer transition-all ${isSelected ? "border-2 shadow-sm" : "hover:border-[var(--bm-bluegum)]"}`}
-                      style={{ borderColor: isSelected ? "var(--bm-petrol)" : "var(--border)" }}
-                      onClick={() => selectOption(group.id, opt.id)}
-                    >
-                      {opt.imageUrl && (
-                        <div className="relative">
-                          {showImg ? (
-                            <img src={opt.imageUrl} alt={opt.optionName} className="w-full h-36 object-cover" />
-                          ) : (
-                            <div className="w-full h-36 bg-secondary flex items-center justify-center">
+        <div className="space-y-10">
+          {groups.map((group: any) => {
+            const groupOptions = options?.filter((o: any) => o.groupId === group.id) || [];
+            const selectedId = selections[group.id];
+            return (
+              <div key={group.id}>
+                <div className="flex items-center gap-4 mb-4">
+                  <h3
+                    className="text-xs tracking-widest"
+                    style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif", fontWeight: 700 }}
+                  >
+                    {group.category.toUpperCase()}
+                  </h3>
+                  <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {groupOptions.map((opt: any) => {
+                    const isSelected = selectedId === opt.id;
+                    const showImg = revealedImages.has(opt.id);
+                    return (
+                      <div
+                        key={opt.id}
+                        className="rounded overflow-hidden cursor-pointer transition-all"
+                        style={{
+                          background: "white",
+                          border: isSelected ? `2px solid var(--bm-petrol)` : "1px solid var(--border)",
+                          boxShadow: isSelected ? "0 4px 20px rgba(32,62,74,0.12)" : "none",
+                          transform: isSelected ? "translateY(-1px)" : "none",
+                        }}
+                        onClick={() => selectOption(group.id, opt.id)}
+                      >
+                        {/* Image area */}
+                        <div className="relative w-full h-44 bg-secondary overflow-hidden">
+                          {opt.imageUrl ? (
+                            showImg ? (
+                              <>
+                                <img
+                                  src={opt.imageUrl}
+                                  alt={opt.optionName}
+                                  className="w-full h-full object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => toggleImage(opt.id, e)}
+                                  className="absolute top-2 right-2 rounded-full p-1.5 transition-colors"
+                                  style={{ background: "rgba(0,0,0,0.5)", color: "white" }}
+                                >
+                                  <EyeOff size={13} />
+                                </button>
+                              </>
+                            ) : (
                               <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); toggleImage(opt.id); }}
-                                className="flex flex-col items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                                onClick={(e) => toggleImage(opt.id, e)}
+                                className="w-full h-full flex flex-col items-center justify-center gap-2 transition-colors hover:bg-secondary/80"
+                                style={{ fontFamily: "Lato, sans-serif" }}
                               >
-                                <Eye size={20} />
-                                <span className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>View Image</span>
+                                <Eye size={22} style={{ color: "var(--bm-bluegum)" }} />
+                                <span className="text-xs" style={{ color: "var(--bm-bluegum)", letterSpacing: "0.1em" }}>
+                                  VIEW IMAGE
+                                </span>
                               </button>
+                            )
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>No image</span>
                             </div>
-                          )}
-                          {showImg && (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); toggleImage(opt.id); }}
-                              className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
-                            >
-                              <EyeOff size={12} />
-                            </button>
                           )}
                         </div>
-                      )}
-                      <div className="p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <span className="text-sm font-medium" style={{ fontFamily: "Lato, sans-serif" }}>{opt.optionName}</span>
-                              {opt.isIncluded && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-green-50 text-green-700" style={{ fontFamily: "Lato, sans-serif" }}>Included</span>
-                              )}
-                            </div>
-                            {opt.description && (
-                              <p className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>{opt.description}</p>
-                            )}
-                          </div>
-                          <div className="shrink-0 flex flex-col items-end gap-1">
-                            {!opt.isIncluded && Number(opt.priceDelta) > 0 && (
-                              <span className="text-xs font-medium" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>
-                                +${Number(opt.priceDelta).toLocaleString("en-AU")}
-                              </span>
-                            )}
+
+                        {/* Content */}
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <span
+                              className="text-sm font-medium leading-tight"
+                              style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}
+                            >
+                              {opt.optionName}
+                            </span>
                             <div
-                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all`}
-                              style={{ borderColor: isSelected ? "var(--bm-petrol)" : "oklch(75% 0.008 60)", background: isSelected ? "var(--bm-petrol)" : "transparent" }}
+                              className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all"
+                              style={{
+                                borderColor: isSelected ? "var(--bm-petrol)" : "var(--border)",
+                                background: isSelected ? "var(--bm-petrol)" : "transparent"
+                              }}
                             >
                               {isSelected && <Check size={11} className="text-white" />}
                             </div>
                           </div>
+                          {opt.description && (
+                            <p
+                              className="text-xs text-muted-foreground leading-relaxed mb-2"
+                              style={{ fontFamily: "Lato, sans-serif" }}
+                            >
+                              {opt.description}
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between mt-2">
+                            {opt.isIncluded ? (
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full"
+                                style={{
+                                  background: "rgba(32,62,74,0.08)",
+                                  color: "var(--bm-petrol)",
+                                  fontFamily: "Lato, sans-serif",
+                                  letterSpacing: "0.05em"
+                                }}
+                              >
+                                Included
+                              </span>
+                            ) : Number(opt.priceDelta) > 0 ? (
+                              <span
+                                className="text-xs font-semibold"
+                                style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
+                              >
+                                +${Number(opt.priceDelta).toLocaleString("en-AU")}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                                No additional cost
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </section>
   );
 }
 
-// ─── Submit Upgrades ───────────────────────────────────────────────────────────
+// ─── Sticky Upgrade Total Bar ──────────────────────────────────────────────────
+function StickyUpgradeBar({
+  upgradeTotal,
+  basePrice,
+  isLocked,
+  onSubmit,
+  isSubmitting,
+  isSubmitted,
+}: {
+  upgradeTotal: number;
+  basePrice: number;
+  isLocked: boolean;
+  onSubmit: () => void;
+  isSubmitting: boolean;
+  isSubmitted: boolean;
+}) {
+  if (upgradeTotal === 0 && !isSubmitted) return null;
+
+  return (
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 px-4 py-3 sm:py-4"
+      style={{
+        background: "var(--bm-petrol)",
+        boxShadow: "0 -4px 20px rgba(0,0,0,0.15)"
+      }}
+    >
+      <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
+          <div>
+            <div
+              className="text-white/60 text-xs mb-0.5"
+              style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.15em" }}
+            >
+              UPGRADE TOTAL
+            </div>
+            <div
+              className="text-white text-lg"
+              style={{ fontFamily: "'Playfair Display SC', Georgia, serif", fontWeight: 400 }}
+            >
+              +${upgradeTotal.toLocaleString("en-AU")}
+            </div>
+          </div>
+          <div className="hidden sm:block w-px h-8 bg-white/20" />
+          <div className="hidden sm:block">
+            <div
+              className="text-white/60 text-xs mb-0.5"
+              style={{ fontFamily: "Lato, sans-serif", letterSpacing: "0.15em" }}
+            >
+              ESTIMATED TOTAL
+            </div>
+            <div
+              className="text-white text-lg"
+              style={{ fontFamily: "'Playfair Display SC', Georgia, serif", fontWeight: 400 }}
+            >
+              ${(basePrice + upgradeTotal).toLocaleString("en-AU")}
+            </div>
+          </div>
+        </div>
+
+        {!isLocked && (
+          isSubmitted ? (
+            <div className="flex items-center gap-2 text-white/80 text-sm" style={{ fontFamily: "Lato, sans-serif" }}>
+              <Check size={15} />
+              Selections submitted
+            </div>
+          ) : (
+            <Button
+              onClick={onSubmit}
+              disabled={isSubmitting}
+              className="gap-2 text-xs tracking-widest uppercase"
+              style={{
+                background: "white",
+                color: "var(--bm-petrol)",
+                fontFamily: "Lato, sans-serif",
+                fontWeight: 700,
+                minWidth: "160px"
+              }}
+            >
+              <Send size={13} />
+              {isSubmitting ? "Submitting..." : "Submit Selections"}
+            </Button>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Submit Upgrades Section ───────────────────────────────────────────────────
 function SubmitUpgradesSection({
   token,
   upgradeTotal,
   isLocked,
+  onSubmitted,
 }: {
   token: string;
   upgradeTotal: number;
   isLocked: boolean;
+  onSubmitted: (submitted: boolean) => void;
 }) {
+  const utils = trpc.useUtils();
   const { data: existing } = trpc.portal.getSubmission.useQuery({ token });
   const submitMutation = trpc.portal.submitSelections.useMutation({
-    onSuccess: () => toast.success("Your selections have been submitted. We will be in touch shortly."),
+    onSuccess: () => {
+      utils.portal.getSubmission.invalidate();
+      toast.success("Your selections have been submitted. We will be in touch shortly.");
+      onSubmitted(true);
+    },
     onError: (e) => toast.error(e.message),
   });
 
+  useEffect(() => {
+    if (existing) onSubmitted(true);
+  }, [existing]);
+
   if (isLocked) return null;
-  if (existing) {
-    return (
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-        <div className="bg-green-50 border border-green-200 rounded p-4 flex items-center gap-3">
-          <Check size={16} className="text-green-600 shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-green-800" style={{ fontFamily: "Lato, sans-serif" }}>
-              Selections submitted on {new Date(existing.submittedAt).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}
-            </p>
-            {Number(existing.totalUpgradeCost) > 0 && (
-              <p className="text-xs text-green-700" style={{ fontFamily: "Lato, sans-serif" }}>
-                Total upgrade cost: ${Number(existing.totalUpgradeCost).toLocaleString("en-AU")}
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
-    );
-  }
 
   return (
-    <section className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-      <div className="bg-white border-2 rounded p-6" style={{ borderColor: "var(--bm-petrol)" }}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-base mb-1" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)" }}>
-              Submit Your Selections
-            </h3>
-            {upgradeTotal > 0 && (
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
-                Total upgrade cost: <strong style={{ color: "var(--bm-petrol)" }}>${upgradeTotal.toLocaleString("en-AU")}</strong>
-              </p>
-            )}
-          </div>
-          <Button
-            onClick={() => submitMutation.mutate({ token, totalUpgradeCost: upgradeTotal.toString() })}
-            disabled={submitMutation.isPending}
-            className="gap-2 text-xs tracking-wider uppercase shrink-0"
-            style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
+    <section className="py-8 sm:py-10" style={{ background: "white", borderTop: "1px solid var(--border)" }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-8">
+        {existing ? (
+          <div
+            className="flex items-start gap-4 p-5 rounded"
+            style={{ background: "rgba(32,62,74,0.05)", border: "1px solid rgba(32,62,74,0.15)" }}
           >
-            <Send size={14} />
-            {submitMutation.isPending ? "Submitting..." : "Submit Selections"}
-          </Button>
-        </div>
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: "var(--bm-petrol)" }}
+            >
+              <Check size={15} className="text-white" />
+            </div>
+            <div>
+              <p
+                className="text-sm font-medium mb-0.5"
+                style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}
+              >
+                Selections submitted on{" "}
+                {new Date(existing.submittedAt).toLocaleDateString("en-AU", {
+                  day: "numeric", month: "long", year: "numeric"
+                })}
+              </p>
+              {Number(existing.totalUpgradeCost) > 0 && (
+                <p className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                  Total upgrade cost: ${Number(existing.totalUpgradeCost).toLocaleString("en-AU")}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: "Lato, sans-serif" }}>
+                You can continue to adjust your selections until the tender is finalised.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded"
+            style={{ border: "2px solid var(--bm-petrol)" }}
+          >
+            <div>
+              <h3
+                className="text-base mb-1"
+                style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)" }}
+              >
+                Ready to Submit?
+              </h3>
+              <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                {upgradeTotal > 0
+                  ? `Your selected upgrades total $${upgradeTotal.toLocaleString("en-AU")}. Submit to notify the B Modern team.`
+                  : "Submit your selections to notify the B Modern team."}
+              </p>
+            </div>
+            <Button
+              onClick={() => submitMutation.mutate({ token, totalUpgradeCost: upgradeTotal.toString() })}
+              disabled={submitMutation.isPending}
+              className="gap-2 text-xs tracking-widest uppercase shrink-0"
+              style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif", minWidth: "160px" }}
+            >
+              <Send size={13} />
+              {submitMutation.isPending ? "Submitting..." : "Submit Selections"}
+            </Button>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -395,7 +734,10 @@ function FileUploadSection({ token }: { token: string }) {
   const utils = trpc.useUtils();
   const { data: files } = trpc.portal.getMyFiles.useQuery({ token });
   const uploadMutation = trpc.portal.uploadFile.useMutation({
-    onSuccess: () => { utils.portal.getMyFiles.invalidate(); toast.success("File uploaded successfully"); },
+    onSuccess: () => {
+      utils.portal.getMyFiles.invalidate();
+      toast.success("File uploaded successfully");
+    },
     onError: (e) => toast.error(e.message),
   });
 
@@ -407,13 +749,22 @@ function FileUploadSection({ token }: { token: string }) {
     if (!fileList?.length) return;
     setUploading(true);
     for (const file of Array.from(fileList)) {
-      if (file.size > 20 * 1024 * 1024) { toast.error(`${file.name} is too large (max 20MB)`); continue; }
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error(`${file.name} exceeds the 20MB limit`);
+        continue;
+      }
       const reader = new FileReader();
       await new Promise<void>((resolve) => {
         reader.onload = async (ev: ProgressEvent<FileReader>) => {
           try {
             const base64 = (ev.target?.result as string).split(",")[1];
-            await uploadMutation.mutateAsync({ token, fileName: file.name, mimeType: file.type, fileData: base64, fileSizeBytes: file.size });
+            await uploadMutation.mutateAsync({
+              token,
+              fileName: file.name,
+              mimeType: file.type,
+              fileData: base64,
+              fileSizeBytes: file.size,
+            });
           } catch {}
           resolve();
         };
@@ -424,57 +775,75 @@ function FileUploadSection({ token }: { token: string }) {
   };
 
   return (
-    <section className="max-w-5xl mx-auto px-4 sm:px-6 py-8 border-t" style={{ borderColor: "var(--border)" }}>
-      <div className="mb-6">
-        <div className="text-xs tracking-[0.25em] uppercase mb-2" style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif" }}>Post Contract</div>
-        <h2 className="text-2xl" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)", fontWeight: 400 }}>
-          Plan Amendments
-        </h2>
-        <div className="w-12 h-px mt-3 mb-4" style={{ background: "var(--bm-petrol)" }} />
-        <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
-          Upload any amended plans or documents here. B Modern will review and issue variations as required.
-        </p>
-      </div>
-
-      <div
-        className={`border-2 border-dashed rounded p-8 text-center transition-colors`}
-        style={{ borderColor: dragging ? "var(--bm-petrol)" : "var(--border)", background: dragging ? "var(--bm-stone)" : "transparent" }}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
-      >
-        <Upload size={24} className="mx-auto mb-3 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground mb-3" style={{ fontFamily: "Lato, sans-serif" }}>
-          {uploading ? "Uploading..." : "Drag and drop files here, or click to browse"}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="text-xs tracking-wider uppercase"
-          style={{ fontFamily: "Lato, sans-serif" }}
+    <section className="py-12 sm:py-16" style={{ background: "white" }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-8">
+        <SectionHeading eyebrow="Post Contract" title="Plan Amendments" />
+        <p
+          className="text-sm text-muted-foreground mb-6 -mt-4"
+          style={{ fontFamily: "Lato, sans-serif", lineHeight: "1.7" }}
         >
-          Browse Files
-        </Button>
-        <p className="text-xs text-muted-foreground mt-2" style={{ fontFamily: "Lato, sans-serif" }}>PDF, DWG, JPG, PNG up to 20MB</p>
-        <input ref={fileRef} type="file" multiple className="hidden" accept=".pdf,.dwg,.jpg,.jpeg,.png,.webp" onChange={(e) => handleFiles(e.target.files)} />
-      </div>
+          Upload any amended plans or documents here. The B Modern team will review and issue variations as required.
+        </p>
 
-      {files && files.length > 0 && (
-        <div className="mt-4 space-y-2">
-          {files.map((f: any) => (
-            <div key={f.id} className="flex items-center gap-3 bg-white border rounded px-4 py-2.5" style={{ borderColor: "var(--border)" }}>
-              <FileText size={15} className="text-muted-foreground shrink-0" />
-              <span className="text-sm flex-1 truncate" style={{ fontFamily: "Lato, sans-serif" }}>{f.fileName}</span>
-              <span className="text-xs text-muted-foreground shrink-0" style={{ fontFamily: "Lato, sans-serif" }}>
-                {new Date(f.uploadedAt).toLocaleDateString("en-AU")}
-              </span>
-              <a href={f.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline shrink-0" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>View</a>
-            </div>
-          ))}
+        <div
+          className="rounded p-8 text-center transition-all cursor-pointer"
+          style={{
+            border: `2px dashed ${dragging ? "var(--bm-petrol)" : "var(--border)"}`,
+            background: dragging ? "rgba(32,62,74,0.04)" : "var(--bm-cream)",
+          }}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
+          onClick={() => fileRef.current?.click()}
+        >
+          <Upload size={28} className="mx-auto mb-3" style={{ color: "var(--bm-bluegum)" }} />
+          <p className="text-sm mb-1" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>
+            {uploading ? "Uploading..." : "Drag and drop files here, or click to browse"}
+          </p>
+          <p className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+            PDF, DWG, JPG, PNG — up to 20MB per file
+          </p>
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept=".pdf,.dwg,.jpg,.jpeg,.png,.webp"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
         </div>
-      )}
+
+        {files && files.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {files.map((f: any) => (
+              <div
+                key={f.id}
+                className="flex items-center gap-3 px-4 py-3 rounded"
+                style={{ background: "white", border: "1px solid var(--border)" }}
+              >
+                <FileText size={15} style={{ color: "var(--bm-bluegum)" }} className="shrink-0" />
+                <span className="text-sm flex-1 truncate" style={{ fontFamily: "Lato, sans-serif" }}>{f.fileName}</span>
+                <span
+                  className="text-xs text-muted-foreground shrink-0"
+                  style={{ fontFamily: "Lato, sans-serif" }}
+                >
+                  {new Date(f.uploadedAt).toLocaleDateString("en-AU")}
+                </span>
+                <a
+                  href={f.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs hover:underline shrink-0"
+                  style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -496,82 +865,114 @@ function ChangeRequestSection({ token }: { token: string }) {
   });
 
   const CATEGORIES = [
-    "Structural Change", "Foundation / Slab", "External Finishes", "Roof Change",
-    "Window / Door Change", "Floor Plan Modification", "Other Significant Change",
+    "Structural Change",
+    "Foundation / Slab",
+    "External Finishes",
+    "Roof Change",
+    "Window / Door Change",
+    "Floor Plan Modification",
+    "Other Significant Change",
   ];
 
   return (
-    <section className="max-w-5xl mx-auto px-4 sm:px-6 py-8 border-t" style={{ borderColor: "var(--border)" }}>
-      <div className="mb-6">
-        <div className="text-xs tracking-[0.25em] uppercase mb-2" style={{ color: "var(--bm-bluegum)", fontFamily: "Lato, sans-serif" }}>Variations</div>
-        <h2 className="text-2xl" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)", fontWeight: 400 }}>
-          Change Requests
-        </h2>
-        <div className="w-12 h-px mt-3 mb-4" style={{ background: "var(--bm-petrol)" }} />
-        <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
-          For significant structural changes that may affect the base contract price, submit a formal change request below.
+    <section
+      className="py-12 sm:py-16"
+      style={{ background: "var(--bm-cream)", borderTop: "1px solid var(--border)" }}
+    >
+      <div className="max-w-6xl mx-auto px-4 sm:px-8">
+        <SectionHeading eyebrow="Variations" title="Change Requests" />
+        <p
+          className="text-sm text-muted-foreground mb-6 -mt-4"
+          style={{ fontFamily: "Lato, sans-serif", lineHeight: "1.7" }}
+        >
+          For significant structural changes that may affect the base contract price, submit a formal change request.
+          The B Modern team will review and contact you regarding any variation.
         </p>
-      </div>
-      <Button
-        onClick={() => setOpen(true)}
-        variant="outline"
-        className="gap-2 text-xs tracking-wider uppercase"
-        style={{ borderColor: "var(--bm-petrol)", color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
-      >
-        <Plus size={14} />
-        Submit Change Request
-      </Button>
+        <Button
+          onClick={() => setOpen(true)}
+          variant="outline"
+          className="gap-2 text-xs tracking-widest uppercase"
+          style={{
+            borderColor: "var(--bm-petrol)",
+            color: "var(--bm-petrol)",
+            fontFamily: "Lato, sans-serif",
+            fontWeight: 700
+          }}
+        >
+          <Plus size={14} />
+          Submit Change Request
+        </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)" }}>
-              Change Request
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
-              This request will be sent to the B Modern team for review. You will be contacted regarding any variation to the contract price.
-            </p>
-            <div className="space-y-1.5">
-              <label className="text-xs tracking-wider uppercase" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Category</label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="h-9 text-sm" style={{ fontFamily: "Lato, sans-serif" }}>
-                  <SelectValue placeholder="Select change type..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c} style={{ fontFamily: "Lato, sans-serif" }}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs tracking-wider uppercase" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Description</label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the change you'd like to make..."
-                rows={4}
-                className="text-sm resize-none"
-                style={{ fontFamily: "Lato, sans-serif" }}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => submitMutation.mutate({ token, category, description })}
-                disabled={!category || !description || submitMutation.isPending}
-                className="flex-1 text-xs tracking-wider uppercase gap-2"
-                style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle
+                style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)" }}
               >
-                <Send size={13} />
-                {submitMutation.isPending ? "Submitting..." : "Submit Request"}
-              </Button>
-              <Button variant="outline" onClick={() => setOpen(false)} className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>Cancel</Button>
+                Change Request
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                This request will be sent to the B Modern team for review. You will be contacted regarding any variation to the contract price.
+              </p>
+              <div className="space-y-1.5">
+                <label
+                  className="text-xs tracking-wider uppercase"
+                  style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
+                >
+                  Category
+                </label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="h-10 text-sm" style={{ fontFamily: "Lato, sans-serif" }}>
+                    <SelectValue placeholder="Select change type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c} style={{ fontFamily: "Lato, sans-serif" }}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label
+                  className="text-xs tracking-wider uppercase"
+                  style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
+                >
+                  Description
+                </label>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe the change you'd like to make..."
+                  rows={4}
+                  className="text-sm resize-none"
+                  style={{ fontFamily: "Lato, sans-serif" }}
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button
+                  onClick={() => submitMutation.mutate({ token, category, description })}
+                  disabled={!category || !description || submitMutation.isPending}
+                  className="flex-1 text-xs tracking-widest uppercase gap-2"
+                  style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}
+                >
+                  <Send size={13} />
+                  {submitMutation.isPending ? "Submitting..." : "Submit Request"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                  className="text-xs"
+                  style={{ fontFamily: "Lato, sans-serif" }}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      </div>
     </section>
   );
 }
@@ -585,6 +986,17 @@ export default function ClientPortal() {
 
   const [upgradeTotal, setUpgradeTotal] = useState(0);
   const [upgradeSelections, setUpgradeSelections] = useState<Record<number, number>>({});
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  const utils = trpc.useUtils();
+  const submitMutation = trpc.portal.submitSelections.useMutation({
+    onSuccess: () => {
+      utils.portal.getSubmission.invalidate();
+      toast.success("Your selections have been submitted. We will be in touch shortly.");
+      setIsSubmitted(true);
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const handleSelectionChange = (total: number, selections: Record<number, number>) => {
     setUpgradeTotal(total);
@@ -595,8 +1007,13 @@ export default function ClientPortal() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bm-cream)" }}>
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[var(--bm-petrol)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>Loading your proposal...</p>
+          <div
+            className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+            style={{ borderColor: "var(--bm-petrol)", borderTopColor: "transparent" }}
+          />
+          <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+            Loading your proposal...
+          </p>
         </div>
       </div>
     );
@@ -606,11 +1023,19 @@ export default function ClientPortal() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bm-cream)" }}>
         <div className="text-center max-w-sm px-6">
-          <div className="text-xs tracking-[0.3em] uppercase mb-6" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>B Modern Homes</div>
-          <h1 className="text-xl mb-3" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)" }}>
+          <img
+            src={LOGO_URL}
+            alt="B Modern Homes"
+            className="h-8 mx-auto mb-8 object-contain"
+            style={{ filter: "brightness(0) saturate(100%) invert(18%) sepia(28%) saturate(700%) hue-rotate(162deg) brightness(95%) contrast(95%)" }}
+          />
+          <h1
+            className="text-xl mb-3"
+            style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)" }}
+          >
             Access Unavailable
           </h1>
-          <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+          <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif", lineHeight: "1.7" }}>
             This link is invalid or has expired. Please contact your B Modern representative for assistance.
           </p>
         </div>
@@ -620,29 +1045,58 @@ export default function ClientPortal() {
 
   const isLocked = !!project.portalLockedAt;
   const isPostContract = project.status === "contract_signed" || project.status === "post_contract";
+  const basePrice = Number(project.baseContractPrice || 0);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bm-cream)" }}>
-      <PortalHeader project={project} />
+    <div className="min-h-screen" style={{ background: "var(--bm-cream)", paddingBottom: upgradeTotal > 0 ? "80px" : "0" }}>
+      <PortalHeader project={project} token={token} />
       <HeroSection project={project} />
-      <ProposalSummary project={project} upgradeTotal={upgradeTotal} />
+      <ProposalSummaryBar project={project} upgradeTotal={upgradeTotal} />
       <InclusionsSection token={token} />
       <UpgradesSection token={token} isLocked={isLocked} onSelectionChange={handleSelectionChange} />
-      <SubmitUpgradesSection token={token} upgradeTotal={upgradeTotal} isLocked={isLocked} />
+      <SubmitUpgradesSection
+        token={token}
+        upgradeTotal={upgradeTotal}
+        isLocked={isLocked}
+        onSubmitted={setIsSubmitted}
+      />
       {isPostContract && (
         <>
           <FileUploadSection token={token} />
           <ChangeRequestSection token={token} />
         </>
       )}
-      <footer className="border-t py-8 mt-8" style={{ borderColor: "var(--border)" }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
-          <div className="text-xs tracking-[0.3em] uppercase mb-1" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>B Modern Homes</div>
-          <p className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+
+      {/* Footer */}
+      <footer
+        className="py-10 mt-4"
+        style={{ background: "var(--bm-petrol)" }}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 text-center">
+          <img
+            src={LOGO_URL}
+            alt="B Modern Homes"
+            className="h-7 mx-auto mb-4 object-contain"
+            style={{ filter: "brightness(0) invert(1) opacity(0.7)" }}
+          />
+          <p
+            className="text-xs"
+            style={{ color: "rgba(255,255,255,0.5)", fontFamily: "Lato, sans-serif", letterSpacing: "0.05em" }}
+          >
             This proposal is confidential and prepared exclusively for {project.clientName}.
           </p>
         </div>
       </footer>
+
+      {/* Sticky upgrade total bar */}
+      <StickyUpgradeBar
+        upgradeTotal={upgradeTotal}
+        basePrice={basePrice}
+        isLocked={isLocked}
+        onSubmit={() => submitMutation.mutate({ token, totalUpgradeCost: upgradeTotal.toString() })}
+        isSubmitting={submitMutation.isPending}
+        isSubmitted={isSubmitted}
+      />
     </div>
   );
 }

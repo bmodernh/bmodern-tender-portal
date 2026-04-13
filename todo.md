@@ -57,9 +57,42 @@
 - [x] Inclusions, upgrades, inbox tests
 - [x] 13 total tests passing
 
-## Phase 2 — Future Enhancements
+## Phase 2 — Portal Polish & PDF Export
+- [x] Audit and fix admin login, dashboard, project form
+- [x] Audit and fix inclusions builder, quantities, upgrade options
+- [x] Audit and fix client portal — hero, inclusions, upgrade flow, file upload, change request
+- [x] Polish client portal to premium brochure quality (full-bleed hero, typography, spacing)
+- [x] Polish upgrade selection cards — reveal-on-click images, running total, mobile layout
+- [x] Build branded PDF export — inclusions + upgrade summary + pricing
+- [x] Add PDF download button to client portal
+- [x] Add PDF generation to admin project view
+- [x] Final mobile responsiveness pass
+
+## Phase 2B — PDF Proposal Enhancements
+- [x] Extend quantities questionnaire to include Exclusions list (items not in contract)
+- [x] Extend quantities questionnaire to include PC Items (Prime Cost items with description + allowance amount)
+- [x] Extend quantities questionnaire to include Provisional Sums (PS items with description + amount)
+- [x] Add Plan Images upload tab to admin project detail
+- [x] Add Company / About Us settings page in admin (description, credentials, contact details)
+- [x] Build PDF generation server endpoint using puppeteer + chromium
+- [x] PDF: Cover page with hero image and project details
+- [x] PDF: About Us / Company section
+- [x] PDF: Project Summary (address, type, base contract price, expiry)
+- [x] PDF: Base Inclusions (room by room)
+- [x] PDF: Exclusions section
+- [x] PDF: PC Items section
+- [x] PDF: Provisional Sums section
+- [x] PDF: Upgrade Options summary
+- [x] PDF: Plan Images page
+- [x] Add PDF download button to client portal
+- [x] Add PDF download button to admin project view
+- [x] PWA: web app manifest with B Modern branding and icons
+- [x] PWA: service worker for offline support
+- [x] PWA: iOS and Android home screen install support for admin and client portal
+- [x] PWA: splash screen and app icon using B Modern logo
+
+## Phase 3 — Future Enhancements
 - [ ] Preliminary estimate calculator (port from bmodernhomes.com.au/get-a-quote/)
 - [ ] Buildxact BOQ integration
 - [ ] Client email + password login option
-- [ ] PDF proposal export
 - [ ] Multi-project client accounts

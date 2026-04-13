@@ -6,8 +6,12 @@ import {
   changeRequests,
   clientFiles,
   clientTokens,
+  companySettings,
+  exclusions,
   inclusionSections,
+  planImages,
   projects,
+  provisionalSums,
   quantities,
   upgradeGroups,
   upgradeOptions,
@@ -300,4 +304,92 @@ export async function updateChangeRequestStatus(id: number, status: "pending" | 
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   await db.update(changeRequests).set({ status, adminNotes }).where(eq(changeRequests.id, id));
+}
+
+// ─── Exclusions ──────────────────────────────────────────────────────────────
+export async function getExclusionsByProject(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(exclusions).where(eq(exclusions.projectId, projectId)).orderBy(exclusions.position);
+}
+export async function createExclusion(data: { projectId: number; description: string; position: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(exclusions).values(data);
+}
+export async function updateExclusion(id: number, data: { description?: string; position?: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(exclusions).set(data).where(eq(exclusions.id, id));
+}
+export async function deleteExclusion(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(exclusions).where(eq(exclusions.id, id));
+}
+
+// ─── Provisional Sums ─────────────────────────────────────────────────────────
+export async function getProvisionalSumsByProject(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(provisionalSums).where(eq(provisionalSums.projectId, projectId)).orderBy(provisionalSums.position);
+}
+export async function createProvisionalSum(data: { projectId: number; description: string; amount?: string | null; notes?: string | null; position: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(provisionalSums).values(data);
+}
+export async function updateProvisionalSum(id: number, data: { description?: string; amount?: string | null; notes?: string | null; position?: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(provisionalSums).set(data).where(eq(provisionalSums.id, id));
+}
+export async function deleteProvisionalSum(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(provisionalSums).where(eq(provisionalSums.id, id));
+}
+
+// ─── Plan Images ──────────────────────────────────────────────────────────────
+export async function getPlanImagesByProject(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(planImages).where(eq(planImages.projectId, projectId)).orderBy(planImages.position);
+}
+export async function createPlanImage(data: { projectId: number; title?: string | null; imageUrl: string; fileKey?: string | null; position: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(planImages).values(data);
+}
+export async function deletePlanImage(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(planImages).where(eq(planImages.id, id));
+}
+
+// ─── Company Settings ──────────────────────────────────────────────────────────────
+export async function getCompanySettings() {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(companySettings).limit(1);
+  return rows[0] ?? null;
+}
+export async function upsertCompanySettings(data: {
+  aboutUs?: string | null;
+  tagline?: string | null;
+  credentials?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  address?: string | null;
+  logoUrl?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const existing = await getCompanySettings();
+  if (existing) {
+    await db.update(companySettings).set(data).where(eq(companySettings.id, existing.id));
+  } else {
+    await db.insert(companySettings).values(data);
+  }
 }

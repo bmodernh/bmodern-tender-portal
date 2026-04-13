@@ -10,13 +10,19 @@ import {
   createChangeRequest,
   createClientFile,
   createClientToken,
+  createExclusion,
   createInclusionSection,
+  createPlanImage,
   createProject,
+  createProvisionalSum,
   createUpgradeGroup,
   createUpgradeOption,
   createUpgradeSubmission,
+  deleteExclusion,
   deleteInclusionSection,
+  deletePlanImage,
   deleteProject,
+  deleteProvisionalSum,
   deleteUpgradeGroup,
   deleteUpgradeOption,
   getAdminCredentials,
@@ -27,19 +33,26 @@ import {
   getClientFilesByProject,
   getClientTokenRecord,
   getClientTokensByProject,
+  getCompanySettings,
+  getExclusionsByProject,
   getInclusionsByProject,
+  getPlanImagesByProject,
   getProjectById,
+  getProvisionalSumsByProject,
   getQuantitiesByProject,
   getUpgradeGroupsByProject,
   getUpgradeOptionsByProject,
   getUpgradeSelections,
   getUpgradeSubmission,
   upsertAdminCredentials,
+  upsertCompanySettings,
   upsertQuantities,
   upsertUpgradeSelection,
   updateChangeRequestStatus,
+  updateExclusion,
   updateInclusionSection,
   updateProject,
+  updateProvisionalSum,
   updateUpgradeGroup,
   updateUpgradeOption,
   updateClientTokenLastAccess,
@@ -681,8 +694,70 @@ const portalRouter = router({
       return getClientFilesByProject(tokenRecord.projectId);
     }),
 });
+// ─── Exclusions Router ──────────────────────────────────────────────────────────────
+const exclusionsRouter = router({
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => { await requireAdmin(ctx); return getExclusionsByProject(input.projectId); }),
+  create: publicProcedure
+    .input(z.object({ projectId: z.number(), description: z.string().min(1), position: z.number().default(0) }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await createExclusion(input); return { success: true }; }),
+  update: publicProcedure
+    .input(z.object({ id: z.number(), description: z.string().optional(), position: z.number().optional() }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); const { id, ...data } = input; await updateExclusion(id, data); return { success: true }; }),
+  delete: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await deleteExclusion(input.id); return { success: true }; }),
+});
 
-// ─── App Router ───────────────────────────────────────────────────────────────
+// ─── Provisional Sums Router ──────────────────────────────────────────────────────────────
+const provisionalSumsRouter = router({
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => { await requireAdmin(ctx); return getProvisionalSumsByProject(input.projectId); }),
+  create: publicProcedure
+    .input(z.object({ projectId: z.number(), description: z.string().min(1), amount: z.string().optional().nullable(), notes: z.string().optional().nullable(), position: z.number().default(0) }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await createProvisionalSum(input); return { success: true }; }),
+  update: publicProcedure
+    .input(z.object({ id: z.number(), description: z.string().optional(), amount: z.string().optional().nullable(), notes: z.string().optional().nullable(), position: z.number().optional() }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); const { id, ...data } = input; await updateProvisionalSum(id, data); return { success: true }; }),
+  delete: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await deleteProvisionalSum(input.id); return { success: true }; }),
+});
+
+// ─── Plan Images Router ──────────────────────────────────────────────────────────────
+const planImagesRouter = router({
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => { await requireAdmin(ctx); return getPlanImagesByProject(input.projectId); }),
+  create: publicProcedure
+    .input(z.object({ projectId: z.number(), title: z.string().optional().nullable(), imageUrl: z.string(), fileKey: z.string().optional().nullable(), position: z.number().default(0) }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await createPlanImage(input); return { success: true }; }),
+  delete: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await deletePlanImage(input.id); return { success: true }; }),
+});
+
+// ─── Company Settings Router ──────────────────────────────────────────────────────────────
+const companySettingsRouter = router({
+  get: publicProcedure
+    .query(async ({ ctx }) => { await requireAdmin(ctx); return getCompanySettings(); }),
+  upsert: publicProcedure
+    .input(z.object({
+      aboutUs: z.string().optional().nullable(),
+      tagline: z.string().optional().nullable(),
+      credentials: z.string().optional().nullable(),
+      phone: z.string().optional().nullable(),
+      email: z.string().optional().nullable(),
+      website: z.string().optional().nullable(),
+      address: z.string().optional().nullable(),
+      logoUrl: z.string().optional().nullable(),
+    }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await upsertCompanySettings(input); return { success: true }; }),
+});
+
+// ─── App Router ────────────────────────────────────────────────────────────────────
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -700,7 +775,10 @@ export const appRouter = router({
   upgrades: upgradesRouter,
   upload: uploadRouter,
   inbox: inboxRouter,
-  portal: portalRouter,
+   portal: portalRouter,
+  exclusions: exclusionsRouter,
+  provisionalSums: provisionalSumsRouter,
+  planImages: planImagesRouter,
+  companySettings: companySettingsRouter,
 });
-
 export type AppRouter = typeof appRouter;

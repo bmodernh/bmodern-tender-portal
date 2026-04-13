@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   Edit, Link2, Lock, Unlock, Plus, Trash2, Upload, X, GripVertical,
-  ExternalLink, Copy, Check, ChevronDown, ChevronUp, Eye, EyeOff
+  ExternalLink, Copy, Check, ChevronDown, ChevronUp, Eye, EyeOff, FileDown
 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -159,8 +159,24 @@ function QuantitiesTab({ projectId }: { projectId: number }) {
   const { data: qty } = trpc.quantities.get.useQuery({ projectId });
   const upsertMutation = trpc.quantities.upsert.useMutation({ onSuccess: () => { utils.quantities.get.invalidate(); toast.success("Quantities saved"); }, onError: (e) => toast.error(e.message) });
 
+  // Exclusions
+  const { data: exclusionsList } = trpc.exclusions.list.useQuery({ projectId });
+  const createExclusionMutation = trpc.exclusions.create.useMutation({ onSuccess: () => { utils.exclusions.list.invalidate(); setNewExclusion(""); }, onError: (e) => toast.error(e.message) });
+  const deleteExclusionMutation = trpc.exclusions.delete.useMutation({ onSuccess: () => utils.exclusions.list.invalidate(), onError: (e) => toast.error(e.message) });
+  const updateExclusionMutation = trpc.exclusions.update.useMutation({ onSuccess: () => utils.exclusions.list.invalidate(), onError: (e) => toast.error(e.message) });
+
+  // Provisional Sums
+  const { data: psList } = trpc.provisionalSums.list.useQuery({ projectId });
+  const createPsMutation = trpc.provisionalSums.create.useMutation({ onSuccess: () => { utils.provisionalSums.list.invalidate(); setNewPs({ description: "", amount: "", notes: "" }); }, onError: (e) => toast.error(e.message) });
+  const deletePsMutation = trpc.provisionalSums.delete.useMutation({ onSuccess: () => utils.provisionalSums.list.invalidate(), onError: (e) => toast.error(e.message) });
+  const updatePsMutation = trpc.provisionalSums.update.useMutation({ onSuccess: () => utils.provisionalSums.list.invalidate(), onError: (e) => toast.error(e.message) });
+
   const [form, setForm] = useState<Record<string, string>>({});
   const [initialised, setInitialised] = useState(false);
+  const [newExclusion, setNewExclusion] = useState("");
+  const [editingExclusion, setEditingExclusion] = useState<{ id: number; description: string } | null>(null);
+  const [newPs, setNewPs] = useState({ description: "", amount: "", notes: "" });
+  const [editingPs, setEditingPs] = useState<{ id: number; description: string; amount: string; notes: string } | null>(null);
 
   if (qty && !initialised) {
     const init: Record<string, string> = {};
@@ -191,6 +207,16 @@ function QuantitiesTab({ projectId }: { projectId: number }) {
     <div className="bg-card border rounded p-4 space-y-3" style={{ borderColor: "var(--border)" }}>
       <h3 className="text-xs tracking-wider uppercase font-medium" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>{title}</h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">{children}</div>
+    </div>
+  );
+
+  const listSection = (title: string, subtitle: string, children: React.ReactNode) => (
+    <div className="bg-card border rounded p-4 space-y-3" style={{ borderColor: "var(--border)" }}>
+      <div>
+        <h3 className="text-xs tracking-wider uppercase font-medium" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>{title}</h3>
+        <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "Lato, sans-serif" }}>{subtitle}</p>
+      </div>
+      {children}
     </div>
   );
 
@@ -267,6 +293,76 @@ function QuantitiesTab({ projectId }: { projectId: number }) {
       <Button onClick={handleSave} disabled={upsertMutation.isPending} className="text-xs tracking-wider uppercase gap-2" style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>
         {upsertMutation.isPending ? "Saving..." : "Save Quantities"}
       </Button>
+
+      {/* ─── Exclusions ─── */}
+      {listSection("Exclusions", "Items explicitly excluded from the base contract scope.",
+        <div className="space-y-2">
+          {exclusionsList?.map((ex) => (
+            <div key={ex.id} className="flex items-center gap-2">
+              {editingExclusion?.id === ex.id ? (
+                <>
+                  <Input value={editingExclusion.description} onChange={(e) => setEditingExclusion((v) => v ? { ...v, description: e.target.value } : v)} className="h-8 text-sm flex-1" style={{ fontFamily: "Lato, sans-serif" }} />
+                  <Button size="sm" onClick={() => { updateExclusionMutation.mutate({ id: ex.id, description: editingExclusion.description }); setEditingExclusion(null); }} className="h-8 text-xs" style={{ background: "var(--bm-petrol)" }}>Save</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingExclusion(null)} className="h-8 text-xs">Cancel</Button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 text-sm" style={{ fontFamily: "Lato, sans-serif" }}>{ex.description}</span>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingExclusion({ id: ex.id, description: ex.description })} className="h-7 w-7 p-0"><Edit size={13} /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => deleteExclusionMutation.mutate({ id: ex.id })} className="h-7 w-7 p-0 text-destructive hover:text-destructive"><Trash2 size={13} /></Button>
+                </>
+              )}
+            </div>
+          ))}
+          <div className="flex gap-2 mt-2">
+            <Input value={newExclusion} onChange={(e) => setNewExclusion(e.target.value)} placeholder="Add exclusion item..." className="h-8 text-sm" style={{ fontFamily: "Lato, sans-serif" }} onKeyDown={(e) => { if (e.key === "Enter" && newExclusion) { createExclusionMutation.mutate({ projectId, description: newExclusion, position: exclusionsList?.length || 0 }); } }} />
+            <Button size="sm" onClick={() => { if (newExclusion) createExclusionMutation.mutate({ projectId, description: newExclusion, position: exclusionsList?.length || 0 }); }} disabled={!newExclusion} className="h-8 gap-1 text-xs shrink-0" style={{ background: "var(--bm-petrol)" }}><Plus size={12} /> Add</Button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Provisional Sums ─── */}
+      {listSection("Provisional Sums (PS)", "Estimated allowances for work that cannot be fully defined at tender stage.",
+        <div className="space-y-2">
+          {psList?.map((ps) => (
+            <div key={ps.id} className="border rounded p-3 space-y-2" style={{ borderColor: "var(--border)" }}>
+              {editingPs?.id === ps.id ? (
+                <div className="space-y-2">
+                  <Input value={editingPs.description} onChange={(e) => setEditingPs((v) => v ? { ...v, description: e.target.value } : v)} placeholder="Description" className="h-8 text-sm" style={{ fontFamily: "Lato, sans-serif" }} />
+                  <div className="flex gap-2">
+                    <Input value={editingPs.amount} onChange={(e) => setEditingPs((v) => v ? { ...v, amount: e.target.value } : v)} placeholder="Amount $" type="number" className="h-8 text-sm" style={{ fontFamily: "Lato, sans-serif" }} />
+                    <Input value={editingPs.notes} onChange={(e) => setEditingPs((v) => v ? { ...v, notes: e.target.value } : v)} placeholder="Notes (optional)" className="h-8 text-sm" style={{ fontFamily: "Lato, sans-serif" }} />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => { updatePsMutation.mutate({ id: ps.id, description: editingPs.description, amount: editingPs.amount || null, notes: editingPs.notes || null }); setEditingPs(null); }} className="h-8 text-xs" style={{ background: "var(--bm-petrol)" }}>Save</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingPs(null)} className="h-8 text-xs">Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <div className="text-sm font-medium" style={{ fontFamily: "Lato, sans-serif" }}>{ps.description}</div>
+                    <div className="flex gap-3 mt-0.5">
+                      {ps.amount && <span className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>Allowance: <strong>${Number(ps.amount).toLocaleString("en-AU")}</strong></span>}
+                      {ps.notes && <span className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>{ps.notes}</span>}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingPs({ id: ps.id, description: ps.description, amount: ps.amount || "", notes: ps.notes || "" })} className="h-7 w-7 p-0"><Edit size={13} /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => deletePsMutation.mutate({ id: ps.id })} className="h-7 w-7 p-0 text-destructive hover:text-destructive"><Trash2 size={13} /></Button>
+                </div>
+              )}
+            </div>
+          ))}
+          <div className="border rounded p-3 space-y-2 bg-secondary/30" style={{ borderColor: "var(--border)" }}>
+            <Input value={newPs.description} onChange={(e) => setNewPs((v) => ({ ...v, description: e.target.value }))} placeholder="PS description (e.g. Landscaping)" className="h-8 text-sm" style={{ fontFamily: "Lato, sans-serif" }} />
+            <div className="flex gap-2">
+              <Input value={newPs.amount} onChange={(e) => setNewPs((v) => ({ ...v, amount: e.target.value }))} placeholder="Allowance $" type="number" className="h-8 text-sm" style={{ fontFamily: "Lato, sans-serif" }} />
+              <Input value={newPs.notes} onChange={(e) => setNewPs((v) => ({ ...v, notes: e.target.value }))} placeholder="Notes (optional)" className="h-8 text-sm" style={{ fontFamily: "Lato, sans-serif" }} />
+            </div>
+            <Button size="sm" onClick={() => { if (newPs.description) createPsMutation.mutate({ projectId, description: newPs.description, amount: newPs.amount || null, notes: newPs.notes || null, position: psList?.length || 0 }); }} disabled={!newPs.description} className="h-8 gap-1 text-xs" style={{ background: "var(--bm-petrol)" }}><Plus size={12} /> Add Provisional Sum</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -535,7 +631,72 @@ function ClientPortalTab({ projectId, project }: { projectId: number; project: a
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Plan Images Tab ────────────────────────────────────────────────────────────────────
+function PlanImagesTab({ projectId }: { projectId: number }) {
+  const utils = trpc.useUtils();
+  const { data: images } = trpc.planImages.list.useQuery({ projectId });
+  const createMutation = trpc.planImages.create.useMutation({ onSuccess: () => { utils.planImages.list.invalidate(); setNewTitle(""); setNewImageUrl(""); }, onError: (e) => toast.error(e.message) });
+  const deleteMutation = trpc.planImages.delete.useMutation({ onSuccess: () => utils.planImages.list.invalidate(), onError: (e) => toast.error(e.message) });
+  const uploadMutation = trpc.upload.getUploadUrl.useMutation();
+
+  const [newTitle, setNewTitle] = useState("");
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const base64 = (ev.target?.result as string).split(",")[1];
+        const result = await uploadMutation.mutateAsync({ fileName: file.name, mimeType: file.type, fileData: base64, folder: "plans" });
+        setNewImageUrl(result.url);
+        toast.success("Image uploaded");
+      } catch { toast.error("Upload failed"); }
+      setUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>Upload plan drawings, screenshots, or site images to include in the PDF proposal.</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {images?.map((img) => (
+          <div key={img.id} className="relative group rounded overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+            <img src={img.imageUrl} alt={img.title || "Plan"} className="w-full aspect-[4/3] object-cover" />
+            {img.title && <div className="px-2 py-1.5 text-xs font-medium truncate" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>{img.title}</div>}
+            <button onClick={() => { if (confirm("Remove this image?")) deleteMutation.mutate({ id: img.id }); }} className="absolute top-1.5 right-1.5 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Trash2 size={12} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="bg-card border rounded p-4 space-y-3" style={{ borderColor: "var(--border)" }}>
+        <h3 className="text-xs tracking-wider uppercase font-medium" style={{ color: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>Add Plan Image</h3>
+        <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Image title (optional, e.g. Ground Floor Plan)" className="h-8 text-sm" style={{ fontFamily: "Lato, sans-serif" }} />
+        {newImageUrl ? (
+          <div className="relative w-40">
+            <img src={newImageUrl} className="w-40 h-28 object-cover rounded" />
+            <button type="button" onClick={() => setNewImageUrl("")} className="absolute -top-1.5 -right-1.5 bg-black/60 text-white rounded-full p-0.5"><X size={12} /></button>
+          </div>
+        ) : (
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+            <Upload size={14} /> {uploading ? "Uploading..." : "Click to upload plan image"}
+            <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
+          </label>
+        )}
+        <Button onClick={() => { if (newImageUrl) createMutation.mutate({ projectId, title: newTitle || null, imageUrl: newImageUrl, position: images?.length || 0 }); }} disabled={!newImageUrl || createMutation.isPending} className="gap-1.5 text-xs" style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>
+          <Plus size={13} /> Add Image
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────────────
 export default function AdminProjectDetail() {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -594,29 +755,41 @@ export default function AdminProjectDetail() {
             </div>
           )}
         </div>
-        <Button
-          onClick={() => navigate(`/admin/projects/${projectId}/edit`)}
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-xs shrink-0"
-          style={{ fontFamily: "Lato, sans-serif" }}
-        >
-          <Edit size={13} /> Edit
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <a
+            href={`/api/pdf/proposal/${projectId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border hover:bg-secondary transition-colors"
+            style={{ fontFamily: "Lato, sans-serif", textDecoration: "none", color: "var(--bm-petrol)", borderColor: "var(--border)" }}
+          >
+            <FileDown size={13} /> PDF
+          </a>
+          <Button
+            onClick={() => navigate(`/admin/projects/${projectId}/edit`)}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            style={{ fontFamily: "Lato, sans-serif" }}
+          >
+            <Edit size={13} /> Edit
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="inclusions">
-        <TabsList className="mb-6 h-9">
-          {["inclusions", "quantities", "upgrades", "portal"].map((tab) => (
-            <TabsTrigger key={tab} value={tab} className="text-xs capitalize" style={{ fontFamily: "Lato, sans-serif" }}>
-              {tab === "portal" ? "Client Portal" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+        <TabsList className="mb-6 h-9 flex-wrap">
+          {["inclusions", "quantities", "upgrades", "plans", "portal"].map((tab) => (
+            <TabsTrigger key={tab} value={tab} className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
+              {tab === "portal" ? "Client Portal" : tab === "plans" ? "Plan Images" : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </TabsTrigger>
           ))}
         </TabsList>
         <TabsContent value="inclusions"><InclusionsTab projectId={projectId} /></TabsContent>
         <TabsContent value="quantities"><QuantitiesTab projectId={projectId} /></TabsContent>
         <TabsContent value="upgrades"><UpgradesTab projectId={projectId} /></TabsContent>
+        <TabsContent value="plans"><PlanImagesTab projectId={projectId} /></TabsContent>
         <TabsContent value="portal"><ClientPortalTab projectId={projectId} project={project} /></TabsContent>
       </Tabs>
     </AdminLayout>

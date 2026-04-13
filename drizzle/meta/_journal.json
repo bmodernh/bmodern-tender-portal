@@ -15,6 +15,13 @@
       "when": 1776046706316,
       "tag": "0001_chunky_cyclops",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1776049794764,
+      "tag": "0002_sleepy_zodiak",
+      "breakpoints": true
     }
   ]
 }

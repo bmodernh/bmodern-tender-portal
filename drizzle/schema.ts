@@ -222,6 +222,53 @@ export const changeRequests = mysqlTable("change_requests", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+// ─── Exclusions ──────────────────────────────────────────────────────────────
+export const exclusions = mysqlTable("exclusions", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  description: text("description").notNull(),
+  position: int("position").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Provisional Sums ─────────────────────────────────────────────────────────
+export const provisionalSums = mysqlTable("provisional_sums", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }),
+  notes: text("notes"),
+  position: int("position").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Plan Images ──────────────────────────────────────────────────────────────
+export const planImages = mysqlTable("plan_images", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  title: varchar("title", { length: 256 }),
+  imageUrl: text("imageUrl").notNull(),
+  fileKey: varchar("fileKey", { length: 512 }),
+  position: int("position").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Company Settings (About Us / PDF branding) ───────────────────────────────
+export const companySettings = mysqlTable("company_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  aboutUs: text("aboutUs"),
+  tagline: varchar("tagline", { length: 512 }),
+  credentials: text("credentials"),
+  phone: varchar("phone", { length: 64 }),
+  email: varchar("email", { length: 320 }),
+  website: varchar("website", { length: 256 }),
+  address: text("address"),
+  logoUrl: text("logoUrl"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;

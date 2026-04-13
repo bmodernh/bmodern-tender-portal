@@ -11,6 +11,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProjectDetail from "./pages/admin/AdminProjectDetail";
 import AdminProjectForm from "./pages/admin/AdminProjectForm";
 import AdminInbox from "./pages/admin/AdminInbox";
+import AdminCompanySettings from "./pages/admin/AdminCompanySettings";
 
 // Client portal pages
 import ClientPortal from "./pages/portal/ClientPortal";
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/admin/projects/:id/edit" component={AdminProjectForm} />
       <Route path="/admin/projects/:id" component={AdminProjectDetail} />
       <Route path="/admin/inbox" component={AdminInbox} />
+      <Route path="/admin/settings" component={AdminCompanySettings} />
 
       {/* Client portal */}
       <Route path="/portal/:token" component={ClientPortal} />
