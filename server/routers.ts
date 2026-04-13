@@ -5,7 +5,19 @@ import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, router } from "./_core/trpc";
+import { parse as parseCookieHeader } from "cookie";
+
+// Helper to read a cookie from the raw request headers (works without cookie-parser middleware)
+function getCookieFromRequest(req: { headers?: { cookie?: string }; cookies?: Record<string, string> }, name: string): string | undefined {
+  // Try req.cookies first (if cookie-parser is present)
+  if (req.cookies?.[name]) return req.cookies[name];
+  // Fall back to manual parsing from raw header
+  const cookieHeader = req.headers?.cookie;
+  if (!cookieHeader) return undefined;
+  const parsed = parseCookieHeader(cookieHeader);
+  return parsed[name];
+};
 import {
   createChangeRequest,
   createClientFile,
@@ -89,7 +101,7 @@ const adminAuthRouter = router({
   }),
 
   me: publicProcedure.query(async ({ ctx }) => {
-    const token = ctx.req.cookies?.["bm_admin_session"];
+    const token = getCookieFromRequest(ctx.req, "bm_admin_session");
     if (!token) return null;
     try {
       const payload = await verifyJwt(token);
@@ -122,8 +134,8 @@ const adminAuthRouter = router({
 });
 
 // ─── Admin middleware ─────────────────────────────────────────────────────────
-async function requireAdmin(ctx: { req: { cookies?: Record<string, string> } }) {
-  const token = ctx.req.cookies?.["bm_admin_session"];
+async function requireAdmin(ctx: { req: { cookies?: Record<string, string>; headers?: { cookie?: string } } }) {
+  const token = getCookieFromRequest(ctx.req, "bm_admin_session");
   if (!token) throw new TRPCError({ code: "UNAUTHORIZED", message: "Admin authentication required" });
   try {
     const payload = await verifyJwt(token);

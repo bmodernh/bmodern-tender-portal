@@ -15,10 +15,12 @@ export default function AdminLogin() {
 
   const loginMutation = trpc.adminAuth.login.useMutation({
     onSuccess: () => {
-      navigate("/admin");
+      // Use hard redirect so the browser fully commits the session cookie
+      // before the admin dashboard loads and checks auth
+      window.location.href = "/admin";
     },
     onError: (err) => {
-      toast.error(err.message || "Invalid credentials");
+      toast.error(err.message || "Invalid credentials. Please check your username and password.");
     },
   });
 

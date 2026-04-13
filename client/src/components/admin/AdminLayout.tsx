@@ -32,18 +32,29 @@ export default function AdminLayout({ children, title, breadcrumbs }: AdminLayou
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const meQuery = trpc.adminAuth.me.useQuery();
+  const [authChecked, setAuthChecked] = useState(false);
+  const meQuery = trpc.adminAuth.me.useQuery(undefined, {
+    retry: 2,
+    retryDelay: 500,
+    staleTime: 0,
+  });
   const logoutMutation = trpc.adminAuth.logout.useMutation({
-    onSuccess: () => navigate("/"),
+    onSuccess: () => { window.location.href = "/"; },
   });
 
   useEffect(() => {
-    if (meQuery.data === null && !meQuery.isLoading) {
-      navigate("/");
+    if (!meQuery.isLoading) {
+      setAuthChecked(true);
     }
-  }, [meQuery.data, meQuery.isLoading]);
+  }, [meQuery.isLoading]);
 
-  if (meQuery.isLoading) {
+  useEffect(() => {
+    if (authChecked && meQuery.data === null) {
+      window.location.href = "/";
+    }
+  }, [authChecked, meQuery.data]);
+
+  if (meQuery.isLoading || !authChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bm-cream)" }}>
         <div className="w-6 h-6 border-2 border-[var(--bm-petrol)] border-t-transparent rounded-full animate-spin" />
