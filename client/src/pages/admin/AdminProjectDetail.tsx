@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import {
   Edit, Link2, Lock, Unlock, Plus, Trash2, Upload, X, GripVertical,
   ExternalLink, Copy, Check, ChevronDown, ChevronUp, Eye, EyeOff, FileDown, Package, Sparkles,
-  FileText, RefreshCw, Wand2, CheckCheck, AlertCircle, Loader2
+  FileText, RefreshCw, Wand2, CheckCheck, AlertCircle, Loader2, Layers
 } from "lucide-react";
 import BaseInclusionsTab from "@/components/admin/BaseInclusionsTab";
 
@@ -227,6 +227,10 @@ function BoqTab({ projectId }: { projectId: number }) {
     onSuccess: () => { toast.success("Document deleted"); setSelectedDocId(null); refetchDocs(); },
     onError: (e) => toast.error(e.message),
   });
+  const importToInclusionsMutation = trpc.boq.importToInclusions.useMutation({
+    onSuccess: (r) => { toast.success(`Imported ${r.importedCount} items to Base Inclusions`); utils.inclusionMaster.listCategories.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
 
   // Auto-select first doc
   React.useEffect(() => {
@@ -361,6 +365,10 @@ function BoqTab({ projectId }: { projectId: number }) {
               {confirmAllMutation.isPending ? "Confirming..." : "Confirm All Items"}
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={() => importToInclusionsMutation.mutate({ boqDocumentId: selectedDocId!, projectId })} disabled={importToInclusionsMutation.isPending}>
+            <Layers className="w-3 h-3 mr-1" />
+            {importToInclusionsMutation.isPending ? "Importing..." : "Import to Base Inclusions"}
+          </Button>
           <Button size="sm" variant="ghost" className="ml-auto text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this BOQ document?")) deleteMutation.mutate({ id: selectedDocId! }); }}>
             <Trash2 className="w-3 h-3 mr-1" /> Delete
           </Button>

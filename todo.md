@@ -253,3 +253,11 @@
 - [x] Frontend: Show loading spinner while AI is generating suggestions
 - [x] Update client portal to use getBaseInclusions (inclusionItems/inclusionCategories) instead of old inclusions
 - [x] Update PDF generator to pull from inclusionItems/inclusionCategories tables
+
+## Bug Fix: BOQ-to-Base-Inclusions Pipeline
+- [x] Verify isBoqImported column exists in live DB, apply migration if not
+- [x] Fix BOQ extraction delete query that fails on isBoqImported column
+- [x] BOQ upload should populate Base Inclusions as "Built for Excellence" (Tier 1) base package items
+- [x] Added "Import to Base Inclusions" button in BOQ tab for re-importing existing extracted items
+- [x] Ensure Base Inclusions tab displays BOQ-imported items after upload — verified 82 items across 7 categories
+- [x] Verify AI wording suggestion button works on BOQ-imported items — tested with Long Service Levy, 3 options generated

@@ -103,6 +103,7 @@ import {
   deleteInclusionItem,
   bulkUpsertInclusionItems,
   updateInclusionItemQtyByBoqField,
+  deleteBoqImportedItemsByProject,
 } from "./db";
 import { storagePut } from "./storage";
 import {
@@ -1047,6 +1048,62 @@ const boqRouter = router({
       await requireAdmin(ctx);
       await deleteBoqItemsByDocument(input.id);
       return { success: true };
+    }),
+
+  // Import BOQ items from a document into Base Inclusions
+  importToInclusions: publicProcedure
+    .input(z.object({ boqDocumentId: z.number(), projectId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const items = await getBoqItemsByDocument(input.boqDocumentId);
+      if (!items || items.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No BOQ items found for this document" });
+      }
+
+      // Remove previous BOQ-imported items so re-import is clean
+      await deleteBoqImportedItemsByProject(input.projectId);
+
+      // Group extracted items by category
+      const categoryMap = new Map<string, typeof items>();
+      for (const item of items) {
+        const cat = item.category || "General";
+        if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+        categoryMap.get(cat)!.push(item);
+      }
+
+      // Get existing categories so we can reuse them
+      const existingCats = await getInclusionCategoriesByProject(input.projectId);
+      const existingCatMap = new Map(existingCats.map(c => [c.name.toLowerCase(), c.id]));
+
+      let catPos = existingCats.length;
+      let importedCount = 0;
+      for (const [catName, catItems] of Array.from(categoryMap.entries())) {
+        let catId = existingCatMap.get(catName.toLowerCase());
+        if (!catId) {
+          catId = await createInclusionCategory({ projectId: input.projectId, name: catName, position: catPos++ }) ?? undefined;
+        }
+        if (!catId) continue;
+        const existingItems = await getInclusionItemsByProject(input.projectId);
+        const existingInCat = existingItems.filter(i => i.categoryId === catId);
+        let itemPos = existingInCat.length;
+        for (const boqItem of catItems) {
+          await upsertInclusionItem({
+            categoryId: catId,
+            projectId: input.projectId,
+            name: boqItem.description,
+            qty: boqItem.quantity != null ? String(boqItem.quantity) : undefined,
+            unit: boqItem.unit || "item",
+            description: boqItem.description,
+            boqFieldKey: boqItem.mappedQuantityField || undefined,
+            isBoqImported: true,
+            included: true,
+            position: itemPos++,
+          });
+          importedCount++;
+        }
+      }
+
+      return { success: true, importedCount };
     }),
 });
 
