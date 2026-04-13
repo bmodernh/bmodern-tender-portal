@@ -328,3 +328,13 @@
 - [x] Add missing items: Tiles — Kitchen Splashback (T1 only), all tile allowance levels
 - [x] Verify all tier descriptions match the PDF specifications exactly
 - [x] Update pricing engine to handle new categories
+
+## Bug Report — Admin Inclusions Section Regression
+- [ ] Investigate admin inclusions section — AI wording feature may be broken/missing
+- [x] Fix any regressions in the inclusions section
+- [x] Verify AI wording generation works end-to-end
+
+## Bug — Inclusions Tab & Quantities Tab
+- [x] Remove "Quantities" tab from AdminProjectDetail — quantities come from BOQ
+- [x] Ensure Inclusions tab uses BaseInclusionsTab component (with AI wording, categories, BOQ import)
+- [x] Verify the deployed version matches the dev version after checkpoint
