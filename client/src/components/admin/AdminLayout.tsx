@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Settings,
   TrendingUp,
+  ScrollText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +27,7 @@ const navItems = [
   { label: "Projects", href: "/admin", icon: FolderOpen },
   { label: "Inbox", href: "/admin/inbox", icon: Inbox },
   { label: "Pricing Rules", href: "/admin/pricing-rules", icon: TrendingUp },
+  { label: "Terms & Conditions", href: "/admin/terms", icon: ScrollText },
   { label: "Company Settings", href: "/admin/settings", icon: Settings },
 ];
 

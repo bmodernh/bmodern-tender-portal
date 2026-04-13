@@ -181,3 +181,32 @@
 - [ ] Step 3: Hero Image upload, Internal Notes, Status selector
 - [ ] On completion: auto-apply Built for Excellence baseline inclusions to the new project
 - [ ] Edit mode: all fields accessible (no wizard restriction)
+
+## Phase 7 — BOQ Upload + AI Extraction
+
+- [ ] Add boq_documents table to schema (projectId, fileKey, fileUrl, fileName, mimeType, status, extractedAt)
+- [ ] Add boq_items table (boqDocumentId, category, description, unit, quantity, isConfirmed)
+- [ ] Add S3 upload endpoint for BOQ files (PDF/Excel, max 16MB)
+- [ ] Add AI extraction tRPC procedure (server-side, reads file from S3, calls LLM to extract items)
+- [ ] LLM extracts: category (Preliminaries/Structural/Internal), description, unit, quantity
+- [ ] LLM also maps extracted quantities to known quantity fields (downlights, tiles m², etc.)
+- [ ] Admin review UI: upload BOQ → show extracted items table → edit/confirm → save
+- [ ] "Auto-fill Quantities" button: applies extracted quantities to project Quantities tab
+- [ ] Client portal: Base Specification section showing confirmed BOQ items by category (non-editable)
+- [ ] Add BOQ tab to admin project detail page
+
+## Phase 8 — Terms & Conditions
+
+- [ ] Add terms_and_conditions table to schema (content, updatedAt) — single row
+- [ ] Add admin tRPC procedures: getTerms, updateTerms
+- [ ] Add T&Cs editor page in admin settings (rich text editor)
+- [ ] Add T&Cs acknowledgement gate on client portal (must scroll + tick before accessing proposal)
+- [ ] Add portal_tc_acknowledgements table (projectToken, acknowledgedAt, ipAddress)
+- [ ] Include T&Cs in PDF proposal export
+
+## Phase 9 — Electrical Upgrade Quantities in Pricing Rules
+
+- [ ] Add tier2Qty and tier3Qty columns to upgrade_pricing_rules table (for per-unit items)
+- [ ] Update Pricing Rules UI to show Tier 2 qty and Tier 3 qty fields for electrical items
+- [ ] Update pricing engine: T2 uplift = (T2qty - T1qty) × T2unitPrice; T3 uplift = T3qty × T3unitPrice
+- [ ] Update portal getPackagePrices to use new quantity-based calculation for electrical

@@ -324,11 +324,17 @@ export const upgradePricingRules = mysqlTable("upgrade_pricing_rules", {
   tier2CostPerUnit: decimal("tier2CostPerUnit", { precision: 10, scale: 2 }).default("0"),
   tier2ImageUrl: text("tier2ImageUrl"),
   tier2Description: text("tier2Description"),
+  // For electrical items: Tier 2 upgraded quantity (e.g. 40 downlights vs 25 base)
+  // Cost = (tier2Qty - base_qty) * tier2CostPerUnit
+  tier2Qty: int("tier2Qty").default(0),
   // Tier 3 (Signature Series)
   tier3Label: varchar("tier3Label", { length: 256 }),             // e.g. "50 LED + smart scenes"
   tier3CostPerUnit: decimal("tier3CostPerUnit", { precision: 10, scale: 2 }).default("0"),
   tier3ImageUrl: text("tier3ImageUrl"),
   tier3Description: text("tier3Description"),
+  // For electrical items: Tier 3 upgraded quantity (usually same as tier2Qty)
+  // Cost = tier3Qty * tier3CostPerUnit (premium hardware, full count)
+  tier3Qty: int("tier3Qty").default(0),
   position: int("position").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -343,6 +349,52 @@ export const clientItemSelections = mysqlTable("client_item_selections", {
   selectedTier: int("selectedTier").default(1).notNull(), // 1, 2, or 3
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── BOQ Documents (per-project Bill of Quantities uploads) ─────────────────────
+export const boqDocuments = mysqlTable("boq_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  fileName: varchar("fileName", { length: 256 }).notNull(),
+  fileKey: text("fileKey").notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  mimeType: varchar("mimeType", { length: 128 }).notNull(),
+  status: mysqlEnum("status", ["uploaded", "extracting", "extracted", "confirmed", "error"]).default("uploaded").notNull(),
+  extractionError: text("extractionError"),
+  uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
+  extractedAt: timestamp("extractedAt"),
+});
+
+// ─── BOQ Items (AI-extracted line items from a BOQ document) ─────────────────────
+export const boqItems = mysqlTable("boq_items", {
+  id: int("id").autoincrement().primaryKey(),
+  boqDocumentId: int("boqDocumentId").notNull(),
+  projectId: int("projectId").notNull(),
+  category: varchar("category", { length: 64 }).notNull(), // "Preliminaries" | "Structural" | "Internal" | "External" | "Other"
+  description: text("description").notNull(),
+  unit: varchar("unit", { length: 32 }),          // e.g. "m2", "lm", "each", "item"
+  quantity: decimal("quantity", { precision: 10, scale: 2 }),
+  isConfirmed: boolean("isConfirmed").default(false).notNull(),
+  // Mapped quantity field — if this item maps to a known quantities column
+  mappedQuantityField: varchar("mappedQuantityField", { length: 64 }),
+  position: int("position").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Terms & Conditions (global, single row, editable by admin) ──────────────────
+export const termsAndConditions = mysqlTable("terms_and_conditions", {
+  id: int("id").autoincrement().primaryKey(),
+  content: text("content").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Portal T&C Acknowledgements (client has read and accepted T&Cs) ─────────────
+export const portalTcAcknowledgements = mysqlTable("portal_tc_acknowledgements", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  clientToken: varchar("clientToken", { length: 128 }).notNull(),
+  acknowledgedAt: timestamp("acknowledgedAt").defaultNow().notNull(),
+  ipAddress: varchar("ipAddress", { length: 64 }),
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────

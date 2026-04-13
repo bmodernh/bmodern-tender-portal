@@ -21,6 +21,10 @@ import {
   upgradeSubmissions,
   upgradePricingRules,
   clientItemSelections,
+  boqDocuments,
+  boqItems,
+  termsAndConditions,
+  portalTcAcknowledgements,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -498,6 +502,8 @@ export type PackagePriceResult = {
     category: string;
     unit: string;
     qty: number;
+    tier2Qty: number | null;
+    tier3Qty: number | null;
     tier1Label: string | null;
     tier1ImageUrl: string | null;
     tier2Label: string | null;
@@ -539,8 +545,27 @@ export async function calculatePackagePrices(projectId: number): Promise<Package
       itemQty = rawQty != null ? parseFloat(String(rawQty)) || 0 : 0;
     }
 
-    const t2Cost = parseFloat(rule.tier2CostPerUnit ?? "0") * itemQty;
-    const t3Cost = parseFloat(rule.tier3CostPerUnit ?? "0") * itemQty;
+    // For electrical items with upgrade quantities set:
+    // Tier 2 cost = (tier2Qty - base_qty) * tier2CostPerUnit  (extra units only)
+    // Tier 3 cost = tier3Qty * tier3CostPerUnit  (premium hardware, full count)
+    // For all other items: cost = itemQty * costPerUnit (unchanged)
+    const t2Qty = rule.tier2Qty ?? 0;
+    const t3Qty = rule.tier3Qty ?? 0;
+    const hasElecQty = rule.category.toLowerCase() === "electrical" && (t2Qty > 0 || t3Qty > 0);
+
+    let t2Cost: number;
+    let t3Cost: number;
+    if (hasElecQty) {
+      // Extra units above base for Tier 2
+      const extraT2 = Math.max(0, t2Qty - itemQty);
+      t2Cost = parseFloat(rule.tier2CostPerUnit ?? "0") * extraT2;
+      // Full premium hardware count for Tier 3
+      const t3Count = t3Qty > 0 ? t3Qty : t2Qty;
+      t3Cost = parseFloat(rule.tier3CostPerUnit ?? "0") * t3Count;
+    } else {
+      t2Cost = parseFloat(rule.tier2CostPerUnit ?? "0") * itemQty;
+      t3Cost = parseFloat(rule.tier3CostPerUnit ?? "0") * itemQty;
+    }
 
     tier2Delta += t2Cost;
     tier3Delta += t3Cost;
@@ -551,6 +576,8 @@ export async function calculatePackagePrices(projectId: number): Promise<Package
       category: rule.category,
       unit: rule.unit,
       qty: itemQty,
+      tier2Qty: t2Qty || null,
+      tier3Qty: t3Qty || null,
       tier1Label: rule.tier1Label ?? null,
       tier1ImageUrl: rule.tier1ImageUrl ?? null,
       tier2Label: rule.tier2Label ?? null,
@@ -604,4 +631,152 @@ export async function upsertClientSelection(
   } else {
     await db.insert(clientItemSelections).values({ projectId, clientToken, itemKey, selectedTier });
   }
+}
+
+// ─── BOQ Documents ─────────────────────────────────────────────────────────────
+
+export async function createBoqDocument(data: {
+  projectId: number;
+  fileName: string;
+  fileKey: string;
+  fileUrl: string;
+  mimeType: string;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(boqDocuments).values({
+    ...data,
+    status: "uploaded",
+  });
+  return (result as any).insertId as number;
+}
+
+export async function getBoqDocumentsByProject(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(boqDocuments).where(eq(boqDocuments.projectId, projectId));
+}
+
+export async function getBoqDocument(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [doc] = await db.select().from(boqDocuments).where(eq(boqDocuments.id, id));
+  return doc ?? null;
+}
+
+export async function updateBoqDocumentStatus(
+  id: number,
+  status: "uploaded" | "extracting" | "extracted" | "confirmed" | "error",
+  extractionError?: string,
+) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(boqDocuments)
+    .set({
+      status,
+      ...(extractionError ? { extractionError } : {}),
+      ...(status === "extracted" || status === "confirmed" ? { extractedAt: new Date() } : {}),
+    })
+    .where(eq(boqDocuments.id, id));
+}
+
+export async function saveBoqItems(items: Array<{
+  boqDocumentId: number;
+  projectId: number;
+  category: string;
+  description: string;
+  unit?: string;
+  quantity?: string;
+  mappedQuantityField?: string;
+  position: number;
+}>) {
+  const db = await getDb();
+  if (!db) return;
+  if (items.length === 0) return;
+  await db.insert(boqItems).values(items.map(i => ({
+    ...i,
+    isConfirmed: false,
+  })));
+}
+
+export async function getBoqItemsByDocument(boqDocumentId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(boqItems)
+    .where(eq(boqItems.boqDocumentId, boqDocumentId))
+    .orderBy(boqItems.position);
+}
+
+export async function getBoqItemsByProject(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(boqItems)
+    .where(and(eq(boqItems.projectId, projectId), eq(boqItems.isConfirmed, true)))
+    .orderBy(boqItems.category, boqItems.position);
+}
+
+export async function updateBoqItem(id: number, data: {
+  category?: string;
+  description?: string;
+  unit?: string;
+  quantity?: string;
+  isConfirmed?: boolean;
+  mappedQuantityField?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(boqItems).set(data).where(eq(boqItems.id, id));
+}
+
+export async function deleteBoqItemsByDocument(boqDocumentId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(boqItems).where(eq(boqItems.boqDocumentId, boqDocumentId));
+}
+
+export async function confirmAllBoqItems(boqDocumentId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(boqItems)
+    .set({ isConfirmed: true })
+    .where(eq(boqItems.boqDocumentId, boqDocumentId));
+}
+
+// ─── Terms & Conditions ────────────────────────────────────────────────────────
+
+export async function getTermsAndConditions() {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(termsAndConditions);
+  return row ?? null;
+}
+
+export async function upsertTermsAndConditions(content: string) {
+  const db = await getDb();
+  if (!db) return;
+  const [existing] = await db.select().from(termsAndConditions);
+  if (existing) {
+    await db.update(termsAndConditions).set({ content }).where(eq(termsAndConditions.id, existing.id));
+  } else {
+    await db.insert(termsAndConditions).values({ content });
+  }
+}
+
+// ─── Portal T&C Acknowledgements ───────────────────────────────────────────────
+
+export async function hasAcknowledgedTc(projectId: number, clientToken: string) {
+  const db = await getDb();
+  if (!db) return false;
+  const [row] = await db.select().from(portalTcAcknowledgements)
+    .where(and(
+      eq(portalTcAcknowledgements.projectId, projectId),
+      eq(portalTcAcknowledgements.clientToken, clientToken),
+    ));
+  return !!row;
+}
+
+export async function recordTcAcknowledgement(projectId: number, clientToken: string, ipAddress?: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(portalTcAcknowledgements).values({ projectId, clientToken, ipAddress });
 }

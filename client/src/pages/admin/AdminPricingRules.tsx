@@ -21,10 +21,12 @@ type PricingRule = {
   tier2CostPerUnit: string | null;
   tier2ImageUrl: string | null;
   tier2Description: string | null;
+  tier2Qty: number | null;
   tier3Label: string | null;
   tier3CostPerUnit: string | null;
   tier3ImageUrl: string | null;
   tier3Description: string | null;
+  tier3Qty: number | null;
   position: number;
 };
 
@@ -36,9 +38,11 @@ function RuleRow({ rule, onSave }: { rule: PricingRule; onSave: (id: number, dat
     tier2Label: rule.tier2Label ?? "",
     tier2CostPerUnit: rule.tier2CostPerUnit ?? "0",
     tier2Description: rule.tier2Description ?? "",
+    tier2Qty: rule.tier2Qty ?? 0,
     tier3Label: rule.tier3Label ?? "",
     tier3CostPerUnit: rule.tier3CostPerUnit ?? "0",
     tier3Description: rule.tier3Description ?? "",
+    tier3Qty: rule.tier3Qty ?? 0,
   });
   const [saving, setSaving] = useState(false);
 
@@ -52,9 +56,11 @@ function RuleRow({ rule, onSave }: { rule: PricingRule; onSave: (id: number, dat
         tier2Label: form.tier2Label || null,
         tier2CostPerUnit: form.tier2CostPerUnit,
         tier2Description: form.tier2Description || null,
+        tier2Qty: form.tier2Qty || null,
         tier3Label: form.tier3Label || null,
         tier3CostPerUnit: form.tier3CostPerUnit,
         tier3Description: form.tier3Description || null,
+        tier3Qty: form.tier3Qty || null,
       });
       setEditing(false);
     } finally {
@@ -120,6 +126,19 @@ function RuleRow({ rule, onSave }: { rule: PricingRule; onSave: (id: number, dat
                   />
                   <span className="text-xs text-muted-foreground">{unitLabel} above Tier 1</span>
                 </div>
+                {rule.category.toLowerCase() === "electrical" && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-28 shrink-0">Tier 2 qty (upgraded):</span>
+                    <Input
+                      type="number"
+                      value={form.tier2Qty}
+                      onChange={e => setForm(f => ({ ...f, tier2Qty: parseInt(e.target.value) || 0 }))}
+                      placeholder="e.g. 40"
+                      className="text-sm w-24"
+                    />
+                    <span className="text-xs text-muted-foreground">units in Tier 2 (cost = extra units × price)</span>
+                  </div>
+                )}
                 <Textarea
                   value={form.tier2Description}
                   onChange={e => setForm(f => ({ ...f, tier2Description: e.target.value }))}
@@ -147,6 +166,19 @@ function RuleRow({ rule, onSave }: { rule: PricingRule; onSave: (id: number, dat
                   />
                   <span className="text-xs text-muted-foreground">{unitLabel} above Tier 1</span>
                 </div>
+                {rule.category.toLowerCase() === "electrical" && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-28 shrink-0">Tier 3 qty (upgraded):</span>
+                    <Input
+                      type="number"
+                      value={form.tier3Qty}
+                      onChange={e => setForm(f => ({ ...f, tier3Qty: parseInt(e.target.value) || 0 }))}
+                      placeholder="e.g. 40"
+                      className="text-sm w-24"
+                    />
+                    <span className="text-xs text-muted-foreground">units in Tier 3 (cost = all units × premium price)</span>
+                  </div>
+                )}
                 <Textarea
                   value={form.tier3Description}
                   onChange={e => setForm(f => ({ ...f, tier3Description: e.target.value }))}

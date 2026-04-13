@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ChevronDown, ChevronUp, Upload, Check, AlertCircle,
-  Clock, FileText, Plus, Eye, EyeOff, Send, Download, Lock, Sparkles, ArrowRight, Star
+  Clock, FileText, Plus, Eye, EyeOff, Send, Download, Lock, Sparkles, ArrowRight, Star,
+  ScrollText, CheckCircle2
 } from "lucide-react";
 
 const LOGO_URL = "https://cdn-bmodern.manus.space/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB.jpg";
@@ -20,6 +21,128 @@ const TIER_LABELS = [
   { key: 2, name: "Tailored Living", tagline: "Elevated finishes, refined lifestyle", badge: "bg-amber-100 text-amber-800", color: "var(--bm-petrol)", border: "var(--bm-petrol)", recommended: true },
   { key: 3, name: "Signature Series", tagline: "Premium materials, signature style", badge: "bg-purple-100 text-purple-800", color: "#6b46c1", border: "#9f7aea", recommended: false },
 ];
+
+
+// ─── T&C Gate Screen ──────────────────────────────────────────────────────────
+function TcGateScreen({
+  token,
+  onAccepted,
+}: {
+  token: string;
+  onAccepted: () => void;
+}) {
+  const { data: terms, isLoading } = trpc.portal.getTerms.useQuery({ token });
+  const acknowledgeMutation = trpc.portal.acknowledgeTerms.useMutation({
+    onSuccess: onAccepted,
+    onError: (e) => toast.error(e.message),
+  });
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const [checked, setChecked] = useState(false);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 20) {
+      setScrolledToBottom(true);
+    }
+  };
+
+  // If no T&Cs are set, skip the gate
+  useEffect(() => {
+    if (!isLoading && (!terms || !terms.content)) {
+      onAccepted();
+    }
+  }, [isLoading, terms, onAccepted]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bm-cream)" }}>
+        <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--bm-petrol)", borderTopColor: "transparent" }} />
+      </div>
+    );
+  }
+
+  if (!terms || !terms.content) return null;
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12" style={{ background: "var(--bm-cream)" }}>
+      <div className="w-full max-w-2xl">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <img
+            src={LOGO_URL}
+            alt="B Modern Homes"
+            className="h-8 mx-auto mb-4 object-contain"
+            style={{ filter: "brightness(0) saturate(100%) invert(18%) sepia(28%) saturate(700%) hue-rotate(162deg) brightness(95%) contrast(95%)" }}
+          />
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <ScrollText size={20} style={{ color: "var(--bm-petrol)" }} />
+            <h1 className="text-xl font-semibold" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)" }}>
+              Terms & Conditions
+            </h1>
+          </div>
+          <p className="text-sm text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+            Please read and accept the terms before viewing your proposal.
+          </p>
+        </div>
+
+        {/* T&C content */}
+        <div
+          className="bg-white rounded-xl border shadow-sm mb-6 overflow-hidden"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="p-6 overflow-y-auto text-sm leading-relaxed"
+            style={{ maxHeight: "380px", fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)", whiteSpace: "pre-wrap" }}
+          >
+            {terms.content}
+          </div>
+          {!scrolledToBottom && (
+            <div className="px-6 py-2 bg-amber-50 border-t border-amber-100 text-xs text-amber-700 flex items-center gap-1.5" style={{ fontFamily: "Lato, sans-serif" }}>
+              <ChevronDown size={13} />
+              Scroll to read the full terms
+            </div>
+          )}
+        </div>
+
+        {/* Checkbox + Accept */}
+        <div className="space-y-4">
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <div
+              className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked ? "border-[var(--bm-petrol)] bg-[var(--bm-petrol)]" : "border-gray-300 group-hover:border-[var(--bm-petrol)]"}`}
+              onClick={() => setChecked(!checked)}
+            >
+              {checked && <Check size={12} className="text-white" />}
+            </div>
+            <span className="text-sm" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)", lineHeight: "1.6" }}>
+              I have read and agree to the Terms & Conditions set out above. I understand this proposal is subject to these terms.
+            </span>
+          </label>
+
+          <Button
+            className="w-full h-11 text-sm font-medium tracking-wide"
+            style={{ background: checked ? "var(--bm-petrol)" : undefined, fontFamily: "Lato, sans-serif" }}
+            disabled={!checked || acknowledgeMutation.isPending}
+            onClick={() => acknowledgeMutation.mutate({ token })}
+          >
+            {acknowledgeMutation.isPending ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                <CheckCircle2 size={16} className="mr-2" />
+                Accept & View Proposal
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Package Selection Screen (Pricing Engine) ─────────────────────────────────
 function PackageSelectionScreen({
@@ -1312,6 +1435,20 @@ export default function ClientPortal() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   // Track whether the client has completed package selection (stores the selected packageId)
   const [packageConfirmed, setPackageConfirmed] = useState<number | null>(null);
+  // T&C acknowledgement gate: null = not checked yet, false = not accepted, true = accepted
+  const [tcAccepted, setTcAccepted] = useState<boolean | null>(null);
+
+  // Check if T&Cs have already been acknowledged (persisted on server)
+  const { data: tcStatus } = trpc.portal.hasAcknowledgedTerms.useQuery(
+    { token },
+    { enabled: !!token }
+  );
+
+  useEffect(() => {
+    if (tcStatus !== undefined) {
+      setTcAccepted(tcStatus.acknowledged);
+    }
+  }, [tcStatus]);
 
   const utils = trpc.useUtils();
   const submitMutation = trpc.portal.submitSelections.useMutation({
@@ -1371,6 +1508,20 @@ export default function ClientPortal() {
   const isLocked = !!project.portalLockedAt;
   const isPostContract = project.status === "contract_signed" || project.status === "post_contract";
   const basePrice = Number(project.baseContractPrice || 0);
+
+  // Show T&C gate if not yet accepted
+  if (tcAccepted === null) {
+    // Still loading T&C status — show spinner
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bm-cream)" }}>
+        <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--bm-petrol)", borderTopColor: "transparent" }} />
+      </div>
+    );
+  }
+
+  if (!tcAccepted) {
+    return <TcGateScreen token={token} onAccepted={() => setTcAccepted(true)} />;
+  }
 
   // Show package selection screen if no package has been selected yet
   // (and the portal is not locked / post-contract)

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import React from "react";
 import { useLocation, useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -13,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   Edit, Link2, Lock, Unlock, Plus, Trash2, Upload, X, GripVertical,
-  ExternalLink, Copy, Check, ChevronDown, ChevronUp, Eye, EyeOff, FileDown, Package, Sparkles
+  ExternalLink, Copy, Check, ChevronDown, ChevronUp, Eye, EyeOff, FileDown, Package, Sparkles,
+  FileText, RefreshCw, Wand2, CheckCheck, AlertCircle, Loader2
 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -157,7 +159,222 @@ function InclusionsTab({ projectId }: { projectId: number }) {
   );
 }
 
-// ─── Quantities Tab ───────────────────────────────────────────────────────────
+// ─── BOQ Tab ──────────────────────────────────────────────────────────────────────────────
+const CATEGORY_ORDER = ["Preliminaries", "Structural", "External", "Internal", "Electrical", "Plumbing", "HVAC", "Other"];
+
+function BoqTab({ projectId }: { projectId: number }) {
+  const utils = trpc.useUtils();
+  const [selectedDocId, setSelectedDocId] = React.useState<number | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+  const [polling, setPolling] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+
+  const { data: documents, refetch: refetchDocs } = trpc.boq.listDocuments.useQuery({ projectId });
+  const { data: items, refetch: refetchItems } = trpc.boq.getItems.useQuery(
+    { boqDocumentId: selectedDocId! },
+    { enabled: !!selectedDocId, refetchInterval: polling ? 3000 : false }
+  );
+  const confirmAllMutation = trpc.boq.confirmAll.useMutation({
+    onSuccess: () => { toast.success("BOQ confirmed"); refetchDocs(); refetchItems(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const autoFillMutation = trpc.boq.autoFillQuantities.useMutation({
+    onSuccess: (r) => { toast.success(`Auto-filled ${r.filledCount} quantity fields`); utils.quantities.get.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteMutation = trpc.boq.deleteDocument.useMutation({
+    onSuccess: () => { toast.success("Document deleted"); setSelectedDocId(null); refetchDocs(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // Auto-select first doc
+  React.useEffect(() => {
+    if (documents && documents.length > 0 && !selectedDocId) {
+      setSelectedDocId(documents[0].id);
+    }
+  }, [documents]);
+
+  // Poll while extracting
+  React.useEffect(() => {
+    const doc = documents?.find(d => d.id === selectedDocId);
+    if (doc?.status === "extracting" || doc?.status === "uploaded") {
+      setPolling(true);
+    } else {
+      setPolling(false);
+    }
+  }, [documents, selectedDocId, items]);
+
+  const selectedDoc = documents?.find(d => d.id === selectedDocId);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("projectId", String(projectId));
+      const res = await fetch("/api/boq/upload", { method: "POST", body: formData, credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      toast.success("BOQ uploaded — extracting items...");
+      await refetchDocs();
+      setSelectedDocId(data.docId);
+      setPolling(true);
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  // Group items by category
+  const grouped = React.useMemo(() => {
+    if (!items) return {};
+    const map: Record<string, typeof items> = {};
+    for (const item of items) {
+      const cat = item.category || "Other";
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(item);
+    }
+    return map;
+  }, [items]);
+
+  const sortedCategories = Object.keys(grouped).sort((a, b) => {
+    const ai = CATEGORY_ORDER.indexOf(a);
+    const bi = CATEGORY_ORDER.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-semibold" style={{ fontFamily: "Cormorant Garamond, serif" }}>Bill of Quantities</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Upload a PDF or Excel BOQ — AI will extract and categorise all line items automatically.</p>
+        </div>
+        <div className="flex gap-2">
+          <input ref={fileRef} type="file" accept=".pdf,.xlsx,.xls,.csv" className="hidden" onChange={handleUpload} />
+          <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
+            {uploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
+            {uploading ? "Uploading..." : "Upload BOQ"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Document selector */}
+      {documents && documents.length > 1 && (
+        <div className="flex gap-2 flex-wrap">
+          {documents.map(doc => (
+            <button
+              key={doc.id}
+              onClick={() => setSelectedDocId(doc.id)}
+              className={`px-3 py-1 rounded text-xs border transition-colors ${
+                selectedDocId === doc.id ? "bg-foreground text-background" : "bg-background text-foreground hover:bg-muted"
+              }`}
+            >
+              {doc.fileName}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Status banner */}
+      {selectedDoc && (
+        <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
+          selectedDoc.status === "extracting" || selectedDoc.status === "uploaded" ? "bg-amber-50 text-amber-800 border border-amber-200" :
+          selectedDoc.status === "error" ? "bg-red-50 text-red-800 border border-red-200" :
+          selectedDoc.status === "confirmed" ? "bg-green-50 text-green-800 border border-green-200" :
+          "bg-blue-50 text-blue-800 border border-blue-200"
+        }`}>
+          {(selectedDoc.status === "extracting" || selectedDoc.status === "uploaded") && <Loader2 className="w-4 h-4 animate-spin" />}
+          {selectedDoc.status === "error" && <AlertCircle className="w-4 h-4" />}
+          {selectedDoc.status === "confirmed" && <CheckCheck className="w-4 h-4" />}
+          {selectedDoc.status === "extracted" && <FileText className="w-4 h-4" />}
+          <span>
+            {selectedDoc.status === "extracting" || selectedDoc.status === "uploaded" ? "Extracting items from BOQ... This may take 30–60 seconds." :
+             selectedDoc.status === "error" ? `Extraction failed: ${selectedDoc.extractionError || "Unknown error"}` :
+             selectedDoc.status === "confirmed" ? `BOQ confirmed — ${items?.length || 0} items` :
+             `${items?.length || 0} items extracted — review and confirm below`}
+          </span>
+          {(selectedDoc.status === "extracting" || selectedDoc.status === "uploaded") && (
+            <Button size="sm" variant="ghost" className="ml-auto h-6 text-xs" onClick={() => refetchDocs()}>
+              <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Action buttons */}
+      {selectedDoc && (selectedDoc.status === "extracted" || selectedDoc.status === "confirmed") && items && items.length > 0 && (
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => autoFillMutation.mutate({ boqDocumentId: selectedDocId!, projectId })} disabled={autoFillMutation.isPending}>
+            <Wand2 className="w-3 h-3 mr-1" />
+            {autoFillMutation.isPending ? "Filling..." : "Auto-fill Quantities"}
+          </Button>
+          {selectedDoc.status !== "confirmed" && (
+            <Button size="sm" onClick={() => confirmAllMutation.mutate({ boqDocumentId: selectedDocId!, projectId })} disabled={confirmAllMutation.isPending}>
+              <CheckCheck className="w-3 h-3 mr-1" />
+              {confirmAllMutation.isPending ? "Confirming..." : "Confirm All Items"}
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" className="ml-auto text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this BOQ document?")) deleteMutation.mutate({ id: selectedDocId! }); }}>
+            <Trash2 className="w-3 h-3 mr-1" /> Delete
+          </Button>
+        </div>
+      )}
+
+      {/* Items table */}
+      {items && items.length > 0 && sortedCategories.map(cat => (
+        <div key={cat}>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 mt-4">{cat}</h4>
+          <div className="rounded-lg border overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-2 font-medium">Description</th>
+                  <th className="text-left p-2 font-medium w-16">Unit</th>
+                  <th className="text-left p-2 font-medium w-16">Qty</th>
+                  <th className="text-left p-2 font-medium w-32">Maps to</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grouped[cat].map(item => (
+                  <tr key={item.id} className="border-t hover:bg-muted/20">
+                    <td className="p-2">{item.description}</td>
+                    <td className="p-2 text-muted-foreground">{item.unit || "—"}</td>
+                    <td className="p-2 text-muted-foreground">{item.quantity || "—"}</td>
+                    <td className="p-2">
+                      {item.mappedQuantityField ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-100 text-green-800 text-[10px]">
+                          <Check className="w-2.5 h-2.5" /> {item.mappedQuantityField}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+
+      {!documents?.length && (
+        <div className="text-center py-12 text-muted-foreground">
+          <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
+          <p className="text-sm">No BOQ uploaded yet</p>
+          <p className="text-xs mt-1">Upload a PDF or Excel BOQ to extract and categorise all line items</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Quantities Tab ─────────────────────────────────────────────
 function QuantitiesTab({ projectId }: { projectId: number }) {
   const utils = trpc.useUtils();
   const { data: qty } = trpc.quantities.get.useQuery({ projectId });
@@ -914,14 +1131,15 @@ export default function AdminProjectDetail() {
       {/* Tabs */}
       <Tabs defaultValue="inclusions">
         <TabsList className="mb-6 h-9 flex-wrap">
-          {["inclusions", "quantities", "upgrades", "plans", "portal"].map((tab) => (
+          {["inclusions", "boq", "quantities", "upgrades", "plans", "portal"].map((tab) => (
             <TabsTrigger key={tab} value={tab} className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
-              {tab === "portal" ? "Client Portal" : tab === "plans" ? "Plan Images" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === "portal" ? "Client Portal" : tab === "plans" ? "Plan Images" : tab === "boq" ? "BOQ" : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </TabsTrigger>
           ))}
         </TabsList>
         <TabsContent value="inclusions"><InclusionsTab projectId={projectId} /></TabsContent>
         <TabsContent value="quantities"><QuantitiesTab projectId={projectId} /></TabsContent>
+        <TabsContent value="boq"><BoqTab projectId={projectId} /></TabsContent>
         <TabsContent value="upgrades"><UpgradesTab projectId={projectId} /></TabsContent>
         <TabsContent value="plans"><PlanImagesTab projectId={projectId} /></TabsContent>
         <TabsContent value="portal"><ClientPortalTab projectId={projectId} project={project} /></TabsContent>

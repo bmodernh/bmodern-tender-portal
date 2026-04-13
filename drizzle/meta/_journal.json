@@ -50,6 +50,20 @@
       "when": 1776059149745,
       "tag": "0006_bitter_madame_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1776062964863,
+      "tag": "0007_lush_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1776064558044,
+      "tag": "0008_warm_captain_universe",
+      "breakpoints": true
     }
   ]
 }

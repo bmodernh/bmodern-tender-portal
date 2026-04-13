@@ -79,6 +79,19 @@ import {
   calculatePackagePrices,
   getClientSelections,
   upsertClientSelection,
+  createBoqDocument,
+  getBoqDocumentsByProject,
+  getBoqDocument,
+  updateBoqDocumentStatus,
+  getBoqItemsByDocument,
+  getBoqItemsByProject,
+  updateBoqItem,
+  deleteBoqItemsByDocument,
+  confirmAllBoqItems,
+  getTermsAndConditions,
+  upsertTermsAndConditions,
+  hasAcknowledgedTc,
+  recordTcAcknowledgement,
 } from "./db";
 import { storagePut } from "./storage";
 import {
@@ -786,6 +799,34 @@ const portalRouter = router({
       await upsertClientSelection(tokenRecord.projectId, input.token, input.itemKey, input.selectedTier);
       return { success: true };
     }),
+
+  getTerms: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const terms = await getTermsAndConditions();
+      return terms || { content: null };
+    }),
+
+  hasAcknowledgedTerms: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const acknowledged = await hasAcknowledgedTc(tokenRecord.projectId, input.token);
+      return { acknowledged };
+    }),
+
+  acknowledgeTerms: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const ipAddress = ctx.req.headers["x-forwarded-for"]?.toString() || ctx.req.socket?.remoteAddress;
+      await recordTcAcknowledgement(tokenRecord.projectId, input.token, ipAddress);
+      return { success: true };
+    }),
 });
 // ─── Exclusions Router ──────────────────────────────────────────────────────────────
 const exclusionsRouter = router({
@@ -864,10 +905,12 @@ const pricingRulesRouter = router({
       tier2CostPerUnit: z.string().optional(),
       tier2ImageUrl: z.string().optional().nullable(),
       tier2Description: z.string().optional().nullable(),
+      tier2Qty: z.number().int().optional().nullable(),
       tier3Label: z.string().optional().nullable(),
       tier3CostPerUnit: z.string().optional(),
       tier3ImageUrl: z.string().optional().nullable(),
       tier3Description: z.string().optional().nullable(),
+      tier3Qty: z.number().int().optional().nullable(),
     }))
     .mutation(async ({ input, ctx }) => {
       await requireAdmin(ctx);
@@ -902,9 +945,97 @@ const packagesRouter = router({
     }),
 });
 
-// ─── App Router ────────────────────────────────────────────────────────────────────
-export const appRouter = router({
-  system: systemRouter,
+// ─── BOQ Router ────────────────────────────────────────────────────────────────────────────────
+const boqRouter = router({
+  listDocuments: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getBoqDocumentsByProject(input.projectId);
+    }),
+
+  getItems: publicProcedure
+    .input(z.object({ boqDocumentId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getBoqItemsByDocument(input.boqDocumentId);
+    }),
+
+  updateItem: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      category: z.string().optional(),
+      description: z.string().optional(),
+      unit: z.string().optional(),
+      quantity: z.string().optional(),
+      isConfirmed: z.boolean().optional(),
+      mappedQuantityField: z.string().nullable().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const { id, ...data } = input;
+      await updateBoqItem(id, {
+        ...data,
+        mappedQuantityField: data.mappedQuantityField ?? undefined,
+      });
+      return { success: true };
+    }),
+
+  confirmAll: publicProcedure
+    .input(z.object({ boqDocumentId: z.number(), projectId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await confirmAllBoqItems(input.boqDocumentId);
+      await updateBoqDocumentStatus(input.boqDocumentId, "confirmed");
+      return { success: true };
+    }),
+
+  autoFillQuantities: publicProcedure
+    .input(z.object({ boqDocumentId: z.number(), projectId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const items = await getBoqItemsByDocument(input.boqDocumentId);
+      // Build quantities update from mapped fields
+      const quantityUpdate: Record<string, number> = {};
+      for (const item of items) {
+        if (item.mappedQuantityField && item.quantity) {
+          const val = parseFloat(item.quantity);
+          if (!isNaN(val)) {
+            quantityUpdate[item.mappedQuantityField] = val;
+          }
+        }
+      }
+      if (Object.keys(quantityUpdate).length > 0) {
+        await upsertQuantities(input.projectId, quantityUpdate);
+      }
+      return { success: true, filledCount: Object.keys(quantityUpdate).length };
+    }),
+
+  deleteDocument: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await deleteBoqItemsByDocument(input.id);
+      return { success: true };
+    }),
+});
+
+// ─── Terms & Conditions Router ────────────────────────────────────────────────────────
+const termsRouter = router({
+  get: publicProcedure
+    .query(async () => getTermsAndConditions()),
+
+  update: publicProcedure
+    .input(z.object({ content: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await upsertTermsAndConditions(input.content);
+      return { success: true };
+    }),
+});
+
+// ─── App Router ────────────────────────────────────────────────────────────────────────────────
+export const appRouter = router({em: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -927,5 +1058,7 @@ export const appRouter = router({
   companySettings: companySettingsRouter,
   packages: packagesRouter,
   pricingRules: pricingRulesRouter,
+  boq: boqRouter,
+  terms: termsRouter,
 });
 export type AppRouter = typeof appRouter;
