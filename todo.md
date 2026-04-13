@@ -358,3 +358,8 @@
 - [x] PDF should show: base inclusions, selected upgrades with tier names and pricing, plus options, final total
 - [x] Add download button in client portal after submission (and in admin response view)
 - [x] PDF available at all stages: pre-submit, under review, and after admin response
+
+## Bug Fix — Description Column Too Short
+- [x] Extend inclusion_items.description from varchar(255) to TEXT for long descriptive tender wording
+- [x] Also check inclusion_items.name column length — extended to TEXT
+- [x] Also check upgrade_pricing_rules description columns — tier labels extended to TEXT, label to varchar(512)

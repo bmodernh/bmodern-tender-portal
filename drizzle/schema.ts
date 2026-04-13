@@ -318,14 +318,14 @@ export const masterPackageItems = mysqlTable("master_package_items", {
 export const upgradePricingRules = mysqlTable("upgrade_pricing_rules", {
   id: int("id").autoincrement().primaryKey(),
   itemKey: varchar("itemKey", { length: 64 }).notNull().unique(), // e.g. "downlights"
-  label: varchar("label", { length: 128 }).notNull(),             // e.g. "Downlights"
+  label: varchar("label", { length: 512 }).notNull(),             // e.g. "Downlights"
   category: varchar("category", { length: 64 }).notNull(),        // e.g. "Electrical"
   unit: mysqlEnum("unit", ["each", "lm", "m2", "fixed"]).default("each").notNull(),
   // Tier 1 (Built for Excellence) — baseline description only
-  tier1Label: varchar("tier1Label", { length: 256 }),             // e.g. "25 LED downlights"
+  tier1Label: text("tier1Label"),             // e.g. "25 LED downlights"
   tier1ImageUrl: text("tier1ImageUrl"),
   // Tier 2 (Tailored Living)
-  tier2Label: varchar("tier2Label", { length: 256 }),             // e.g. "40 LED downlights"
+  tier2Label: text("tier2Label"),             // e.g. "40 LED downlights"
   tier2CostPerUnit: decimal("tier2CostPerUnit", { precision: 10, scale: 2 }).default("0"),
   tier2ImageUrl: text("tier2ImageUrl"),
   tier2Description: text("tier2Description"),
@@ -333,7 +333,7 @@ export const upgradePricingRules = mysqlTable("upgrade_pricing_rules", {
   // Cost = (tier2Qty - base_qty) * tier2CostPerUnit
   tier2Qty: int("tier2Qty").default(0),
   // Tier 3 (Signature Series)
-  tier3Label: varchar("tier3Label", { length: 256 }),             // e.g. "50 LED + smart scenes"
+  tier3Label: text("tier3Label"),             // e.g. "50 LED + smart scenes"
   tier3CostPerUnit: decimal("tier3CostPerUnit", { precision: 10, scale: 2 }).default("0"),
   tier3ImageUrl: text("tier3ImageUrl"),
   tier3Description: text("tier3Description"),
@@ -390,7 +390,7 @@ export const boqItems = mysqlTable("boq_items", {
 export const inclusionCategories = mysqlTable("inclusion_categories", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("projectId").notNull(),
-  name: varchar("name", { length: 128 }).notNull(),  // e.g. "Electrical"
+  name: text("name").notNull(),  // e.g. "Electrical"
   imageUrl: text("imageUrl"),
   position: int("position").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -402,7 +402,7 @@ export const inclusionItems = mysqlTable("inclusion_items", {
   id: int("id").autoincrement().primaryKey(),
   categoryId: int("categoryId").notNull(),
   projectId: int("projectId").notNull(),
-  name: varchar("name", { length: 256 }).notNull(),       // e.g. "Downlights"
+  name: text("name").notNull(),       // e.g. "Downlights"
   qty: decimal("qty", { precision: 10, scale: 2 }),       // editable quantity
   unit: varchar("unit", { length: 32 }).default("each"),  // each / lm / m2 / item
   description: text("description"),                       // e.g. "LED downlights throughout home"
