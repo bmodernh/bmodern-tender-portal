@@ -13,6 +13,7 @@ import {
   MessageSquarePlus, ExternalLink, Clock, CheckCircle2, XCircle,
   AlertCircle, FileText, ScrollText, Sparkles, Lock, Image as ImageIcon,
   Package, ToggleRight, Eye, X, Download,
+  Milestone, Building2, Hammer, KeyRound, Home, ClipboardCheck, PenTool, FileSignature, HardHat,
 } from "lucide-react";
 import { FloatingChatButton } from "@/components/ProjectChat";
 import { SignaturePad } from "@/components/SignaturePad";
@@ -43,6 +44,120 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
   approved: { label: "Approved", color: "bg-emerald-100 text-emerald-800", icon: CheckCircle2 },
   declined: { label: "Declined", color: "bg-red-100 text-red-800", icon: XCircle },
 };
+
+// ─── Project Timeline ────────────────────────────────────────────────────────
+function ProjectTimeline({ token }: { token: string }) {
+  const { data: timeline, isLoading } = trpc.portal.getTimeline.useQuery({ token });
+
+  if (isLoading || !timeline) return null;
+
+  const milestones = [
+    { key: "portalOpened", label: "Proposal Issued", date: timeline.portalOpened, icon: FileText, description: "Your personalised tender portal was created" },
+    { key: "tenderSigned", label: "Tender Signed", date: timeline.tenderSigned, icon: PenTool, description: "Upgrade selections reviewed and signed off" },
+    { key: "contractUploaded", label: "Contract Signed", date: timeline.contractUploaded, icon: FileSignature, description: "Building contract executed" },
+    { key: "constructionStarted", label: "Construction Started", date: timeline.constructionStarted, icon: HardHat, description: "Site works commenced" },
+    { key: "framingCompleted", label: "Frame Stage", date: timeline.framingCompleted, icon: Building2, description: "Structural framing completed" },
+    { key: "lockupCompleted", label: "Lock-Up Stage", date: timeline.lockupCompleted, icon: KeyRound, description: "External cladding, windows & doors installed" },
+    { key: "fixoutCompleted", label: "Fix-Out Stage", date: timeline.fixoutCompleted, icon: Hammer, description: "Internal fit-out and finishing" },
+    { key: "completed", label: "Practical Completion", date: timeline.completed, icon: ClipboardCheck, description: "Build complete, final inspections passed" },
+    { key: "handover", label: "Handover", date: timeline.handover, icon: Home, description: "Keys handed over — welcome home" },
+  ];
+
+  // Find the last completed milestone index
+  let lastCompletedIdx = -1;
+  milestones.forEach((m, i) => { if (m.date) lastCompletedIdx = i; });
+
+  // Only show timeline if at least the first milestone is done
+  if (lastCompletedIdx < 0) return null;
+
+  // Determine which milestones to show: all completed + next upcoming one
+  const visibleCount = Math.min(lastCompletedIdx + 2, milestones.length);
+
+  return (
+    <section className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+      <div className="mb-8">
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className="w-8 h-8 rounded-full bg-[#203E4A]/10 flex items-center justify-center">
+            <Milestone className="h-4 w-4 text-[#203E4A]" />
+          </div>
+          <h2 className="font-['Playfair_Display_SC'] text-xl text-[#203E4A] tracking-wider">Project Timeline</h2>
+        </div>
+        <p className="text-sm text-[#6D7E94] font-['Lato'] ml-[42px]">Track the progress of your home build</p>
+      </div>
+
+      <div className="relative ml-4 sm:ml-8">
+        {/* Vertical line */}
+        <div className="absolute left-4 top-0 bottom-0 w-px bg-gradient-to-b from-[#203E4A]/30 via-[#203E4A]/15 to-transparent" />
+
+        <div className="space-y-0">
+          {milestones.slice(0, visibleCount).map((m, idx) => {
+            const isCompleted = !!m.date;
+            const isCurrent = idx === lastCompletedIdx;
+            const isNext = idx === lastCompletedIdx + 1;
+            const Icon = m.icon;
+
+            return (
+              <div key={m.key} className="relative flex items-start gap-5 pb-8 last:pb-0">
+                {/* Node */}
+                <div className={`relative z-10 flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-500 ${
+                  isCompleted
+                    ? isCurrent
+                      ? "bg-[#203E4A] shadow-lg shadow-[#203E4A]/25 ring-4 ring-[#203E4A]/10"
+                      : "bg-[#203E4A]"
+                    : isNext
+                      ? "bg-white border-2 border-[#203E4A]/30 border-dashed"
+                      : "bg-gray-100 border border-gray-200"
+                }`}>
+                  {isCompleted ? (
+                    <Icon className="h-4 w-4 text-white" />
+                  ) : (
+                    <Icon className={`h-4 w-4 ${isNext ? "text-[#203E4A]/40" : "text-gray-300"}`} />
+                  )}
+                  {isCurrent && (
+                    <span className="absolute -right-1 -top-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white animate-pulse" />
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className={`flex-1 min-w-0 pt-1 ${
+                  isCompleted ? "" : "opacity-50"
+                }`}>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h3 className={`font-['Lato'] font-semibold text-sm tracking-wide ${
+                      isCompleted ? "text-[#203E4A]" : "text-gray-400"
+                    }`}>
+                      {m.label}
+                    </h3>
+                    {isCompleted && m.date && (
+                      <span className="text-[11px] font-['Lato'] text-[#6D7E94] bg-[#203E4A]/5 rounded-full px-2.5 py-0.5">
+                        {fmtDate(m.date)}
+                      </span>
+                    )}
+                    {isCurrent && (
+                      <span className="text-[10px] font-['Lato'] font-bold uppercase tracking-[0.15em] text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">
+                        Current
+                      </span>
+                    )}
+                    {isNext && (
+                      <span className="text-[10px] font-['Lato'] font-bold uppercase tracking-[0.15em] text-[#203E4A]/40 bg-[#203E4A]/5 rounded-full px-2 py-0.5">
+                        Up Next
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-xs font-['Lato'] mt-0.5 ${
+                    isCompleted ? "text-[#6D7E94]" : "text-gray-300"
+                  }`}>
+                    {m.description}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 // ─── Loader ──────────────────────────────────────────────────────────────────
 function PortalLoader() {
@@ -1314,6 +1429,9 @@ export default function ClientPortal() {
           <AlertCircle className="inline h-3.5 w-3.5 mr-1.5" /> This proposal is in draft and may change before presentation.
         </div>
       )}
+
+      {/* 0. Project Timeline */}
+      <ProjectTimeline token={token} />
 
       {/* 1. Base Inclusions — shown FIRST */}
       <BaseInclusionsSection token={token} />

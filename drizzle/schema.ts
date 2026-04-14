@@ -62,6 +62,13 @@ export const projects = mysqlTable("projects", {
   selectedPackageId: int("selectedPackageId"),
   signedContractUrl: text("signed_contract_url"),
   signedContractUploadedAt: timestamp("signed_contract_uploaded_at"),
+  // Milestone timestamps for status timeline
+  constructionStartedAt: timestamp("construction_started_at"),
+  framingCompletedAt: timestamp("framing_completed_at"),
+  lockupCompletedAt: timestamp("lockup_completed_at"),
+  fixoutCompletedAt: timestamp("fixout_completed_at"),
+  completedAt: timestamp("completed_at"),
+  handoverAt: timestamp("handover_at"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

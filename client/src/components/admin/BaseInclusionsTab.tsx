@@ -612,7 +612,7 @@ export default function BaseInclusionsTab({ projectId }: { projectId: number }) 
           <Layers size={32} className="mx-auto mb-3 text-muted-foreground" />
           <p className="text-sm font-medium mb-1" style={{ fontFamily: "var(--font-heading)" }}>No inclusions yet</p>
           <p className="text-xs text-muted-foreground mb-4">
-            Upload a BOQ to auto-populate, or click "Add Default Categories" to start manually.
+            Upload a BOQ to auto-populate, or click "Add Default Categories" to pre-populate from the project's starting tier specifications.
           </p>
         </div>
       )}

@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import {
   Edit, Link2, Lock, Unlock, Plus, Trash2, Upload, X, GripVertical,
   ExternalLink, Copy, Check, ChevronDown, ChevronUp, Eye, EyeOff, FileDown, Package, Sparkles,
-  FileText, RefreshCw, Wand2, CheckCheck, AlertCircle, Loader2, Layers
+  FileText, RefreshCw, Wand2, CheckCheck, AlertCircle, Loader2, Layers,
+  Milestone, Building2, Hammer, KeyRound, Home, ClipboardCheck, PenTool, FileSignature, HardHat, Calendar,
 } from "lucide-react";
 import BaseInclusionsTab from "@/components/admin/BaseInclusionsTab";
 import { SubmissionResponseCard } from "@/components/admin/SubmissionResponseCard";
@@ -427,6 +428,166 @@ function UpgradesTab({ projectId }: { projectId: number }) {
   );
 }
 
+// ─── Milestone Management ─────────────────────────────────────────────────────
+const MILESTONE_DEFS = [
+  { key: "constructionStartedAt", label: "Construction Started", icon: HardHat, description: "Site works commenced" },
+  { key: "framingCompletedAt", label: "Frame Stage Complete", icon: Building2, description: "Structural framing completed" },
+  { key: "lockupCompletedAt", label: "Lock-Up Complete", icon: KeyRound, description: "External cladding, windows & doors installed" },
+  { key: "fixoutCompletedAt", label: "Fix-Out Complete", icon: Hammer, description: "Internal fit-out and finishing" },
+  { key: "completedAt", label: "Practical Completion", icon: ClipboardCheck, description: "Build complete, final inspections passed" },
+  { key: "handoverAt", label: "Handover", icon: Home, description: "Keys handed over" },
+] as const;
+
+function MilestoneManagement({ projectId }: { projectId: number }) {
+  const utils = trpc.useUtils();
+  const { data: timeline, isLoading } = trpc.projects.getTimeline.useQuery({ projectId });
+  const updateMilestones = trpc.projects.updateMilestones.useMutation({
+    onSuccess: () => {
+      toast.success("Milestone updated");
+      utils.projects.getTimeline.invalidate();
+      utils.projects.get.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const [expanded, setExpanded] = useState(false);
+
+  if (isLoading) return null;
+
+  const timelineData = timeline as Record<string, any> | null;
+
+  const handleSetDate = (key: string, dateStr: string | null) => {
+    updateMilestones.mutate({
+      projectId,
+      [key]: dateStr,
+    });
+  };
+
+  // Map timeline response keys to milestone keys
+  const timelineKeyMap: Record<string, string> = {
+    constructionStartedAt: "constructionStarted",
+    framingCompletedAt: "framingCompleted",
+    lockupCompletedAt: "lockupCompleted",
+    fixoutCompletedAt: "fixoutCompleted",
+    completedAt: "completed",
+    handoverAt: "handover",
+  };
+
+  const getDate = (key: string): string | null => {
+    if (!timelineData) return null;
+    const tlKey = timelineKeyMap[key];
+    const val = timelineData[tlKey];
+    return val ? new Date(val).toISOString().split("T")[0] : null;
+  };
+
+  const completedCount = MILESTONE_DEFS.filter(m => getDate(m.key)).length;
+
+  return (
+    <div className="bg-card border rounded overflow-hidden" style={{ borderColor: "var(--border)" }}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <Milestone size={15} style={{ color: "var(--bm-petrol)" }} />
+          <h3 className="text-sm font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>Project Milestones</h3>
+          <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5" style={{ fontFamily: "Lato, sans-serif" }}>
+            {completedCount} / {MILESTONE_DEFS.length}
+          </span>
+        </div>
+        {expanded ? <ChevronUp size={15} className="text-muted-foreground" /> : <ChevronDown size={15} className="text-muted-foreground" />}
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 border-t" style={{ borderColor: "var(--border)" }}>
+          <p className="text-xs text-muted-foreground pt-3" style={{ fontFamily: "Lato, sans-serif" }}>
+            Set dates for each construction milestone. These appear on the client's portal timeline.
+          </p>
+
+          {/* Auto-derived milestones (read-only) */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-muted/30">
+              <div className="w-7 h-7 rounded-full bg-[var(--bm-petrol)] flex items-center justify-center flex-shrink-0">
+                <FileText size={13} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium" style={{ fontFamily: "Lato, sans-serif" }}>Proposal Issued</div>
+                <div className="text-[11px] text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>Auto-set when project was created</div>
+              </div>
+              <span className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                {timelineData?.portalOpened ? new Date(timelineData.portalOpened).toLocaleDateString("en-AU") : "—"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-muted/30">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${timelineData?.tenderSigned ? "bg-[var(--bm-petrol)]" : "bg-gray-200"}`}>
+                <PenTool size={13} className={timelineData?.tenderSigned ? "text-white" : "text-gray-400"} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium" style={{ fontFamily: "Lato, sans-serif" }}>Tender Signed</div>
+                <div className="text-[11px] text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>Auto-set when client signs off on selections</div>
+              </div>
+              <span className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                {timelineData?.tenderSigned ? new Date(timelineData.tenderSigned).toLocaleDateString("en-AU") : "—"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-muted/30">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${timelineData?.contractUploaded ? "bg-[var(--bm-petrol)]" : "bg-gray-200"}`}>
+                <FileSignature size={13} className={timelineData?.contractUploaded ? "text-white" : "text-gray-400"} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium" style={{ fontFamily: "Lato, sans-serif" }}>Contract Signed</div>
+                <div className="text-[11px] text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>Auto-set when signed contract is uploaded</div>
+              </div>
+              <span className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+                {timelineData?.contractUploaded ? new Date(timelineData.contractUploaded).toLocaleDateString("en-AU") : "—"}
+              </span>
+            </div>
+          </div>
+
+          {/* Editable milestones */}
+          <div className="space-y-2">
+            {MILESTONE_DEFS.map((m) => {
+              const Icon = m.icon;
+              const dateVal = getDate(m.key);
+              return (
+                <div key={m.key} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border" style={{ borderColor: "var(--border)" }}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${dateVal ? "bg-[var(--bm-petrol)]" : "bg-gray-200"}`}>
+                    <Icon size={13} className={dateVal ? "text-white" : "text-gray-400"} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium" style={{ fontFamily: "Lato, sans-serif" }}>{m.label}</div>
+                    <div className="text-[11px] text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>{m.description}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={dateVal || ""}
+                      onChange={(e) => handleSetDate(m.key, e.target.value || null)}
+                      className="text-xs border rounded px-2 py-1 h-7 w-[130px]"
+                      style={{ fontFamily: "Lato, sans-serif" }}
+                    />
+                    {dateVal && (
+                      <button
+                        onClick={() => handleSetDate(m.key, null)}
+                        className="text-muted-foreground hover:text-red-500 transition-colors"
+                        title="Clear date"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Client Portal Tab ────────────────────────────────────────────────────────
 function ClientPortalTab({ projectId, project }: { projectId: number; project: any }) {
   const utils = trpc.useUtils();
@@ -546,6 +707,9 @@ function ClientPortalTab({ projectId, project }: { projectId: number; project: a
           </div>
         </div>
       )}
+
+      {/* Project Milestones */}
+      <MilestoneManagement projectId={projectId} />
 
       {/* Signed Contract Upload */}
       <SignedContractSection projectId={projectId} project={project} />

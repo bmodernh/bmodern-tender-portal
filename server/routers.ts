@@ -326,6 +326,55 @@ const projectsRouter = router({
       });
       return { success: true };
     }),
+
+  // Update project milestones (admin sets construction progress dates)
+  updateMilestones: publicProcedure
+    .input(z.object({
+      projectId: z.number(),
+      constructionStartedAt: z.string().nullable().optional(),
+      framingCompletedAt: z.string().nullable().optional(),
+      lockupCompletedAt: z.string().nullable().optional(),
+      fixoutCompletedAt: z.string().nullable().optional(),
+      completedAt: z.string().nullable().optional(),
+      handoverAt: z.string().nullable().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const { projectId, ...milestones } = input;
+      const update: Record<string, Date | null | undefined> = {};
+      for (const [key, val] of Object.entries(milestones)) {
+        if (val === undefined) continue;
+        update[key] = val ? new Date(val) : null;
+      }
+      if (Object.keys(update).length > 0) {
+        await updateProject(projectId, update as any);
+      }
+      return { success: true };
+    }),
+
+  // Get project timeline (public — used by client portal)
+  getTimeline: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project) return null;
+
+      // Check if tender is signed (any submission with signedOffAt)
+      const submissions = await getAllUpgradeSubmissions(input.projectId);
+      const signedSubmission = submissions.find((s: any) => s.signedOffAt);
+
+      return {
+        portalOpened: project.createdAt,
+        tenderSigned: signedSubmission?.signedOffAt || null,
+        contractUploaded: project.signedContractUploadedAt || null,
+        constructionStarted: project.constructionStartedAt || null,
+        framingCompleted: project.framingCompletedAt || null,
+        lockupCompleted: project.lockupCompletedAt || null,
+        fixoutCompleted: project.fixoutCompletedAt || null,
+        completed: project.completedAt || null,
+        handover: project.handoverAt || null,
+      };
+    }),
 });
 
 // ─── Inclusions ───────────────────────────────────────────────────────────────
@@ -1036,6 +1085,32 @@ const portalRouter = router({
         message: input.message,
       });
     }),
+
+  // Get project timeline for client portal
+  getTimeline: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      const project = await getProjectById(tokenRecord.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Check if tender is signed
+      const submissions = await getAllUpgradeSubmissions(tokenRecord.projectId);
+      const signedSubmission = submissions.find((s: any) => s.signedOffAt);
+
+      return {
+        portalOpened: project.createdAt,
+        tenderSigned: signedSubmission?.signedOffAt || null,
+        contractUploaded: project.signedContractUploadedAt || null,
+        constructionStarted: project.constructionStartedAt || null,
+        framingCompleted: project.framingCompletedAt || null,
+        lockupCompleted: project.lockupCompletedAt || null,
+        fixoutCompleted: project.fixoutCompletedAt || null,
+        completed: project.completedAt || null,
+        handover: project.handoverAt || null,
+      };
+    }),
 });
 // ─── Exclusions Router ──────────────────────────────────────────────────────────────
 const exclusionsRouter = router({
@@ -1387,81 +1462,113 @@ const inclusionMasterRouter = router({
       const existing = await getInclusionCategoriesByProject(input.projectId);
       if (existing.length > 0) return { skipped: true };
 
-      type DefaultItem = { name: string; unit: string; boqFieldKey?: string; upgradeEligible?: boolean; description?: string };
-      const defaultStructure: { name: string; position: number; items: DefaultItem[] }[] = [
-        { name: "Electrical", position: 0, items: [
-          { name: "Downlights", unit: "each", boqFieldKey: "downlightsQty", upgradeEligible: true },
-          { name: "Power Points (GPOs)", unit: "each", boqFieldKey: "powerPointsQty" },
-          { name: "Pendant Points", unit: "each", boqFieldKey: "pendantPointsQty", upgradeEligible: true },
-          { name: "Switch Plates", unit: "each", boqFieldKey: "switchPlatesQty" },
-          { name: "Data Points", unit: "each", boqFieldKey: "dataPointsQty" },
-          { name: "Exhaust Fans", unit: "each", boqFieldKey: "exhaustFansQty" },
-        ]},
-        { name: "Tiles", position: 1, items: [
-          { name: "Floor Tiles", unit: "m²", boqFieldKey: "floorTileM2", upgradeEligible: true },
-          { name: "Wall Tiles", unit: "m²", boqFieldKey: "wallTileM2", upgradeEligible: true },
-          { name: "Splashback Tiles", unit: "m²", boqFieldKey: "splashbackTileM2", upgradeEligible: true },
-        ]},
-        { name: "Fixtures & Tapware", position: 2, items: [
-          { name: "Basin Mixers", unit: "each", boqFieldKey: "basinMixersQty", upgradeEligible: true },
-          { name: "Shower Sets", unit: "each", boqFieldKey: "showerSetsQty", upgradeEligible: true },
-          { name: "Kitchen Mixer", unit: "each", boqFieldKey: "kitchenMixersQty", upgradeEligible: true },
-          { name: "Toilets", unit: "each", boqFieldKey: "toiletsQty" },
-          { name: "Bathtubs", unit: "each", boqFieldKey: "bathtubsQty", upgradeEligible: true },
-        ]},
-        { name: "Joinery", position: 3, items: [
-          { name: "Kitchen Base Cabinetry", unit: "lm", boqFieldKey: "kitchenBaseCabinetryLm", upgradeEligible: true },
-          { name: "Kitchen Overhead Cabinetry", unit: "lm", boqFieldKey: "kitchenOverheadCabinetryLm", upgradeEligible: true },
-          { name: "Wardrobe Joinery", unit: "lm", boqFieldKey: "wardrobeLm", upgradeEligible: true },
-          { name: "Laundry Joinery", unit: "each", boqFieldKey: "laundryJoineryQty" },
-        ]},
-        { name: "Stone & Benchtops", position: 4, items: [
-          { name: "Kitchen Benchtop", unit: "m²", boqFieldKey: "kitchenBenchtopArea", upgradeEligible: true },
-          { name: "Island Benchtop", unit: "m²", boqFieldKey: "islandBenchtopArea", upgradeEligible: true },
-          { name: "Vanity Stone Tops", unit: "each", boqFieldKey: "vanityStoneTopQty", upgradeEligible: true },
-        ]},
-        { name: "Doors & Hardware", position: 5, items: [
-          { name: "Internal Doors", unit: "each", boqFieldKey: "internalDoorsQty", upgradeEligible: true },
-          { name: "External Doors", unit: "each", boqFieldKey: "externalDoorsQty", upgradeEligible: true },
-          { name: "Door Handles", unit: "each", boqFieldKey: "doorHandlesQty", upgradeEligible: true },
-        ]},
-        { name: "Flooring", position: 6, items: [
-          { name: "Timber / Hybrid Flooring", unit: "m²", boqFieldKey: "timberHybridM2", upgradeEligible: true },
-          { name: "Carpet", unit: "m²", boqFieldKey: "carpetM2", upgradeEligible: true },
-        ]},
-        { name: "Air Conditioning", position: 7, items: [
-          { name: "AC Zones", unit: "zones", boqFieldKey: "acZonesQty", upgradeEligible: true },
-        ]},
-        { name: "Facade & External", position: 8, items: [
-          { name: "Facade Cladding", unit: "m²", boqFieldKey: "facadeCladdingM2", upgradeEligible: true },
-        ]},
-        { name: "Insulation", position: 9, items: [
-          { name: "Ceiling Insulation", unit: "R-value", boqFieldKey: "insulationCeilingR" },
-          { name: "Wall Insulation", unit: "R-value", boqFieldKey: "insulationWallR" },
-        ]},
-        { name: "Appliances", position: 10, items: [
-          { name: "Appliance Set", unit: "set", boqFieldKey: "applianceSetsQty", upgradeEligible: true },
-        ]},
-        { name: "Preliminaries", position: 11, items: [
-          { name: "Site Supervisor", unit: "each" },
-          { name: "Builders Insurance", unit: "each" },
-          { name: "Long Service Levy", unit: "each" },
-          { name: "Engineering Plans", unit: "each" },
-        ]},
+      // Get the project's starting tier to determine which descriptions to use
+      const project = await getProjectById(input.projectId);
+      const startingTier = project?.startingTier ?? 1; // 1=Built for Excellence, 2=Tailored Living, 3=Signature Series
+
+      // Pull all pricing rules to get tier-specific descriptions
+      const pricingRules = await getAllPricingRules();
+      const rulesByKey = new Map(pricingRules.map(r => [r.itemKey, r]));
+
+      // Helper: get the correct tier label for a pricing rule
+      const getTierLabel = (rule: typeof pricingRules[0]) => {
+        if (startingTier === 3) return rule.tier3Label || rule.tier2Label || rule.tier1Label || "";
+        if (startingTier === 2) return rule.tier2Label || rule.tier1Label || "";
+        return rule.tier1Label || "";
+      };
+
+      // Helper: get the correct tier image for a pricing rule
+      const getTierImage = (rule: typeof pricingRules[0]) => {
+        if (startingTier === 3) return rule.tier3ImageUrl || rule.tier2ImageUrl || rule.tier1ImageUrl || null;
+        if (startingTier === 2) return rule.tier2ImageUrl || rule.tier1ImageUrl || null;
+        return rule.tier1ImageUrl || null;
+      };
+
+      // Map itemKey → boqFieldKey for quantity linking
+      const ITEM_BOQ_MAP: Record<string, string | undefined> = {
+        downlights: "downlightsQty", power_points: "powerPointsQty", pendant_points: "pendantPointsQty",
+        switch_plates: "switchPlatesQty", data_points: "dataPointsQty", exhaust_fans: "exhaustFansQty",
+        wall_lights: undefined, smoke_detectors: undefined, home_automation: undefined,
+        bathroom_floor_tiles: "floorTileM2", bathroom_wall_tiles: "wallTileM2", laundry_floor_tiles: undefined,
+        main_floor_tiles: undefined, splashback: "splashbackTileM2",
+        basin_mixers: "basinMixersQty", shower_sets: "showerSetsQty", toilets: "toiletsQty",
+        baths: "bathtubsQty", basins: "basinsQty", kitchen_sink: undefined, kitchen_laundry_mixer: undefined, laundry_sink: undefined,
+        kitchen_cabinetry: "kitchenBaseCabinetryLm", wardrobe_joinery: "wardrobeLm",
+        laundry_joinery: "laundryJoineryQty", linen_cupboard: undefined,
+        kitchen_benchtop: "kitchenBenchtopArea", vanity_stone: "vanityStoneTopQty",
+        internal_doors: "internalDoorsQty", door_handles: "doorHandlesQty",
+        skirting_boards: undefined, architraves: undefined,
+        timber_hybrid_flooring: "timberHybridM2", carpet: "carpetM2",
+        air_conditioning: "acZonesQty", facade_cladding: "facadeCladdingM2",
+        insulation: "insulationCeilingR", sound_insulation: undefined,
+        appliances: "applianceSetsQty",
+        plasterboard_walls: undefined, plasterboard_ceilings: undefined, cornice: undefined, square_set_windows_doors: undefined,
+        external_render: undefined, render_finish: undefined, face_brick: undefined,
+        staircase: undefined, balustrade: undefined,
+      };
+
+      // Build categories from pricing rules, grouped by their category field
+      const categoryOrder = [
+        "Electrical", "Tiles", "Bathrooms", "Kitchen", "Laundry", "Joinery", "Stone",
+        "Doors & Hardware", "Fixout Material", "Flooring", "Air Conditioning", "Facade",
+        "Insulation", "Plasterboard", "Render", "Staircase", "Preliminaries"
       ];
 
-      for (const cat of defaultStructure) {
-        const catId = await createInclusionCategory({ projectId: input.projectId, name: cat.name, position: cat.position });
+      // Group pricing rules by category
+      const rulesByCategory = new Map<string, typeof pricingRules>();
+      for (const rule of pricingRules) {
+        const cat = rule.category;
+        if (!rulesByCategory.has(cat)) rulesByCategory.set(cat, []);
+        rulesByCategory.get(cat)!.push(rule);
+      }
+
+      let catPosition = 0;
+      for (const catName of categoryOrder) {
+        const rules = rulesByCategory.get(catName);
+        if (!rules || rules.length === 0) {
+          // Add Preliminaries even without pricing rules
+          if (catName === "Preliminaries") {
+            const catId = await createInclusionCategory({ projectId: input.projectId, name: catName, position: catPosition++ });
+            if (!catId) continue;
+            const prelims = [
+              { name: "Site Supervisor", unit: "each" },
+              { name: "Builders Insurance", unit: "each" },
+              { name: "Long Service Levy", unit: "each" },
+              { name: "Engineering Plans", unit: "each" },
+              { name: "Survey & Set Out", unit: "each" },
+              { name: "Scaffolding", unit: "each" },
+              { name: "Temporary Fencing", unit: "each" },
+            ];
+            for (let i = 0; i < prelims.length; i++) {
+              await upsertInclusionItem({
+                categoryId: catId, projectId: input.projectId,
+                name: prelims[i].name, unit: prelims[i].unit,
+                included: true, position: i, upgradeEligible: false,
+              });
+            }
+          }
+          continue;
+        }
+
+        const catId = await createInclusionCategory({ projectId: input.projectId, name: catName, position: catPosition++ });
         if (!catId) continue;
-        for (let i = 0; i < cat.items.length; i++) {
-          const item = cat.items[i];
+
+        for (let i = 0; i < rules.length; i++) {
+          const rule = rules[i];
+          const tierLabel = getTierLabel(rule);
+          const tierImage = getTierImage(rule);
+          const boqFieldKey = ITEM_BOQ_MAP[rule.itemKey];
+          const unitMap: Record<string, string> = { each: "each", lm: "lm", m2: "m²", fixed: "item" };
+
           await upsertInclusionItem({
             categoryId: catId,
             projectId: input.projectId,
-            name: item.name,
-            unit: item.unit,
-            boqFieldKey: item.boqFieldKey,
-            upgradeEligible: item.upgradeEligible ?? false,
+            name: rule.label,
+            unit: unitMap[rule.unit] || "each",
+            description: tierLabel || undefined,
+            imageUrl: tierImage,
+            boqFieldKey: boqFieldKey,
+            upgradeEligible: true,
             included: true,
             position: i,
           });

@@ -382,3 +382,27 @@
 - [x] Add "Signed Contract" upload section in admin project detail
 - [x] Admin can upload the signed building contract PDF
 - [ ] Client portal shows signed contract status/download when available (future enhancement)
+
+## Client Portal Status Timeline
+- [x] Build visual status timeline component for client portal
+- [x] Show key stages: Proposal Issued → Tender Signed → Contract Signed → Construction Started → Frame → Lock-Up → Fix-Out → Practical Completion → Handover
+- [x] Highlight current stage and show completed stages with checkmarks
+- [x] Show dates for completed stages where available
+- [x] Integrate timeline into the client portal page (visible after hero section)
+- [x] Ensure timeline data comes from project status, submission fields, and new milestone columns
+- [x] Add milestone management UI in admin Client Portal tab (set construction progress dates)
+- [x] Add milestone columns to projects table (constructionStartedAt, framingCompletedAt, lockupCompletedAt, fixoutCompletedAt, completedAt, handoverAt)
+- [x] Add admin updateMilestones and getTimeline tRPC procedures
+- [x] Add portal getTimeline tRPC procedure for client access
+- [x] Auto-derived milestones: Proposal Issued (createdAt), Tender Signed (signedOffAt), Contract Signed (signedContractUploadedAt)
+- [x] Manual milestones: Construction Started, Frame, Lock-Up, Fix-Out, Practical Completion, Handover
+- [x] Write vitest tests for milestones (11 tests passing)
+
+## Inclusions Pre-Population from Starting Tier
+- [x] When "Seed Standard Inclusions" is clicked, pre-populate inclusions based on the project's starting tier
+- [x] Starting tier determines which tier description from pricing rules is used as the default inclusion wording
+- [x] BOQ items merge with tier-based inclusions to form the complete tender
+- [x] Ensure the inclusions tab reflects the correct tier specifications automatically
+- [x] seedDefaults procedure reads pricing rules and uses tier1Label/tier2Label/tier3Label based on startingTier
+- [x] Items marked as upgradeEligible for cross-tier selection in client portal
+- [x] Write vitest tests for seed defaults with pricing rules (4 tests passing)
