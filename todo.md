@@ -430,3 +430,22 @@
 - [x] Add PC Items, Provisional Sums, Exclusions sections to client portal
 - [x] Add PC Items section to PDF generator
 - [x] All 48 tests passing
+
+## Photo/Image — Only on Upgrades, Not Inclusions
+- [x] Remove photo/image upload button (camera icon) from standard inclusions in Tender Creation tab
+- [x] Remove imageUrl display from inclusion items in the Tender Creation tab
+- [x] Ensure the Upgrades section retains image comparison functionality (view/compare between tiers)
+- [x] Verify client portal inclusions section does not show images
+- [x] Verify client portal upgrades section still shows tier comparison images
+
+## Inclusions Master Library (Admin Settings)
+- [x] Reuse existing upgrade_pricing_rules table as the master inclusions library (already has tier labels, tier images, categories)
+- [x] Build backend CRUD: create, update, delete pricing rules (add/remove/edit items)
+- [x] Build admin UI page: Inclusions Library (AdminPricingRules.tsx) with full image upload per tier
+- [x] Rename sidebar nav from "Pricing Rules" to "Inclusions Library" with Library icon
+- [x] Support photo upload on library items (product images for each tier level)
+- [x] Remove photo upload (camera icon, image placeholder) from per-project Tender Creation tab ItemRow
+- [x] Remove image display from per-project inclusion items in Tender Creation tab
+- [x] seedDefaults already pulls from pricing rules (master library) when seeding a project
+- [x] Master library is the source of truth — project inclusions are copies seeded from it
+- [x] Photos only appear in the Upgrades section (client portal tier comparison)

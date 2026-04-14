@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Trash2, Check, X, ChevronDown, ChevronUp,
-  Wand2, Layers, Edit, Sparkles, Loader2, ImagePlus, Camera,
+  Wand2, Layers, Edit, Sparkles, Loader2,
   DollarSign, FileX, ListChecks, Package
 } from "lucide-react";
 
@@ -36,66 +36,6 @@ type InclusionCategory = {
 };
 
 type WordingSuggestion = { label: string; text: string };
-
-// ─── Image Upload Hook ──────────────────────────────────────────────────────
-function useImageUpload(onUploaded: (url: string) => void) {
-  const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const uploadMutation = trpc.upload.getUploadUrl.useMutation();
-
-  const trigger = () => inputRef.current?.click();
-
-  const handleFile = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Image must be under 10MB");
-      return;
-    }
-    setUploading(true);
-    try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(",")[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const { url } = await uploadMutation.mutateAsync({
-        fileName: file.name,
-        mimeType: file.type,
-        fileData: base64,
-        folder: "inclusion-images",
-      });
-      onUploaded(url);
-      toast.success("Image uploaded");
-    } catch (e: any) {
-      toast.error("Upload failed: " + (e.message || "Unknown error"));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const FileInput = (
-    <input
-      ref={inputRef}
-      type="file"
-      accept="image/*"
-      className="hidden"
-      onChange={e => {
-        const f = e.target.files?.[0];
-        if (f) handleFile(f);
-        e.target.value = "";
-      }}
-    />
-  );
-
-  return { trigger, uploading, FileInput };
-}
 
 // ─── AI Suggest Panel ─────────────────────────────────────────────────────────
 function AISuggestPanel({
@@ -192,23 +132,17 @@ function ItemRow({
   onToggleIncluded,
   onUpdate,
   onDelete,
-  onImageUpdate,
 }: {
   item: InclusionItem;
   categoryName: string;
   onToggleIncluded: (id: number, included: boolean) => void;
   onUpdate: (id: number, data: { description: string; qty: string }) => void;
   onDelete: (id: number) => void;
-  onImageUpdate: (id: number, imageUrl: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [desc, setDesc] = useState(item.description ?? item.name);
   const [qty, setQty] = useState(item.qty ?? "");
   const [showAISuggest, setShowAISuggest] = useState(false);
-
-  const { trigger: triggerUpload, uploading, FileInput } = useImageUpload((url) => {
-    onImageUpdate(item.id, url);
-  });
 
   const handleSave = () => {
     onUpdate(item.id, { description: desc, qty });
@@ -226,22 +160,7 @@ function ItemRow({
   if (editing) {
     return (
       <div className="border rounded-lg px-3 py-3 space-y-2 bg-card" style={{ borderColor: "var(--bm-petrol)" }}>
-        {FileInput}
         <div className="flex gap-3 items-start">
-          <div
-            className="w-16 h-16 rounded-md border border-dashed flex items-center justify-center shrink-0 overflow-hidden cursor-pointer hover:border-[var(--bm-petrol)] transition-colors"
-            style={{ borderColor: item.imageUrl ? "transparent" : "var(--border)", background: item.imageUrl ? "transparent" : "var(--muted)" }}
-            onClick={triggerUpload}
-            title="Click to upload product image"
-          >
-            {uploading ? (
-              <Loader2 size={16} className="animate-spin text-muted-foreground" />
-            ) : item.imageUrl ? (
-              <img src={item.imageUrl} alt="" className="w-full h-full object-cover rounded-md" />
-            ) : (
-              <Camera size={16} className="text-muted-foreground" />
-            )}
-          </div>
           <div className="flex-1 space-y-2">
             <div className="flex gap-2 items-start">
               <div className="flex-1">
@@ -276,7 +195,7 @@ function ItemRow({
           />
         )}
 
-        <div className="flex gap-2 pl-[76px]">
+        <div className="flex gap-2">
           <Button size="sm" onClick={handleSave} className="text-xs h-7 text-white" style={{ background: "var(--bm-petrol)" }}>
             <Check size={12} className="mr-1" /> Save
           </Button>
@@ -294,20 +213,6 @@ function ItemRow({
       style={{ borderColor: "var(--border)", opacity: item.included ? 1 : 0.45 }}
     >
       <Checkbox checked={item.included} onCheckedChange={v => onToggleIncluded(item.id, !!v)} className="shrink-0" />
-
-      {item.imageUrl ? (
-        <img src={item.imageUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0 border" style={{ borderColor: "var(--border)" }} />
-      ) : (
-        <div
-          className="w-10 h-10 rounded border border-dashed flex items-center justify-center shrink-0 cursor-pointer hover:border-[var(--bm-petrol)] transition-colors"
-          style={{ borderColor: "var(--border)", background: "var(--muted)" }}
-          onClick={triggerUpload}
-          title="Add product image"
-        >
-          {FileInput}
-          {uploading ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> : <ImagePlus size={12} className="text-muted-foreground" />}
-        </div>
-      )}
 
       <span className="flex-1 text-sm truncate" style={{ fontFamily: "Lato, sans-serif" }}>
         {item.description ?? item.name}
@@ -367,10 +272,7 @@ function CategoryCard({
     onSuccess: () => { utils.inclusionMaster.listCategories.invalidate(); },
     onError: e => toast.error(e.message),
   });
-  const updateItemImage = trpc.inclusionMaster.updateItemImage.useMutation({
-    onSuccess: () => { utils.inclusionMaster.listCategories.invalidate(); },
-    onError: e => toast.error(e.message),
-  });
+
 
   const handleToggleIncluded = (id: number, included: boolean) => {
     const existing = category.items.find(i => i.id === id);
@@ -392,9 +294,7 @@ function CategoryCard({
     });
   };
 
-  const handleImageUpdate = (id: number, imageUrl: string) => {
-    updateItemImage.mutate({ id, imageUrl });
-  };
+
 
   const handleAddItem = () => {
     if (!newDesc.trim()) return;
@@ -464,7 +364,7 @@ function CategoryCard({
               onToggleIncluded={handleToggleIncluded}
               onUpdate={handleUpdateItem}
               onDelete={id => deleteItem.mutate({ id })}
-              onImageUpdate={handleImageUpdate}
+
             />
           ))}
 
@@ -847,7 +747,7 @@ export default function BaseInclusionsTab({ projectId }: { projectId: number }) 
 
         <p className="text-xs text-muted-foreground max-w-lg">
           Click <Edit size={10} className="inline mx-0.5" /> to edit — use <Sparkles size={10} className="inline mx-0.5" style={{ color: "var(--bm-petrol)" }} /> for AI tender wording.
-          Click <Camera size={10} className="inline mx-0.5" /> to add product photos.
+          Manage product images in the <a href="/admin/pricing-rules" className="underline" style={{ color: "var(--bm-petrol)" }}>Inclusions Library</a>.
         </p>
 
         {addingCategory && (

@@ -76,6 +76,8 @@ import {
   getMasterPackageWithItems,
   applyMasterPackageToProject,
   getAllPricingRules,
+  createPricingRule,
+  deletePricingRule,
   updatePricingRule,
   calculatePackagePrices,
   getClientSelections,
@@ -1211,9 +1213,42 @@ const pricingRulesRouter = router({
   list: publicProcedure
     .query(async ({ ctx }) => { await requireAdmin(ctx); return getAllPricingRules(); }),
 
+  create: publicProcedure
+    .input(z.object({
+      itemKey: z.string().min(1),
+      label: z.string().min(1),
+      category: z.string().min(1),
+      unit: z.enum(["each", "lm", "m2", "fixed"]).default("each"),
+      tier1Label: z.string().optional().nullable(),
+      tier1ImageUrl: z.string().optional().nullable(),
+      tier2Label: z.string().optional().nullable(),
+      tier2CostPerUnit: z.string().optional(),
+      tier2ImageUrl: z.string().optional().nullable(),
+      tier2Description: z.string().optional().nullable(),
+      tier3Label: z.string().optional().nullable(),
+      tier3CostPerUnit: z.string().optional(),
+      tier3ImageUrl: z.string().optional().nullable(),
+      tier3Description: z.string().optional().nullable(),
+      position: z.number().default(0),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const id = await createPricingRule(input as any);
+      return { id };
+    }),
+
+  delete: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await deletePricingRule(input.id);
+      return { success: true };
+    }),
+
   update: publicProcedure
     .input(z.object({
       id: z.number(),
+      label: z.string().optional(),
       tier1Label: z.string().optional().nullable(),
       tier1ImageUrl: z.string().optional().nullable(),
       tier2Label: z.string().optional().nullable(),

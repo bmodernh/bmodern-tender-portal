@@ -508,6 +508,19 @@ export async function getAllPricingRules() {
   return db.select().from(upgradePricingRules).orderBy(upgradePricingRules.position);
 }
 
+export async function createPricingRule(data: typeof upgradePricingRules.$inferInsert) {
+  const db = await getDb();
+  if (!db) return 0;
+  const [result] = await db.insert(upgradePricingRules).values(data);
+  return result.insertId;
+}
+
+export async function deletePricingRule(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(upgradePricingRules).where(eq(upgradePricingRules.id, id));
+}
+
 export async function updatePricingRule(id: number, data: Partial<typeof upgradePricingRules.$inferInsert>) {
   const db = await getDb();
   if (!db) return;

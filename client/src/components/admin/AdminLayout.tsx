@@ -13,6 +13,7 @@ import {
   Settings,
   TrendingUp,
   ScrollText,
+  Library,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -26,7 +27,7 @@ const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Projects", href: "/admin", icon: FolderOpen },
   { label: "Inbox", href: "/admin/inbox", icon: Inbox },
-  { label: "Pricing Rules", href: "/admin/pricing-rules", icon: TrendingUp },
+  { label: "Inclusions Library", href: "/admin/pricing-rules", icon: Library },
   { label: "Terms & Conditions", href: "/admin/terms", icon: ScrollText },
   { label: "Company Settings", href: "/admin/settings", icon: Settings },
 ];
