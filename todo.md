@@ -406,3 +406,27 @@
 - [x] seedDefaults procedure reads pricing rules and uses tier1Label/tier2Label/tier3Label based on startingTier
 - [x] Items marked as upgradeEligible for cross-tier selection in client portal
 - [x] Write vitest tests for seed defaults with pricing rules (4 tests passing)
+
+## Bug Fix — Inclusions Not Populating from Pricing Rules
+- [x] Add visible "Seed Standard Inclusions" button with tier selector (1/2/3) to BaseInclusionsTab
+- [x] Button should be visible even when BOQ items already exist (seed adds alongside, not replaces)
+- [x] Fix seedDefaults to actually create inclusion categories and items from pricing rules
+- [x] Verify seeded inclusions appear in the Base Inclusions tab after clicking seed
+- [x] Verify seeded inclusions appear in the client portal alongside BOQ items
+- [x] Ensure admin can choose starting tier before seeding (not just use project default)
+
+## Tender Creation Tab (Replaces Base Inclusions)
+- [x] Rename "Base Inclusions" tab to "Tender Creation" in AdminProjectDetail
+- [x] Build unified Tender Creation layout with collapsible sections: Standard Inclusions, BOQ Items, PC Items, Provisional Sums, Exclusions
+- [x] Add prominent tier selector (Tier 1/2/3) with "Seed Standard Inclusions" button at top of tab
+- [x] Seed button populates inclusions from pricing rules based on chosen tier (works alongside existing BOQ items)
+- [x] Move PC Items management into the Tender Creation tab (inline CRUD)
+- [x] Move Provisional Sums management into the Tender Creation tab (inline CRUD)
+- [x] Move Exclusions management into the Tender Creation tab (inline CRUD)
+- [x] Update client portal to show all tender sections (inclusions + PC + PS + exclusions)
+- [x] Fix PDF text bleeding where inclusion item descriptions overlap with lines below
+- [x] Add PC Items table to database schema
+- [x] Add PC Items CRUD backend (router + db helpers)
+- [x] Add PC Items, Provisional Sums, Exclusions sections to client portal
+- [x] Add PC Items section to PDF generator
+- [x] All 48 tests passing

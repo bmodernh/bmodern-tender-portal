@@ -278,6 +278,18 @@ export const provisionalSums = mysqlTable("provisional_sums", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+// ─── PC Items (Prime Cost) ───────────────────────────────────────────────────
+export const pcItems = mysqlTable("pc_items", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  description: text("description").notNull(),
+  allowance: decimal("allowance", { precision: 12, scale: 2 }),
+  notes: text("notes"),
+  position: int("position").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 // ─── Plan Images ──────────────────────────────────────────────────────────────
 export const planImages = mysqlTable("plan_images", {
   id: int("id").autoincrement().primaryKey(),

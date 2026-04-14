@@ -13,6 +13,7 @@ import {
   inclusionItems,
   exclusions,
   provisionalSums,
+  pcItems,
   upgradeGroups,
   upgradeOptions,
   upgradeSelections,
@@ -33,7 +34,7 @@ async function buildPdfData(projectId: number): Promise<PdfData | null> {
   const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
   if (!project) return null;
 
-  const [categories, items, excls, ps, groups, opts, imgs, [company]] = await Promise.all([
+  const [categories, items, excls, ps, pci, groups, opts, imgs, [company]] = await Promise.all([
     db.select().from(inclusionCategories)
       .where(eq(inclusionCategories.projectId, projectId))
       .orderBy(inclusionCategories.position),
@@ -42,6 +43,7 @@ async function buildPdfData(projectId: number): Promise<PdfData | null> {
       .orderBy(inclusionItems.categoryId, inclusionItems.position),
     db.select().from(exclusions).where(eq(exclusions.projectId, projectId)).orderBy(exclusions.id),
     db.select().from(provisionalSums).where(eq(provisionalSums.projectId, projectId)).orderBy(provisionalSums.id),
+    db.select().from(pcItems).where(eq(pcItems.projectId, projectId)).orderBy(pcItems.position),
     db.select().from(upgradeGroups).where(eq(upgradeGroups.projectId, projectId)).orderBy(upgradeGroups.id),
     db.select().from(upgradeOptions).where(eq(upgradeOptions.projectId, projectId)).orderBy(upgradeOptions.id),
     db.select().from(planImages).where(eq(planImages.projectId, projectId)).orderBy(planImages.position),
@@ -94,6 +96,11 @@ async function buildPdfData(projectId: number): Promise<PdfData | null> {
       items: cat.items,
     })),
     exclusions: excls.map((e) => ({ description: e.description })),
+    pcItems: pci.map((p) => ({
+      description: p.description,
+      allowance: p.allowance,
+      notes: p.notes,
+    })),
     provisionalSums: ps.map((p) => ({
       description: p.description,
       amount: p.amount,

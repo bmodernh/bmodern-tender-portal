@@ -141,6 +141,13 @@
       "when": 1776132094039,
       "tag": "0019_noisy_scorpion",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1776133245987,
+      "tag": "0020_sad_ego",
+      "breakpoints": true
     }
   ]
 }

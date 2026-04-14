@@ -114,6 +114,10 @@ import {
   createProjectMessage,
   getProjectMessages,
   updateInclusionItemImage,
+  getPcItemsByProject,
+  createPcItem,
+  updatePcItem,
+  deletePcItem,
 } from "./db";
 import { storagePut } from "./storage";
 import {
@@ -1111,6 +1115,33 @@ const portalRouter = router({
         handover: project.handoverAt || null,
       };
     }),
+
+  // PC Items for client portal
+  getPcItems: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getPcItemsByProject(tokenRecord.projectId);
+    }),
+
+  // Provisional Sums for client portal
+  getProvisionalSums: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getProvisionalSumsByProject(tokenRecord.projectId);
+    }),
+
+  // Exclusions for client portal
+  getExclusions: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const tokenRecord = await getClientTokenRecord(input.token);
+      if (!tokenRecord) throw new TRPCError({ code: "NOT_FOUND" });
+      return getExclusionsByProject(tokenRecord.projectId);
+    }),
 });
 // ─── Exclusions Router ──────────────────────────────────────────────────────────────
 const exclusionsRouter = router({
@@ -1211,15 +1242,29 @@ const pricingRulesRouter = router({
     }),
 });
 
-// ─── Packages Router ─────────────────────────────────────────────────────────────────────────────
+// ─── PC Items Router ────────────────────────────────────────────────────────────────────────────────
+const pcItemsRouter = router({
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => { await requireAdmin(ctx); return getPcItemsByProject(input.projectId); }),
+  create: publicProcedure
+    .input(z.object({ projectId: z.number(), description: z.string().min(1), allowance: z.string().optional().nullable(), notes: z.string().optional().nullable(), position: z.number().default(0) }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await createPcItem(input); return { success: true }; }),
+  update: publicProcedure
+    .input(z.object({ id: z.number(), description: z.string().optional(), allowance: z.string().optional().nullable(), notes: z.string().optional().nullable(), position: z.number().optional() }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); const { id, ...data } = input; await updatePcItem(id, data); return { success: true }; }),
+  delete: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => { await requireAdmin(ctx); await deletePcItem(input.id); return { success: true }; }),
+});
+
+// ─── Packages Router ────────────────────────────────────────────────────────────────────────────────
 const packagesRouter = router({
   list: publicProcedure
     .query(async ({ ctx }) => { await requireAdmin(ctx); return getAllMasterPackages(); }),
-
   get: publicProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input, ctx }) => { await requireAdmin(ctx); return getMasterPackageWithItems(input.id); }),
-
   applyPackage: publicProcedure
     .input(z.object({ projectId: z.number(), packageId: z.number() }))
     .mutation(async ({ input, ctx }) => {
@@ -1455,16 +1500,20 @@ const inclusionMasterRouter = router({
       return { success: true };
     }),
 
-  // Seed default categories and items for a new project
+  // Seed default categories and items for a new project (from pricing rules)
   seedDefaults: publicProcedure
-    .input(z.object({ projectId: z.number() }))
+    .input(z.object({ projectId: z.number(), tier: z.number().min(1).max(3).optional() }))
     .mutation(async ({ input }) => {
+      // Check if pricing-rule-based categories already exist (non-BOQ)
       const existing = await getInclusionCategoriesByProject(input.projectId);
-      if (existing.length > 0) return { skipped: true };
+      const existingItems = await getInclusionItemsByProject(input.projectId);
+      // Only skip if there are already non-BOQ items (i.e. seeded items)
+      const hasSeededItems = existingItems.some(i => !i.isBoqImported);
+      if (hasSeededItems) return { skipped: true, message: "Standard inclusions already seeded. Delete them first to re-seed." };
 
-      // Get the project's starting tier to determine which descriptions to use
+      // Use the provided tier override, or fall back to project's starting tier
       const project = await getProjectById(input.projectId);
-      const startingTier = project?.startingTier ?? 1; // 1=Built for Excellence, 2=Tailored Living, 3=Signature Series
+      const startingTier = input.tier ?? project?.startingTier ?? 1; // 1=Built for Excellence, 2=Tailored Living, 3=Signature Series
 
       // Pull all pricing rules to get tier-specific descriptions
       const pricingRules = await getAllPricingRules();
@@ -1736,6 +1785,7 @@ export const appRouter = router({
   inbox: inboxRouter,
    portal: portalRouter,
   exclusions: exclusionsRouter,
+  pcItems: pcItemsRouter,
   provisionalSums: provisionalSumsRouter,
   planImages: planImagesRouter,
   companySettings: companySettingsRouter,

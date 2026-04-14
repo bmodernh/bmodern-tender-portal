@@ -165,6 +165,7 @@ function makePublicCtx(): TrpcContext {
 
 describe("seedDefaults with pricing rules", () => {
   const getInclusionCategoriesByProject = vi.mocked(db.getInclusionCategoriesByProject);
+  const getInclusionItemsByProject = vi.mocked(db.getInclusionItemsByProject);
   const getProjectById = vi.mocked(db.getProjectById);
   const getAllPricingRules = vi.mocked(db.getAllPricingRules);
   const createInclusionCategory = vi.mocked(db.createInclusionCategory);
@@ -173,13 +174,15 @@ describe("seedDefaults with pricing rules", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createInclusionCategory.mockResolvedValue(100);
+    getInclusionItemsByProject.mockResolvedValue([]);
   });
 
-  it("skips seeding when categories already exist", async () => {
+  it("skips seeding when non-BOQ items already exist", async () => {
     getInclusionCategoriesByProject.mockResolvedValue([{ id: 1, projectId: 1, name: "Existing", position: 0, imageUrl: null, createdAt: new Date(), updatedAt: new Date() }]);
+    getInclusionItemsByProject.mockResolvedValue([{ id: 1, categoryId: 1, projectId: 1, name: "Downlights", qty: null, unit: null, description: null, specLevel: null, upgradeEligible: false, included: true, boqFieldKey: null, position: 0, imageUrl: null, rate: null, amount: null, isBoqImported: false, createdAt: new Date(), updatedAt: new Date() }] as any);
     const caller = appRouter.createCaller(makePublicCtx());
     const result = await caller.inclusionMaster.seedDefaults({ projectId: 1 });
-    expect(result).toEqual({ skipped: true });
+    expect(result).toEqual({ skipped: true, message: "Standard inclusions already seeded. Delete them first to re-seed." });
     expect(createInclusionCategory).not.toHaveBeenCalled();
   });
 

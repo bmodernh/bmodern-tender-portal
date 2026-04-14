@@ -30,6 +30,7 @@ import {
   inclusionItems,
   customItemRequests,
   projectMessages,
+  pcItems,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -385,6 +386,28 @@ export async function deleteProvisionalSum(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   await db.delete(provisionalSums).where(eq(provisionalSums.id, id));
+}
+
+// ─── PC Items (Prime Cost) ───────────────────────────────────────────────────
+export async function getPcItemsByProject(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(pcItems).where(eq(pcItems.projectId, projectId)).orderBy(pcItems.position);
+}
+export async function createPcItem(data: { projectId: number; description: string; allowance?: string | null; notes?: string | null; position: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(pcItems).values(data);
+}
+export async function updatePcItem(id: number, data: { description?: string; allowance?: string | null; notes?: string | null; position?: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(pcItems).set(data).where(eq(pcItems.id, id));
+}
+export async function deletePcItem(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(pcItems).where(eq(pcItems.id, id));
 }
 
 // ─── Plan Images ──────────────────────────────────────────────────────────────

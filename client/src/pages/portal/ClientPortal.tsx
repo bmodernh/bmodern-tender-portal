@@ -12,7 +12,7 @@ import {
   Shield, Star, Crown, Loader2, Plus,
   MessageSquarePlus, ExternalLink, Clock, CheckCircle2, XCircle,
   AlertCircle, FileText, ScrollText, Sparkles, Lock, Image as ImageIcon,
-  Package, ToggleRight, Eye, X, Download,
+  Package, ToggleRight, Eye, X, Download, DollarSign, MinusCircle, Banknote,
   Milestone, Building2, Hammer, KeyRound, Home, ClipboardCheck, PenTool, FileSignature, HardHat,
 } from "lucide-react";
 import { FloatingChatButton } from "@/components/ProjectChat";
@@ -385,6 +385,119 @@ function BaseInclusionsSection({ token }: { token: string }) {
               </div>
             );
           })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Section 1B: PC Items (Prime Cost) ────────────────────────────────────────────────
+function PcItemsSection({ token }: { token: string }) {
+  const { data: items } = trpc.portal.getPcItems.useQuery({ token });
+  if (!items || items.length === 0) return null;
+  return (
+    <section className="py-10 md:py-12">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-full bg-[#203E4A] flex items-center justify-center">
+            <DollarSign className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h2 className="font-['Playfair_Display_SC'] text-xl md:text-2xl text-[#203E4A] tracking-wider">PC Items (Prime Cost)</h2>
+            <p className="text-xs text-[#6D7E94] font-['Lato'] mt-0.5">Allowances for items selected during construction</p>
+          </div>
+        </div>
+        <div className="mt-6 bg-white rounded-xl border shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#203E4A]/5 text-[#6D7E94] font-['Lato'] text-xs uppercase tracking-wider">
+                <th className="text-left px-5 py-3">Description</th>
+                <th className="text-right px-5 py-3">Allowance</th>
+                <th className="text-left px-5 py-3">Notes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {items.map((item: any) => (
+                <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="px-5 py-3 font-['Lato'] text-[#203E4A] font-medium">{item.description}</td>
+                  <td className="px-5 py-3 text-right font-['Lato'] text-[#203E4A] font-semibold">{item.allowance ? fmt(item.allowance) : "TBC"}</td>
+                  <td className="px-5 py-3 font-['Lato'] text-[#6D7E94] text-xs">{item.notes || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Section 1C: Provisional Sums ────────────────────────────────────────────────────
+function ProvisionalSumsSection({ token }: { token: string }) {
+  const { data: items } = trpc.portal.getProvisionalSums.useQuery({ token });
+  if (!items || items.length === 0) return null;
+  return (
+    <section className="py-10 md:py-12">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-full bg-[#203E4A] flex items-center justify-center">
+            <Banknote className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h2 className="font-['Playfair_Display_SC'] text-xl md:text-2xl text-[#203E4A] tracking-wider">Provisional Sums</h2>
+            <p className="text-xs text-[#6D7E94] font-['Lato'] mt-0.5">Estimated amounts subject to final measurement</p>
+          </div>
+        </div>
+        <div className="mt-6 bg-white rounded-xl border shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#203E4A]/5 text-[#6D7E94] font-['Lato'] text-xs uppercase tracking-wider">
+                <th className="text-left px-5 py-3">Description</th>
+                <th className="text-right px-5 py-3">Amount</th>
+                <th className="text-left px-5 py-3">Notes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {items.map((item: any) => (
+                <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="px-5 py-3 font-['Lato'] text-[#203E4A] font-medium">{item.description}</td>
+                  <td className="px-5 py-3 text-right font-['Lato'] text-[#203E4A] font-semibold">{item.amount ? fmt(item.amount) : "TBC"}</td>
+                  <td className="px-5 py-3 font-['Lato'] text-[#6D7E94] text-xs">{item.notes || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Section 1D: Exclusions ─────────────────────────────────────────────────────────
+function ExclusionsSection({ token }: { token: string }) {
+  const { data: items } = trpc.portal.getExclusions.useQuery({ token });
+  if (!items || items.length === 0) return null;
+  return (
+    <section className="py-10 md:py-12">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-full bg-[#203E4A] flex items-center justify-center">
+            <MinusCircle className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h2 className="font-['Playfair_Display_SC'] text-xl md:text-2xl text-[#203E4A] tracking-wider">Exclusions</h2>
+            <p className="text-xs text-[#6D7E94] font-['Lato'] mt-0.5">Items not included in the base contract price</p>
+          </div>
+        </div>
+        <div className="mt-6 bg-white rounded-xl border shadow-sm overflow-hidden">
+          <ul className="divide-y divide-gray-100">
+            {items.map((item: any) => (
+              <li key={item.id} className="px-5 py-3.5 flex items-start gap-3 hover:bg-gray-50/50 transition-colors">
+                <MinusCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+                <span className="text-sm text-[#203E4A] font-['Lato']">{item.description}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>
@@ -1435,6 +1548,15 @@ export default function ClientPortal() {
 
       {/* 1. Base Inclusions — shown FIRST */}
       <BaseInclusionsSection token={token} />
+
+      {/* 1B. PC Items */}
+      <PcItemsSection token={token} />
+
+      {/* 1C. Provisional Sums */}
+      <ProvisionalSumsSection token={token} />
+
+      {/* 1D. Exclusions */}
+      <ExclusionsSection token={token} />
 
       {/* Elegant divider */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6">

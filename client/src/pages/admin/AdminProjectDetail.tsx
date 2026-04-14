@@ -237,7 +237,7 @@ function BoqTab({ projectId }: { projectId: number }) {
           )}
           <Button size="sm" variant="outline" onClick={() => importToInclusionsMutation.mutate({ boqDocumentId: selectedDocId!, projectId })} disabled={importToInclusionsMutation.isPending}>
             <Layers className="w-3 h-3 mr-1" />
-            {importToInclusionsMutation.isPending ? "Importing..." : "Import to Base Inclusions"}
+            {importToInclusionsMutation.isPending ? "Importing..." : "Import to Tender"}
           </Button>
           <Button size="sm" variant="ghost" className="ml-auto text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this BOQ document?")) deleteMutation.mutate({ id: selectedDocId! }); }}>
             <Trash2 className="w-3 h-3 mr-1" /> Delete
@@ -1170,7 +1170,7 @@ export default function AdminProjectDetail() {
         <TabsList className="mb-6 h-9 flex-wrap">
           {["inclusions", "boq", "upgrades", "plans", "portal"].map((tab) => (
             <TabsTrigger key={tab} value={tab} className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
-              {tab === "portal" ? "Client Portal" : tab === "plans" ? "Plan Images" : tab === "boq" ? "BOQ" : tab === "inclusions" ? "Base Inclusions" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === "portal" ? "Client Portal" : tab === "plans" ? "Plan Images" : tab === "boq" ? "BOQ" : tab === "inclusions" ? "Tender Creation" : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </TabsTrigger>
           ))}
         </TabsList>

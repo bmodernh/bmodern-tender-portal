@@ -35,6 +35,12 @@ export interface PdfExclusion {
   description: string;
 }
 
+export interface PdfPcItem {
+  description: string;
+  allowance: string | null;
+  notes: string | null;
+}
+
 export interface PdfProvisionalSum {
   description: string;
   amount: string | null;
@@ -71,6 +77,7 @@ export interface PdfData {
   project: PdfProject;
   inclusions: PdfInclusion[];
   exclusions: PdfExclusion[];
+  pcItems: PdfPcItem[];
   provisionalSums: PdfProvisionalSum[];
   upgradeGroups: PdfUpgradeGroup[];
   planImages: PdfPlanImage[];
@@ -172,7 +179,7 @@ function sectionTitle(doc: PDFKit.PDFDocument, title: string, y: number): number
 
 // ─── Main generator ───────────────────────────────────────────────────────────
 export async function generateProposalPdf(data: PdfData): Promise<Buffer> {
-  const { project, inclusions, exclusions, provisionalSums, upgradeGroups, planImages, company } = data;
+  const { project, inclusions, exclusions, pcItems, provisionalSums, upgradeGroups, planImages, company } = data;
 
   // Pre-fetch images
   const logoBuffer = await tryFetchImage(company?.logoUrl || null);
@@ -284,18 +291,24 @@ export async function generateProposalPdf(data: PdfData): Promise<Buffer> {
       // Items list
       if (inc.items && inc.items.length > 0) {
         for (const item of inc.items) {
-          if (y > PAGE_H - 50) { drawFooter(doc, pageNum, company); y = startContentPage(); }
+          // Measure the description height first so we know how much space it needs
+          const descWidth = CONTENT_W * 0.78;
+          const descHeight = doc.fontSize(8.5).font("Helvetica").heightOfString(item.name, { width: descWidth, lineGap: 1 });
+          const rowHeight = Math.max(descHeight, 12); // at least 12pt for single-line
+
+          if (y + rowHeight + 10 > PAGE_H - 40) { drawFooter(doc, pageNum, company); y = startContentPage(); }
           const rowY = y;
           // Description
           doc.fillColor(DARK).fontSize(8.5).font("Helvetica")
-            .text(item.name, MARGIN + 8, rowY, { width: CONTENT_W * 0.78, lineGap: 1 });
+            .text(item.name, MARGIN + 8, rowY, { width: descWidth, lineGap: 1 });
+          const descEndY = doc.y;
           // Qty + unit right-aligned
           if (item.qty) {
             const qtyText = item.unit ? `${item.qty} ${item.unit}` : item.qty;
             doc.fillColor(MID).fontSize(8).font("Helvetica")
               .text(qtyText, MARGIN + CONTENT_W * 0.78, rowY, { width: CONTENT_W * 0.22, align: "right" });
           }
-          y = Math.max(doc.y, rowY) + 5;
+          y = Math.max(descEndY, doc.y) + 5;
           doc.moveTo(MARGIN + 8, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.2).stroke();
           y += 3;
         }
@@ -324,7 +337,33 @@ export async function generateProposalPdf(data: PdfData): Promise<Buffer> {
     y += 8;
   }
 
-  // ─── Provisional Sums ───────────────────────────────────────────────────────
+  // ─── PC Items (Prime Cost) ──────────────────────────────────────────────────────────────
+  if (pcItems && pcItems.length > 0) {
+    if (y > PAGE_H - 120) { drawFooter(doc, pageNum, company); y = startContentPage(); }
+    y = sectionTitle(doc, "PC Items (Prime Cost)", y);
+
+    // Table header
+    doc.fillColor(MID).fontSize(7.5).font("Helvetica-Bold");
+    doc.text("DESCRIPTION", MARGIN, y, { width: CONTENT_W * 0.55 });
+    doc.text("ALLOWANCE", MARGIN + CONTENT_W * 0.55, y, { width: CONTENT_W * 0.2, align: "right" });
+    doc.text("NOTES", MARGIN + CONTENT_W * 0.75, y, { width: CONTENT_W * 0.25 });
+    y += 14;
+    doc.moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.4).stroke();
+    y += 4;
+
+    for (const pc of pcItems) {
+      if (y > PAGE_H - 60) { drawFooter(doc, pageNum, company); y = startContentPage(); }
+      const rowY = y;
+      doc.fillColor(DARK).fontSize(9).font("Helvetica").text(pc.description, MARGIN, rowY, { width: CONTENT_W * 0.55 });
+      doc.text(pc.allowance ? fmt(pc.allowance) : "TBC", MARGIN + CONTENT_W * 0.55, rowY, { width: CONTENT_W * 0.2, align: "right" });
+      if (pc.notes) doc.fillColor(MID).fontSize(8).text(pc.notes, MARGIN + CONTENT_W * 0.75, rowY, { width: CONTENT_W * 0.25 });
+      y = Math.max(doc.y, rowY) + 8;
+      doc.moveTo(MARGIN, y - 2).lineTo(PAGE_W - MARGIN, y - 2).strokeColor(BORDER).lineWidth(0.2).stroke();
+    }
+    y += 8;
+  }
+
+  // ─── Provisional Sums ─────────────────────────────────────────────────────────────────────
   if (provisionalSums.length > 0) {
     if (y > PAGE_H - 120) { drawFooter(doc, pageNum, company); y = startContentPage(); }
     y = sectionTitle(doc, "Provisional Sums", y);
