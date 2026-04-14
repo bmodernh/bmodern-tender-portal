@@ -449,3 +449,12 @@
 - [x] seedDefaults already pulls from pricing rules (master library) when seeding a project
 - [x] Master library is the source of truth — project inclusions are copies seeded from it
 - [x] Photos only appear in the Upgrades section (client portal tier comparison)
+
+## Price Range Display in Client Portal
+- [x] Show price range (base tier to top tier) in client portal hero section instead of single base price
+- [x] Backend: tier1Total and tier3Total already available from calculatePackagePrices
+- [x] Client portal hero: displays "Estimated Price Range" with min–max format when no selections
+- [x] Once client makes any selection, range collapses to show base + upgrades = estimated total
+- [x] StickyTotalBar shows range with "Select upgrades to refine" prompt when no selections
+- [x] StickyTotalBar shows base/upgrades/total breakdown once selections are made
+- [x] All 48 tests passing

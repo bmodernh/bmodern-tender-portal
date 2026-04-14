@@ -224,7 +224,9 @@ function TermsGate({ token, onAccepted }: { token: string; onAccepted: () => voi
 }
 
 // ─── Hero Section ────────────────────────────────────────────────────────────
-function HeroSection({ project }: { project: any }) {
+function HeroSection({ project, minPrice, maxPrice, hasSelections }: { project: any; minPrice?: number; maxPrice?: number; hasSelections?: boolean }) {
+  const basePrice = parseFloat(project.baseContractPrice || "0");
+  const showRange = minPrice != null && maxPrice != null && maxPrice > minPrice && !hasSelections;
   return (
     <div className="relative overflow-hidden">
       {project.heroImageUrl ? (
@@ -256,8 +258,20 @@ function HeroSection({ project }: { project: any }) {
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6D7E94] font-['Lato'] font-semibold mb-1">Base Contract Price</p>
-            <p className="text-3xl md:text-4xl font-bold text-[#203E4A] font-['Lato'] tracking-tight">{fmt(project.baseContractPrice)}</p>
+            {showRange ? (
+              <>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[#6D7E94] font-['Lato'] font-semibold mb-1">Estimated Price Range</p>
+                <p className="text-3xl md:text-4xl font-bold text-[#203E4A] font-['Lato'] tracking-tight">
+                  {fmt(minPrice)} <span className="text-[#6D7E94] font-normal mx-1">&ndash;</span> {fmt(maxPrice)}
+                </p>
+                <p className="text-[10px] text-[#6D7E94] font-['Lato'] mt-1">Based on your starting tier. Final price depends on your selections.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[#6D7E94] font-['Lato'] font-semibold mb-1">Base Contract Price</p>
+                <p className="text-3xl md:text-4xl font-bold text-[#203E4A] font-['Lato'] tracking-tight">{fmt(basePrice)}</p>
+              </>
+            )}
           </div>
           <div className="flex gap-8 text-sm text-[#6D7E94]">
             {project.tenderExpiryDate && (
@@ -1453,26 +1467,42 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
 }
 
 // ─── Sticky Running Total Bar ────────────────────────────────────────────────
-function StickyTotalBar({ basePrice, upgradeTotal, isLocked }: { basePrice: number; upgradeTotal: number; isLocked: boolean }) {
+function StickyTotalBar({ basePrice, upgradeTotal, isLocked, minPrice, maxPrice, hasSelections }: { basePrice: number; upgradeTotal: number; isLocked: boolean; minPrice?: number; maxPrice?: number; hasSelections?: boolean }) {
+  const showRange = minPrice != null && maxPrice != null && maxPrice > minPrice && !hasSelections;
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-r from-[#203E4A] via-[#1a3540] to-[#203E4A] text-white shadow-2xl">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm font-['Lato']">
-          <div>
-            <p className="text-white/40 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-semibold">Base</p>
-            <p className="font-bold text-sm sm:text-base">{fmt(basePrice)}</p>
-          </div>
-          <div className="text-white/20 text-lg">+</div>
-          <div>
-            <p className="text-white/40 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-semibold">Upgrades</p>
-            <p className="font-bold text-sm sm:text-base text-amber-300">{upgradeTotal > 0 ? `+${fmt(upgradeTotal)}` : upgradeTotal < 0 ? fmt(upgradeTotal) : fmt(0)}</p>
-          </div>
-          <div className="text-white/20 text-lg">=</div>
-        </div>
-        <div className="text-right">
-          <p className="text-white/40 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-['Lato'] font-semibold">Estimated Total</p>
-          <p className="text-lg sm:text-2xl font-bold font-['Lato']">{fmt(basePrice + upgradeTotal)}</p>
-        </div>
+        {showRange ? (
+          <>
+            <div className="font-['Lato']">
+              <p className="text-white/40 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-semibold">Estimated Range</p>
+              <p className="font-bold text-sm sm:text-base">{fmt(minPrice)} <span className="text-white/40 mx-0.5">&ndash;</span> {fmt(maxPrice)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-amber-300/80 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-['Lato'] font-semibold">Select upgrades to refine</p>
+              <p className="text-xs sm:text-sm text-white/50 font-['Lato']">Your final price depends on your selections</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm font-['Lato']">
+              <div>
+                <p className="text-white/40 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-semibold">Base</p>
+                <p className="font-bold text-sm sm:text-base">{fmt(basePrice)}</p>
+              </div>
+              <div className="text-white/20 text-lg">+</div>
+              <div>
+                <p className="text-white/40 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-semibold">Upgrades</p>
+                <p className="font-bold text-sm sm:text-base text-amber-300">{upgradeTotal > 0 ? `+${fmt(upgradeTotal)}` : upgradeTotal < 0 ? fmt(upgradeTotal) : fmt(0)}</p>
+              </div>
+              <div className="text-white/20 text-lg">=</div>
+            </div>
+            <div className="text-right">
+              <p className="text-white/40 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-['Lato'] font-semibold">Estimated Total</p>
+              <p className="text-lg sm:text-2xl font-bold font-['Lato']">{fmt(basePrice + upgradeTotal)}</p>
+            </div>
+          </>
+        )}
       </div>
       {isLocked && (
         <div className="bg-amber-600 text-center py-1.5 text-xs font-['Lato'] font-semibold">
@@ -1496,6 +1526,11 @@ export default function ClientPortal() {
   const [upgradeTotal, setUpgradeTotal] = useState(0);
   const [plusTotal, setPlusTotal] = useState(0);
   const combinedUpgradeTotal = upgradeTotal + plusTotal;
+
+  // Fetch pricing data for range display
+  const { data: priceData } = trpc.portal.getPackagePrices.useQuery({ token }, { enabled: !!token && !!project });
+  const { data: mySelections } = trpc.portal.getItemSelections.useQuery({ token }, { enabled: !!token && !!project });
+  const hasSelections = (mySelections?.length ?? 0) > 0;
 
   useEffect(() => {
     if (tcStatus?.acknowledged) setTcAccepted(true);
@@ -1534,7 +1569,12 @@ export default function ClientPortal() {
       )}
 
       {/* Hero */}
-      <HeroSection project={project} />
+      <HeroSection
+        project={project}
+        minPrice={priceData?.tier1Total}
+        maxPrice={priceData?.tier3Total}
+        hasSelections={hasSelections}
+      />
 
       {/* Draft banner */}
       {project.status === "draft" && (
@@ -1589,7 +1629,14 @@ export default function ClientPortal() {
       </div>
 
       {/* Sticky running total */}
-      <StickyTotalBar basePrice={basePrice} upgradeTotal={combinedUpgradeTotal} isLocked={isLocked} />
+      <StickyTotalBar
+        basePrice={basePrice}
+        upgradeTotal={combinedUpgradeTotal}
+        isLocked={isLocked}
+        minPrice={priceData?.tier1Total}
+        maxPrice={priceData?.tier3Total}
+        hasSelections={hasSelections}
+      />
 
       {/* Floating chat button */}
       <FloatingChatButton token={token} />
