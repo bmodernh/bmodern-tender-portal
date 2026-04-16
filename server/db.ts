@@ -531,50 +531,50 @@ export async function updatePricingRule(id: number, data: Partial<typeof upgrade
 // Maps itemKey → quantities field name so the engine can look up the project qty.
 // If null, qty defaults to 1 (fixed/lump-sum items).
 const ITEM_QTY_MAP: Record<string, string | null> = {
-  // Joinery — fixed lump-sum upgrades
-  kitchen_laundry_joinery: null,
-  vanities: "vanityQty",
-  wardrobes: null,
-  // Tiles & Stone — m² based
-  stone_benchtops: "kitchenBenchtopArea",
-  main_floor_tiles: null,       // m² but admin sets total via allowance, not qty field
-  wet_area_tiles: "floorTileM2",
-  timber_flooring: "timberHybridM2",
-  // Bathroom & Kitchen Fixtures — fixed lump-sum
-  bathroom_fixtures: null,
-  bathroom_accessories: null,
+  // Joinery
+  kitchen_laundry_joinery: "kitchenBaseCabinetryLm",  // per lm of kitchen cabinetry
+  vanities: "vanityQty",                               // per vanity unit
+  wardrobes: "wardrobeLm",                             // per lm of wardrobe
+  // Tiles & Stone
+  stone_benchtops: "kitchenBenchtopArea",              // per m² of benchtop
+  main_floor_tiles: "mainFloorTileM2",                 // per m² of main floor
+  wet_area_tiles: "floorTileM2",                       // per m² of wet area
+  timber_flooring: "timberHybridM2",                   // per m² of timber/hybrid
+  // Bathroom & Kitchen Fixtures
+  bathroom_fixtures: "bathroomQty",                    // per bathroom
+  bathroom_accessories: "bathroomQty",                 // per bathroom
   // Door Hardware — per unit
   door_hardware: "doorHandlesQty",
-  // Appliances — fixed lump-sum
+  // Appliances — fixed lump-sum (one kitchen)
   kitchen_appliances: null,
-  // Driveway — fixed lump-sum (up to 60m²)
-  driveway: null,
+  // Driveway
+  driveway: "drivewayM2",                              // per m² of driveway
   // Electrical — per unit
   downlights: "downlightsQty",
   power_points: "powerPointsQty",
   data_points: "dataPointsQty",
   pendant_points: "pendantPointsQty",
-  // Plasterboard — fixed lump-sum
-  plasterboard_walls: null,
-  plasterboard_ceilings: null,
-  cornice: null,
-  square_set: null,
-  // Fixout Material — per unit or lm
-  skirting_boards: "skirtingLm",
-  architraves: null,
+  // Plasterboard
+  plasterboard_walls: "wallPlasterM2",                 // per m² of wall
+  plasterboard_ceilings: "ceilingPlasterM2",           // per m² of ceiling
+  cornice: "corniceLm",                                // per lm of cornice
+  square_set: "squareSetQty",                          // per opening (window/door)
+  // Fixout Material
+  skirting_boards: "skirtingLm",                       // per lm
+  architraves: "internalDoorsQty",                     // per door (shares with internal doors)
   internal_doors: "internalDoorsQty",
   door_handles_fixout: "doorHandlesQty",
-  // Air Conditioning — fixed lump-sum
-  air_conditioning: null,
-  // Garage Doors — per unit
-  garage_doors: null,
+  // Air Conditioning
+  air_conditioning: "acZonesQty",                      // per zone
+  // Garage Doors
+  garage_doors: "garageDoorQty",                       // per garage door
   // Staircases — fixed lump-sum
   staircase: null,
   balustrade: null,
-  // Insulation — fixed lump-sum
-  ceiling_insulation: null,
-  wall_insulation: null,
-  acoustic_insulation: null,
+  // Insulation
+  ceiling_insulation: "ceilingInsulationM2",           // per m² of ceiling
+  wall_insulation: "wallInsulationM2",                 // per m² of wall
+  acoustic_insulation: "acousticInsulationM2",         // per m² of acoustic area
 };
 
 export type PackagePriceResult = {

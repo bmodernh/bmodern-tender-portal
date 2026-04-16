@@ -509,6 +509,18 @@ const quantitiesRouter = router({
       insulationWallR: z.string().optional().nullable(),
       laundryJoineryQty: z.number().optional().nullable(),
       applianceSetsQty: z.number().optional().nullable(),
+      // Scalable upgrade qty fields
+      mainFloorTileM2: z.string().optional().nullable(),
+      bathroomQty: z.number().optional().nullable(),
+      drivewayM2: z.string().optional().nullable(),
+      wallPlasterM2: z.string().optional().nullable(),
+      ceilingPlasterM2: z.string().optional().nullable(),
+      corniceLm: z.string().optional().nullable(),
+      squareSetQty: z.number().optional().nullable(),
+      garageDoorQty: z.number().optional().nullable(),
+      ceilingInsulationM2: z.string().optional().nullable(),
+      wallInsulationM2: z.string().optional().nullable(),
+      acousticInsulationM2: z.string().optional().nullable(),
     }))
     .mutation(async ({ input, ctx }) => {
       await requireAdmin(ctx);
@@ -1572,48 +1584,48 @@ const inclusionMasterRouter = router({
       const ITEM_BOQ_MAP: Record<string, string | undefined> = {
         // Joinery
         kitchen_laundry_joinery: "kitchenBaseCabinetryLm",
-        vanities: "vanityStoneTopQty",
+        vanities: "vanityQty",
         wardrobes: "wardrobeLm",
         // Tiles & Stone
         stone_benchtops: "kitchenBenchtopArea",
-        main_floor_tiles: undefined,
+        main_floor_tiles: "mainFloorTileM2",
         wet_area_tiles: "floorTileM2",
         timber_flooring: "timberHybridM2",
         // Bathroom & Kitchen Fixtures
-        bathroom_fixtures: undefined,
-        bathroom_accessories: undefined,
+        bathroom_fixtures: "bathroomQty",
+        bathroom_accessories: "bathroomQty",
         // Door Hardware
         door_hardware: "doorHandlesQty",
         // Appliances
-        kitchen_appliances: "applianceSetsQty",
+        kitchen_appliances: undefined,  // fixed lump sum (one kitchen)
         // Driveway
-        driveway: undefined,
+        driveway: "drivewayM2",
         // Electrical
         downlights: "downlightsQty",
         power_points: "powerPointsQty",
         data_points: "dataPointsQty",
         pendant_points: "pendantPointsQty",
         // Plasterboard
-        plasterboard_walls: undefined,
-        plasterboard_ceilings: undefined,
-        cornice: undefined,
-        square_set: undefined,
+        plasterboard_walls: "wallPlasterM2",
+        plasterboard_ceilings: "ceilingPlasterM2",
+        cornice: "corniceLm",
+        square_set: "squareSetQty",
         // Fixout Material
-        skirting_boards: undefined,
-        architraves: undefined,
+        skirting_boards: "skirtingLm",
+        architraves: "internalDoorsQty",
         internal_doors: "internalDoorsQty",
         door_handles_fixout: "doorHandlesQty",
         // Air Conditioning
         air_conditioning: "acZonesQty",
         // Garage Doors
-        garage_doors: undefined,
-        // Staircases
+        garage_doors: "garageDoorQty",
+        // Staircases — fixed lump sum
         staircase: undefined,
         balustrade: undefined,
         // Insulation
-        ceiling_insulation: "insulationCeilingR",
-        wall_insulation: undefined,
-        acoustic_insulation: undefined,
+        ceiling_insulation: "ceilingInsulationM2",
+        wall_insulation: "wallInsulationM2",
+        acoustic_insulation: "acousticInsulationM2",
       };
 
       // Build categories from pricing rules, grouped by their category field

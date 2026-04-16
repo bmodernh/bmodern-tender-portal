@@ -177,6 +177,18 @@ export default function AdminProjectForm() {
     internalDoorsQty: "",
     externalDoorsQty: "",
     doorHandlesQty: "",
+    // New scalable qty fields
+    mainFloorTileM2: "",
+    bathroomQty: "",
+    drivewayM2: "",
+    wallPlasterM2: "",
+    ceilingPlasterM2: "",
+    corniceLm: "",
+    squareSetQty: "",
+    garageDoorQty: "",
+    ceilingInsulationM2: "",
+    wallInsulationM2: "",
+    acousticInsulationM2: "",
     // Starting tier
     startingTier: "1",
     // Step 3
@@ -208,6 +220,10 @@ export default function AdminProjectForm() {
         basinMixersQty: "", showerSetsQty: "", kitchenMixersQty: "", toiletsQty: "", bathtubsQty: "",
         applianceSetsQty: "", floorTileM2: "", wallTileM2: "", splashbackTileM2: "",
         timberHybridM2: "", carpetM2: "", facadeCladdingM2: "",
+        mainFloorTileM2: "", bathroomQty: "", drivewayM2: "",
+        wallPlasterM2: "", ceilingPlasterM2: "", corniceLm: "",
+        squareSetQty: "", garageDoorQty: "",
+        ceilingInsulationM2: "", wallInsulationM2: "", acousticInsulationM2: "",
         insulationCeilingR: "", insulationWallR: "",
         internalDoorsQty: "", externalDoorsQty: "", doorHandlesQty: "",
         startingTier: String(existing.startingTier ?? 1),
@@ -419,6 +435,13 @@ export default function AdminProjectForm() {
           insulationCeilingR: s('insulationCeilingR'), insulationWallR: s('insulationWallR'),
           internalDoorsQty: p('internalDoorsQty'), externalDoorsQty: p('externalDoorsQty'),
           doorHandlesQty: p('doorHandlesQty'),
+          // New scalable qty fields
+          mainFloorTileM2: s('mainFloorTileM2'), bathroomQty: p('bathroomQty'),
+          drivewayM2: s('drivewayM2'), wallPlasterM2: s('wallPlasterM2'),
+          ceilingPlasterM2: s('ceilingPlasterM2'), corniceLm: s('corniceLm'),
+          squareSetQty: p('squareSetQty'), garageDoorQty: p('garageDoorQty'),
+          ceilingInsulationM2: s('ceilingInsulationM2'), wallInsulationM2: s('wallInsulationM2'),
+          acousticInsulationM2: s('acousticInsulationM2'),
         });
       } catch {
         // Quantities save failed silently — can be updated later in Quantities tab
@@ -789,11 +812,50 @@ export default function AdminProjectForm() {
                 </div>
               </div>
 
-              {/* Facade & Insulation */}
+              {/* Facade */}
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Facade & Insulation</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Facade</div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <FieldGroup label="Facade Cladding (m²)"><Input {...f("facadeCladdingM2")} type="number" placeholder="e.g. 80" className="h-9 text-sm" /></FieldGroup>
+                </div>
+              </div>
+
+              {/* Bathrooms */}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Bathrooms</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <FieldGroup label="Bathrooms (qty)"><Input {...f("bathroomQty")} type="number" placeholder="e.g. 2" className="h-9 text-sm" /></FieldGroup>
+                </div>
+              </div>
+
+              {/* Plasterboard */}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Plasterboard</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <FieldGroup label="Wall Plaster (m²)"><Input {...f("wallPlasterM2")} type="number" placeholder="e.g. 350" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Ceiling Plaster (m²)"><Input {...f("ceilingPlasterM2")} type="number" placeholder="e.g. 280" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Cornice (lm)"><Input {...f("corniceLm")} type="number" placeholder="e.g. 120" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Square Set Openings (qty)"><Input {...f("squareSetQty")} type="number" placeholder="e.g. 30" className="h-9 text-sm" /></FieldGroup>
+                </div>
+              </div>
+
+              {/* Driveway & Garage */}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Driveway & Garage</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <FieldGroup label="Driveway (m²)"><Input {...f("drivewayM2")} type="number" placeholder="e.g. 55" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Garage Doors (qty)"><Input {...f("garageDoorQty")} type="number" placeholder="e.g. 2" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Main Floor Tile (m²)"><Input {...f("mainFloorTileM2")} type="number" placeholder="e.g. 60" className="h-9 text-sm" /></FieldGroup>
+                </div>
+              </div>
+
+              {/* Insulation */}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2" style={{ fontFamily: "Lato, sans-serif" }}>Insulation</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <FieldGroup label="Ceiling Insulation (m²)"><Input {...f("ceilingInsulationM2")} type="number" placeholder="e.g. 280" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Wall Insulation (m²)"><Input {...f("wallInsulationM2")} type="number" placeholder="e.g. 175" className="h-9 text-sm" /></FieldGroup>
+                  <FieldGroup label="Acoustic Insulation (m²)"><Input {...f("acousticInsulationM2")} type="number" placeholder="e.g. 60" className="h-9 text-sm" /></FieldGroup>
                   <FieldGroup label="Ceiling Insulation (R)"><Input {...f("insulationCeilingR")} type="number" placeholder="e.g. 2.5" className="h-9 text-sm" /></FieldGroup>
                   <FieldGroup label="Wall Insulation (R)"><Input {...f("insulationWallR")} type="number" placeholder="e.g. 1.5" className="h-9 text-sm" /></FieldGroup>
                 </div>

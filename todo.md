@@ -515,3 +515,14 @@
 - [x] Updated ITEM_QTY_MAP in db.ts and ITEM_BOQ_MAP in routers.ts for all 31 items
 - [x] Fixed lump-sum items (plasterboard, insulation, driveway, etc.) to use fixed unit type
 - [x] Verified pricing engine: 4-bed 2-bath 280m² home at $650k base → T2 $688k (+5.9%) → T3 $748k (+15.0%)
+
+## Convert Lump Sum Items to Scalable Per-Unit Pricing
+- [x] Add new BOQ quantity columns to quantities table (11 new columns added)
+- [x] Update drizzle schema to match new columns
+- [x] Update ITEM_QTY_MAP in db.ts to link items to new BOQ fields
+- [x] Update ITEM_BOQ_MAP in routers.ts seedDefaults
+- [x] Update pricing rules unit types from 'fixed' to appropriate units (m2, lm, each)
+- [x] Adjust per-unit costs to realistic rates (not lump sums)
+- [x] Update admin quantities form to show new fields (Bathrooms, Plasterboard, Driveway & Garage, Insulation)
+- [x] Test pricing engine: Small house T2 +$27k (5.0%), Large house T2 +$45k (5.2%) — scales proportionally
+- [x] Keep Staircase, Balustrade, Kitchen Appliances as fixed lump sum

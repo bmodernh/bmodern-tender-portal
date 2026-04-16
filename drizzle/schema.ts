@@ -160,6 +160,18 @@ export const quantities = mysqlTable("quantities", {
   laundryJoineryQty: int("laundryJoineryQty"),             // number of laundry cabinets
   // Appliances
   applianceSetsQty: int("applianceSetsQty"),               // number of full appliance sets (oven+cooktop+rangehood+DW)
+  // ─── New scalable qty fields (for upgrade pricing) ───
+  mainFloorTileM2: decimal("mainFloorTileM2", { precision: 8, scale: 2 }),   // main living floor tile area
+  bathroomQty: int("bathroomQty"),                                           // number of bathrooms
+  drivewayM2: decimal("drivewayM2", { precision: 8, scale: 2 }),             // driveway area in m²
+  wallPlasterM2: decimal("wallPlasterM2", { precision: 8, scale: 2 }),       // total internal wall plaster area
+  ceilingPlasterM2: decimal("ceilingPlasterM2", { precision: 8, scale: 2 }), // total ceiling plaster area
+  corniceLm: decimal("corniceLm", { precision: 8, scale: 2 }),               // linear metres of cornice
+  squareSetQty: int("squareSetQty"),                                         // number of windows + doors to square set
+  garageDoorQty: int("garageDoorQty"),                                       // number of garage doors
+  ceilingInsulationM2: decimal("ceilingInsulationM2", { precision: 8, scale: 2 }),   // ceiling insulation area
+  wallInsulationM2: decimal("wallInsulationM2", { precision: 8, scale: 2 }),         // wall insulation area
+  acousticInsulationM2: decimal("acousticInsulationM2", { precision: 8, scale: 2 }), // acoustic insulation area
   // Allowances
   floorTileAllowancePerM2: decimal("floorTileAllowancePerM2", { precision: 8, scale: 2 }),
   wallTileAllowancePerM2: decimal("wallTileAllowancePerM2", { precision: 8, scale: 2 }),
