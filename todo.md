@@ -458,3 +458,11 @@
 - [x] StickyTotalBar shows range with "Select upgrades to refine" prompt when no selections
 - [x] StickyTotalBar shows base/upgrades/total breakdown once selections are made
 - [x] All 48 tests passing
+
+## Inclusions Library — Product Images
+- [x] Find and upload product images for all 48 items across 3 tiers (138 unique images uploaded)
+- [x] Tier 1: Standard/builder-grade products (46 images)
+- [x] Tier 2: Mid-range upgrade products (46 images)
+- [x] Tier 3: Premium/luxury products (46 images)
+- [x] Update database with CDN URLs for each tier image (46/46 SQL updates applied)
+- [x] All 48 tests still passing
