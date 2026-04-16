@@ -179,12 +179,31 @@ describe("projectOverrides", () => {
     expect(db.getProjectPricingOverrides).toHaveBeenCalledWith(1);
   });
 
-  it("seeds overrides from library for a project", async () => {
-    vi.mocked(db.seedProjectPricingOverrides).mockResolvedValueOnce({ seeded: true });
+  it("seeds overrides from library for a project (fresh seed)", async () => {
+    vi.mocked(db.seedProjectPricingOverrides).mockResolvedValueOnce({ seeded: true, count: 31, added: 31, updated: 0, removed: 0 });
     const caller = appRouter.createCaller(makeAdminCtx());
     const result = await caller.projectOverrides.seed({ projectId: 1 });
-    expect(result).toEqual({ seeded: true });
+    expect(result).toEqual({ seeded: true, count: 31, added: 31, updated: 0, removed: 0 });
     expect(db.seedProjectPricingOverrides).toHaveBeenCalledWith(1);
+  });
+
+  it("re-syncs existing overrides from library (updates + adds + removes)", async () => {
+    vi.mocked(db.seedProjectPricingOverrides).mockResolvedValueOnce({ seeded: true, count: 30, added: 2, updated: 27, removed: 1 });
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.projectOverrides.seed({ projectId: 1 });
+    expect(result.seeded).toBe(true);
+    expect(result.updated).toBe(27);
+    expect(result.added).toBe(2);
+    expect(result.removed).toBe(1);
+  });
+
+  it("re-sync preserves per-project data (calls seed, which preserves baseQty and enabled)", async () => {
+    vi.mocked(db.seedProjectPricingOverrides).mockResolvedValueOnce({ seeded: true, count: 31, added: 0, updated: 31, removed: 0 });
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.projectOverrides.seed({ projectId: 5 });
+    expect(result.added).toBe(0);
+    expect(result.updated).toBe(31);
+    expect(db.seedProjectPricingOverrides).toHaveBeenCalledWith(5);
   });
 
   it("upserts a single override", async () => {

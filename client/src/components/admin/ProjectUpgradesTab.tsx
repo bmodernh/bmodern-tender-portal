@@ -443,8 +443,6 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
 
   const seedMutation = trpc.projectOverrides.seed.useMutation({
     onSuccess: (data) => {
-      if (data.seeded) { toast.success(`Seeded ${data.count} items from library`); }
-      else { toast.info(data.message || "Already seeded"); }
       utils.projectOverrides.list.invalidate();
     },
     onError: (e) => toast.error(e.message),
@@ -620,11 +618,23 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
       <div className="flex items-center gap-2">
         <AddCustomItemDialog projectId={projectId} position={overrides.length} onSuccess={() => utils.projectOverrides.list.invalidate()} />
         <Button size="sm" variant="outline" onClick={() => {
-          if (confirm("Re-seed will add any new library items that are missing. Existing items won't be overwritten. Continue?")) {
-            seedMutation.mutate({ projectId });
+          if (confirm("Re-sync will update all library items with the latest values (labels, descriptions, images, costs). Per-project quantities and enabled/disabled states are preserved. New library items will be added, removed items will be deleted. Continue?")) {
+            seedMutation.mutate({ projectId }, {
+              onSuccess: (data: any) => {
+                if (data.added || data.updated || data.removed) {
+                  const parts = [];
+                  if (data.updated) parts.push(`${data.updated} updated`);
+                  if (data.added) parts.push(`${data.added} added`);
+                  if (data.removed) parts.push(`${data.removed} removed`);
+                  alert(`Library sync complete: ${parts.join(", ")}`);
+                } else {
+                  alert("Library sync complete — no changes needed.");
+                }
+              },
+            });
           }
         }} disabled={seedMutation.isPending} className="gap-1.5 text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
-          <RefreshCw size={12} /> Re-sync Library
+          <RefreshCw size={12} className={seedMutation.isPending ? "animate-spin" : ""} /> {seedMutation.isPending ? "Syncing..." : "Re-sync Library"}
         </Button>
       </div>
 

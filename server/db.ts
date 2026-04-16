@@ -1146,52 +1146,134 @@ export async function seedProjectPricingOverrides(projectId: number) {
   const db = await getDb();
   if (!db) return { seeded: false };
   
-  // Check if overrides already exist for this project
+  // Get existing overrides for this project
   const existing = await db.select().from(projectPricingOverrides)
     .where(eq(projectPricingOverrides.projectId, projectId));
-  if (existing.length > 0) return { seeded: false, message: "Overrides already exist" };
   
   // Get quantities for this project (to populate baseQty per item)
   const [qty] = await db.select().from(quantities).where(eq(quantities.projectId, projectId));
   
-  // Copy all global pricing rules as project overrides
+  // Get all global pricing rules (the library)
   const rules = await db.select().from(upgradePricingRules).orderBy(upgradePricingRules.position);
-  for (const rule of rules) {
-    // Look up the baseQty from the quantities table using ITEM_QTY_MAP
-    let baseQty = "0";
-    const qtyFieldName = ITEM_QTY_MAP[rule.itemKey];
-    if (qtyFieldName && qty) {
-      const rawQty = (qty as Record<string, unknown>)[qtyFieldName];
-      baseQty = rawQty != null ? String(parseFloat(String(rawQty)) || 0) : "0";
-    } else if (!qtyFieldName) {
-      // Fixed/lump-sum items (staircase, balustrade, appliances) — default qty 1
-      baseQty = "1";
+  
+  // If no overrides exist yet, do a fresh seed (first time)
+  if (existing.length === 0) {
+    for (const rule of rules) {
+      let baseQty = "0";
+      const qtyFieldName = ITEM_QTY_MAP[rule.itemKey];
+      if (qtyFieldName && qty) {
+        const rawQty = (qty as Record<string, unknown>)[qtyFieldName];
+        baseQty = rawQty != null ? String(parseFloat(String(rawQty)) || 0) : "0";
+      } else if (!qtyFieldName) {
+        baseQty = "1";
+      }
+      
+      await db.insert(projectPricingOverrides).values({
+        projectId,
+        itemKey: rule.itemKey,
+        label: rule.label,
+        category: rule.category,
+        unit: rule.unit,
+        tier1Label: rule.tier1Label,
+        tier2Label: rule.tier2Label,
+        tier3Label: rule.tier3Label,
+        tier1Description: null,
+        tier2Description: rule.tier2Description,
+        tier3Description: rule.tier3Description,
+        tier1ImageUrl: rule.tier1ImageUrl,
+        tier2ImageUrl: rule.tier2ImageUrl,
+        tier3ImageUrl: rule.tier3ImageUrl,
+        tier2CostPerUnit: rule.tier2CostPerUnit,
+        tier3CostPerUnit: rule.tier3CostPerUnit,
+        baseQty,
+        tier2Qty: rule.tier2Qty,
+        tier3Qty: rule.tier3Qty,
+        enabled: true,
+        isCustom: false,
+        position: rule.position,
+      });
     }
-    
-    await db.insert(projectPricingOverrides).values({
-      projectId,
-      itemKey: rule.itemKey,
-      label: rule.label,
-      category: rule.category,
-      unit: rule.unit,
-      tier1Label: rule.tier1Label,
-      tier2Label: rule.tier2Label,
-      tier3Label: rule.tier3Label,
-      tier1Description: null,  // global rules don't have tier1Description
-      tier2Description: rule.tier2Description,
-      tier3Description: rule.tier3Description,
-      tier1ImageUrl: rule.tier1ImageUrl,
-      tier2ImageUrl: rule.tier2ImageUrl,
-      tier3ImageUrl: rule.tier3ImageUrl,
-      tier2CostPerUnit: rule.tier2CostPerUnit,
-      tier3CostPerUnit: rule.tier3CostPerUnit,
-      baseQty,
-      tier2Qty: rule.tier2Qty,
-      tier3Qty: rule.tier3Qty,
-      enabled: true,
-      isCustom: false,
-      position: rule.position,
-    });
+    return { seeded: true, count: rules.length, added: rules.length, updated: 0, removed: 0 };
   }
-  return { seeded: true, count: rules.length };
+  
+  // ── Re-sync mode: update existing overrides from library ──
+  const existingByKey = new Map(existing.filter(e => !e.isCustom).map(e => [e.itemKey, e]));
+  const libraryKeys = new Set(rules.map(r => r.itemKey));
+  let added = 0;
+  let updated = 0;
+  let removed = 0;
+  
+  for (const rule of rules) {
+    const existingOverride = existingByKey.get(rule.itemKey);
+    
+    if (existingOverride) {
+      // Update existing override with latest library values
+      // Preserve: baseQty (per-project quantity), enabled (per-project toggle)
+      await db.update(projectPricingOverrides).set({
+        label: rule.label,
+        category: rule.category,
+        unit: rule.unit,
+        tier1Label: rule.tier1Label,
+        tier2Label: rule.tier2Label,
+        tier3Label: rule.tier3Label,
+        tier2Description: rule.tier2Description,
+        tier3Description: rule.tier3Description,
+        tier1ImageUrl: rule.tier1ImageUrl,
+        tier2ImageUrl: rule.tier2ImageUrl,
+        tier3ImageUrl: rule.tier3ImageUrl,
+        tier2CostPerUnit: rule.tier2CostPerUnit,
+        tier3CostPerUnit: rule.tier3CostPerUnit,
+        tier2Qty: rule.tier2Qty,
+        tier3Qty: rule.tier3Qty,
+        position: rule.position,
+      }).where(eq(projectPricingOverrides.id, existingOverride.id));
+      updated++;
+    } else {
+      // New item in library — add to project
+      let baseQty = "0";
+      const qtyFieldName = ITEM_QTY_MAP[rule.itemKey];
+      if (qtyFieldName && qty) {
+        const rawQty = (qty as Record<string, unknown>)[qtyFieldName];
+        baseQty = rawQty != null ? String(parseFloat(String(rawQty)) || 0) : "0";
+      } else if (!qtyFieldName) {
+        baseQty = "1";
+      }
+      
+      await db.insert(projectPricingOverrides).values({
+        projectId,
+        itemKey: rule.itemKey,
+        label: rule.label,
+        category: rule.category,
+        unit: rule.unit,
+        tier1Label: rule.tier1Label,
+        tier2Label: rule.tier2Label,
+        tier3Label: rule.tier3Label,
+        tier1Description: null,
+        tier2Description: rule.tier2Description,
+        tier3Description: rule.tier3Description,
+        tier1ImageUrl: rule.tier1ImageUrl,
+        tier2ImageUrl: rule.tier2ImageUrl,
+        tier3ImageUrl: rule.tier3ImageUrl,
+        tier2CostPerUnit: rule.tier2CostPerUnit,
+        tier3CostPerUnit: rule.tier3CostPerUnit,
+        baseQty,
+        tier2Qty: rule.tier2Qty,
+        tier3Qty: rule.tier3Qty,
+        enabled: true,
+        isCustom: false,
+        position: rule.position,
+      });
+      added++;
+    }
+  }
+  
+  // Remove non-custom overrides whose itemKey no longer exists in the library
+  for (const override of existing) {
+    if (!override.isCustom && !libraryKeys.has(override.itemKey)) {
+      await db.delete(projectPricingOverrides).where(eq(projectPricingOverrides.id, override.id));
+      removed++;
+    }
+  }
+  
+  return { seeded: true, count: rules.length, added, updated, removed };
 }

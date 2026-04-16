@@ -561,3 +561,11 @@
 - [x] When a category is disabled, all its items are hidden from the client portal
 - [x] Category toggle should be prominent and easy to use (not buried in item-level settings)
 - [x] Client portal respects disabled categories (doesn't show them)
+
+## Library-to-Project Sync Fix
+- [x] Re-sync Library button should update existing project overrides with latest library values
+- [x] New items added to library should be added to existing projects on re-sync
+- [x] Items removed from library should be flagged/removed from projects on re-sync
+- [x] Preserve per-project customizations (baseQty, enabled/disabled state) during re-sync
+- [x] Update all library-sourced fields (labels, descriptions, images, costs, positions) from library
+- [x] Test re-sync on existing projects with library changes
