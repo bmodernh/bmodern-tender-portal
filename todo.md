@@ -550,3 +550,8 @@
 - [x] Test pricing with different quantities per project
 - [x] Add starting tier selector to Upgrades tab (Tier 1 / Tier 2 / Tier 3)
 - [x] Starting tier controls what client sees as baseline in portal
+
+## Fix Photo Upload in Inclusions Library & Upgrades Tab
+- [x] Fix photo upload in Inclusions Library editor (TierImageUpload already working)
+- [x] Add photo upload to per-project Upgrades tab editor (click-to-upload per tier)
+- [x] Ensure library → project seed copies images correctly (CDN URLs copied from library)

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
-  ChevronDown, ChevronUp, Edit, Eye, EyeOff, Plus, Trash2, Sparkles, Loader2, RefreshCw, Check, X, DollarSign,
+  ChevronDown, ChevronUp, Edit, Eye, EyeOff, Plus, Trash2, Sparkles, Loader2, RefreshCw, Check, X, DollarSign, Camera, Upload,
 } from "lucide-react";
 
 type Override = {
@@ -40,6 +40,72 @@ type Override = {
 
 const UNIT_LABELS: Record<string, string> = { each: "ea", lm: "lm", m2: "m²", fixed: "fixed" };
 const TIER_NAMES = ["", "Built for Excellence", "Tailored Living", "Signature Series"];
+
+// ─── Image Upload Hook ──────────────────────────────────────────────────────
+function useImageUpload(onUploaded: (url: string) => void) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const uploadMutation = trpc.upload.getUploadUrl.useMutation();
+
+  const trigger = () => inputRef.current?.click();
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image file"); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10MB"); return; }
+    setUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const { url } = await uploadMutation.mutateAsync({
+        fileName: file.name, mimeType: file.type, fileData: base64, folder: "project-upgrades",
+      });
+      onUploaded(url);
+      toast.success("Image uploaded");
+    } catch (e: any) {
+      toast.error("Upload failed: " + (e.message || "Unknown error"));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const FileInput = (
+    <input ref={inputRef} type="file" accept="image/*" className="hidden"
+      onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+  );
+
+  return { trigger, uploading, FileInput };
+}
+
+// ─── Tier Image Upload ──────────────────────────────────────────────────────
+function TierImageUpload({ label, imageUrl, onUpload, color }: {
+  label: string; imageUrl: string | null; onUpload: (url: string) => void; color: string;
+}) {
+  const { trigger, uploading, FileInput } = useImageUpload(onUpload);
+  return (
+    <div className="flex flex-col items-center gap-1">
+      {FileInput}
+      <div
+        className="w-16 h-16 rounded-lg border-2 border-dashed flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+        style={{ borderColor: imageUrl ? color : "var(--border)", background: imageUrl ? "transparent" : "var(--muted)" }}
+        onClick={trigger}
+        title={`Upload ${label} image`}
+      >
+        {uploading ? (
+          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+        ) : imageUrl ? (
+          <img src={imageUrl} alt={label} className="w-full h-full object-cover rounded-md" />
+        ) : (
+          <Camera size={16} className="text-muted-foreground" />
+        )}
+      </div>
+      <span className="text-[10px] font-medium" style={{ color }}>{label}</span>
+    </div>
+  );
+}
 
 function formatCurrency(n: number) {
   return n.toLocaleString("en-AU", { style: "currency", currency: "AUD", minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -233,15 +299,19 @@ function ItemEditor({ item, onSave, onCancel }: { item: Override; onSave: (data:
               onSelect={text => update(tier.descKey, text)}
             />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label className="text-[10px]" style={{ fontFamily: "Lato, sans-serif" }}>Tier Label / Product</Label>
-              <Input value={(form as any)[tier.labelKey]} onChange={e => update(tier.labelKey, e.target.value)} className="h-7 text-xs" style={{ fontFamily: "Lato, sans-serif" }} placeholder="e.g. Laminate Flat" />
+          <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label className="text-[10px]" style={{ fontFamily: "Lato, sans-serif" }}>Tier Label / Product</Label>
+                <Input value={(form as any)[tier.labelKey]} onChange={e => update(tier.labelKey, e.target.value)} className="h-7 text-xs" style={{ fontFamily: "Lato, sans-serif" }} placeholder="e.g. Laminate Flat" />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px]" style={{ fontFamily: "Lato, sans-serif" }}>Image URL</Label>
-              <Input value={(form as any)[tier.imgKey]} onChange={e => update(tier.imgKey, e.target.value)} className="h-7 text-xs" style={{ fontFamily: "Lato, sans-serif" }} placeholder="https://..." />
-            </div>
+            <TierImageUpload
+              label={`Tier ${tier.num}`}
+              imageUrl={(form as any)[tier.imgKey] || null}
+              onUpload={url => update(tier.imgKey, url)}
+              color={tier.num === 1 ? "var(--bm-petrol)" : tier.num === 2 ? "#d97706" : "#9333ea"}
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-[10px]" style={{ fontFamily: "Lato, sans-serif" }}>Description</Label>
