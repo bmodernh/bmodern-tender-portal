@@ -1570,32 +1570,57 @@ const inclusionMasterRouter = router({
 
       // Map itemKey → boqFieldKey for quantity linking
       const ITEM_BOQ_MAP: Record<string, string | undefined> = {
-        downlights: "downlightsQty", power_points: "powerPointsQty", pendant_points: "pendantPointsQty",
-        switch_plates: "switchPlatesQty", data_points: "dataPointsQty", exhaust_fans: "exhaustFansQty",
-        wall_lights: undefined, smoke_detectors: undefined, home_automation: undefined,
-        bathroom_floor_tiles: "floorTileM2", bathroom_wall_tiles: "wallTileM2", laundry_floor_tiles: undefined,
-        main_floor_tiles: undefined, splashback: "splashbackTileM2",
-        basin_mixers: "basinMixersQty", shower_sets: "showerSetsQty", toilets: "toiletsQty",
-        baths: "bathtubsQty", basins: "basinsQty", kitchen_sink: undefined, kitchen_laundry_mixer: undefined, laundry_sink: undefined,
-        kitchen_cabinetry: "kitchenBaseCabinetryLm", wardrobe_joinery: "wardrobeLm",
-        laundry_joinery: "laundryJoineryQty", linen_cupboard: undefined,
-        kitchen_benchtop: "kitchenBenchtopArea", vanity_stone: "vanityStoneTopQty",
-        internal_doors: "internalDoorsQty", door_handles: "doorHandlesQty",
-        skirting_boards: undefined, architraves: undefined,
-        timber_hybrid_flooring: "timberHybridM2", carpet: "carpetM2",
-        air_conditioning: "acZonesQty", facade_cladding: "facadeCladdingM2",
-        insulation: "insulationCeilingR", sound_insulation: undefined,
-        appliances: "applianceSetsQty",
-        plasterboard_walls: undefined, plasterboard_ceilings: undefined, cornice: undefined, square_set_windows_doors: undefined,
-        external_render: undefined, render_finish: undefined, face_brick: undefined,
-        staircase: undefined, balustrade: undefined,
+        // Joinery
+        kitchen_laundry_joinery: "kitchenBaseCabinetryLm",
+        vanities: "vanityStoneTopQty",
+        wardrobes: "wardrobeLm",
+        // Tiles & Stone
+        stone_benchtops: "kitchenBenchtopArea",
+        main_floor_tiles: undefined,
+        wet_area_tiles: "floorTileM2",
+        timber_flooring: "timberHybridM2",
+        // Bathroom & Kitchen Fixtures
+        bathroom_fixtures: undefined,
+        bathroom_accessories: undefined,
+        // Door Hardware
+        door_hardware: "doorHandlesQty",
+        // Appliances
+        kitchen_appliances: "applianceSetsQty",
+        // Driveway
+        driveway: undefined,
+        // Electrical
+        downlights: "downlightsQty",
+        power_points: "powerPointsQty",
+        data_points: "dataPointsQty",
+        pendant_points: "pendantPointsQty",
+        // Plasterboard
+        plasterboard_walls: undefined,
+        plasterboard_ceilings: undefined,
+        cornice: undefined,
+        square_set: undefined,
+        // Fixout Material
+        skirting_boards: undefined,
+        architraves: undefined,
+        internal_doors: "internalDoorsQty",
+        door_handles_fixout: "doorHandlesQty",
+        // Air Conditioning
+        air_conditioning: "acZonesQty",
+        // Garage Doors
+        garage_doors: undefined,
+        // Staircases
+        staircase: undefined,
+        balustrade: undefined,
+        // Insulation
+        ceiling_insulation: "insulationCeilingR",
+        wall_insulation: undefined,
+        acoustic_insulation: undefined,
       };
 
       // Build categories from pricing rules, grouped by their category field
       const categoryOrder = [
-        "Electrical", "Tiles", "Bathrooms", "Kitchen", "Laundry", "Joinery", "Stone",
-        "Doors & Hardware", "Fixout Material", "Flooring", "Air Conditioning", "Facade",
-        "Insulation", "Plasterboard", "Render", "Staircase", "Preliminaries"
+        "Joinery", "Tiles & Stone", "Bathroom & Kitchen Fixtures", "Door Hardware",
+        "Appliances", "Driveway", "Electrical", "Plasterboard", "Fixout Material",
+        "Air Conditioning", "Garage Doors", "Staircases", "Insulation", "Preliminaries"
       ];
 
       // Group pricing rules by category

@@ -466,3 +466,52 @@
 - [x] Tier 3: Premium/luxury products (46 images)
 - [x] Update database with CDN URLs for each tier image (46/46 SQL updates applied)
 - [x] All 48 tests still passing
+
+## Inclusions Library Overhaul — Sydney Market Research
+- [ ] Research Sydney mid-to-high-end builder inclusions (Metricon, Rawson, McDonald Jones, Eden Brae, Allcastle, Wisdom, etc.)
+- [ ] Audit current 48 items for duplicates, mismatches, and missing items
+- [ ] Remove duplicate/redundant items
+- [ ] Add missing items that Sydney builders commonly include
+- [ ] Rewrite all Tier 1 descriptions (standard/builder-grade, specific brands and specs)
+- [ ] Rewrite all Tier 2 descriptions (mid-range upgrades, specific brands and specs)
+- [ ] Rewrite all Tier 3 descriptions (premium/luxury, specific brands and specs)
+- [ ] Find accurate product images matching the described products for all 3 tiers
+- [ ] Ensure categories are logical and non-overlapping
+- [ ] Verify everything displays correctly in Inclusions Library and client portal
+
+## Inclusions Library — Match B Modern Calculator Options
+- [x] Replace all inclusions with exact B Modern calculator options
+- [x] Joinery: Kitchen & Laundry (Laminate, Laminate Shaker, Poly Shaker)
+- [x] Joinery: Vanities (Laminate, Laminate Shaker, Poly Shaker)
+- [x] Joinery: Wardrobes (Mirrored Slider & Laminate WIR, Mirrored Slider Laminate Behind, Laminate Wardrobe Laminate Doors)
+- [x] Tiles & Stone: Stone (AC Stone Level 4/5/6/7)
+- [x] Tiles & Stone: Main Floor Tiles ($40/$60/$80/$100 Allowance)
+- [x] Tiles & Stone: Wet Area Tiles ($40/$60/$80/$100 Allowance)
+- [x] Tiles & Stone: Timber Flooring ($45/$55/$95/$140 Allowance)
+- [x] PC Items: Bathroom & Kitchen Fixtures (Fienza, Caroma, ABI Interiors)
+- [x] PC Items: Door Hardware (Builders Range, ABI Interiors)
+- [x] PC Items: Appliances (Bosch, Smeg, Fisher & Paykel)
+- [x] Driveway: Driveway up to 60m² (Colour Sealer, Spraycrete, Exposed Aggregate)
+- [x] Find accurate product images for all 93 images (31 items × 3 tiers)
+- [x] Update database with new items replacing old ones (31 items, 13 categories)
+
+## Inclusions Library — Revised Scope (User Feedback)
+- [x] Additional: Plasterboard (walls, ceilings, cornice, square set)
+- [x] Additional: Fixout Material (skirting, architraves, internal doors, door handles)
+- [x] Additional: Electrical (downlights, power points, data points, pendant points)
+- [x] Additional: Air Conditioning (ducted zones)
+- [x] Additional: Garage Doors (Alucobond, Castellated WPC, Flush Mount)
+- [x] Additional: Staircases (staircase + balustrade options)
+- [x] Additional: Insulation (ceiling, wall, acoustic)
+- [x] Remove all external/facade items (those come from BOQ)
+- [x] Update seedDefaults category order and ITEM_BOQ_MAP for new items
+
+## Pricing Logic Review
+- [x] Review pricing logic: tier2CostPerUnit and tier3CostPerUnit have realistic default values
+- [x] Verify upgrade cost calculation: (tierCost - baseTierCost) × quantity = upgrade price
+- [x] Ensure pricing rules admin UI allows easy input of real costs
+- [x] Test seedDefaults with all 3 tiers to verify correct descriptions/images are applied
+- [x] Verify client portal shows correct upgrade pricing for each tier
+- [x] Updated ITEM_QTY_MAP in db.ts and ITEM_BOQ_MAP in routers.ts for all 31 items
+- [x] Fixed lump-sum items (plasterboard, insulation, driveway, etc.) to use fixed unit type
+- [x] Verified pricing engine: 4-bed 2-bath 280m² home at $650k base → T2 $688k (+5.9%) → T3 $748k (+15.0%)
