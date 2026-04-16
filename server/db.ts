@@ -1131,6 +1131,17 @@ export async function toggleProjectPricingOverride(id: number, enabled: boolean)
   await db.update(projectPricingOverrides).set({ enabled }).where(eq(projectPricingOverrides.id, id));
 }
 
+export async function toggleCategoryOverrides(projectId: number, category: string, enabled: boolean) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(projectPricingOverrides)
+    .set({ enabled })
+    .where(and(
+      eq(projectPricingOverrides.projectId, projectId),
+      eq(projectPricingOverrides.category, category)
+    ));
+}
+
 export async function seedProjectPricingOverrides(projectId: number) {
   const db = await getDb();
   if (!db) return { seeded: false };

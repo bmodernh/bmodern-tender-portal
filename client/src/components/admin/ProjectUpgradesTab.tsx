@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   ChevronDown, ChevronUp, Edit, Eye, EyeOff, Plus, Trash2, Sparkles, Loader2, RefreshCw, Check, X, DollarSign, Camera, Upload,
@@ -460,6 +461,10 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
     onSuccess: () => utils.projectOverrides.list.invalidate(),
     onError: (e) => toast.error(e.message),
   });
+  const toggleCategoryMutation = trpc.projectOverrides.toggleCategory.useMutation({
+    onSuccess: () => { utils.projectOverrides.list.invalidate(); toast.success("Category updated"); },
+    onError: (e) => toast.error(e.message),
+  });
   const deleteMutation = trpc.projectOverrides.delete.useMutation({
     onSuccess: () => { toast.success("Item deleted"); utils.projectOverrides.list.invalidate(); },
     onError: (e) => toast.error(e.message),
@@ -627,22 +632,36 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
       {grouped.map(({ category, items }) => {
         const isExpanded = expandedCategories.has(category);
         const enabledInCat = items.filter(i => i.enabled).length;
+        const allEnabled = enabledInCat === items.length;
+        const noneEnabled = enabledInCat === 0;
         const catT2 = items.filter(i => i.enabled).reduce((sum, i) => sum + calcItemCost(i, 2), 0);
         const catT3 = items.filter(i => i.enabled).reduce((sum, i) => sum + calcItemCost(i, 3), 0);
         return (
-          <div key={category} className="bg-card border rounded overflow-hidden" style={{ borderColor: "var(--border)" }}>
-            <button onClick={() => toggleCategory(category)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors" style={{ background: "var(--bm-stone, oklch(93% 0.008 80))" }}>
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-sm" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>{category}</span>
+          <div key={category} className={`bg-card border rounded overflow-hidden ${noneEnabled ? "opacity-60" : ""}`} style={{ borderColor: "var(--border)" }}>
+            <div className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors" style={{ background: "var(--bm-stone, oklch(93% 0.008 80))" }}>
+              <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => toggleCategory(category)}>
+                <span className="font-medium text-sm" style={{ fontFamily: "Lato, sans-serif", color: noneEnabled ? "var(--muted-foreground)" : "var(--bm-petrol)" }}>{category}</span>
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{enabledInCat}/{items.length}</Badge>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-[10px] text-muted-foreground tabular-nums" style={{ fontFamily: "Lato, sans-serif" }}>
-                  T2: {formatCurrency(catT2)} · T3: {formatCurrency(catT3)}
-                </span>
-                {isExpanded ? <ChevronUp size={15} className="text-muted-foreground" /> : <ChevronDown size={15} className="text-muted-foreground" />}
+                {!noneEnabled && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums" style={{ fontFamily: "Lato, sans-serif" }}>
+                    T2: {formatCurrency(catT2)} · T3: {formatCurrency(catT3)}
+                  </span>
+                )}
+                <Switch
+                  checked={allEnabled}
+                  onCheckedChange={(checked) => {
+                    toggleCategoryMutation.mutate({ projectId, category, enabled: checked });
+                  }}
+                  className="data-[state=checked]:bg-[var(--bm-petrol)]"
+                  title={allEnabled ? "Disable all items in this category" : "Enable all items in this category"}
+                />
+                <button onClick={() => toggleCategory(category)} className="p-0.5">
+                  {isExpanded ? <ChevronUp size={15} className="text-muted-foreground" /> : <ChevronDown size={15} className="text-muted-foreground" />}
+                </button>
               </div>
-            </button>
+            </div>
 
             {isExpanded && (
               <div className="divide-y" style={{ borderColor: "var(--border)" }}>

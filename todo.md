@@ -555,3 +555,9 @@
 - [x] Fix photo upload in Inclusions Library editor (TierImageUpload already working)
 - [x] Add photo upload to per-project Upgrades tab editor (click-to-upload per tier)
 - [x] Ensure library → project seed copies images correctly (CDN URLs copied from library)
+
+## Per-Project Category Enable/Disable
+- [x] Add ability to enable/disable entire categories per project in Upgrades tab
+- [x] When a category is disabled, all its items are hidden from the client portal
+- [x] Category toggle should be prominent and easy to use (not buried in item-level settings)
+- [x] Client portal respects disabled categories (doesn't show them)

@@ -124,6 +124,7 @@ import {
   upsertProjectPricingOverride,
   deleteProjectPricingOverride,
   toggleProjectPricingOverride,
+  toggleCategoryOverrides,
   seedProjectPricingOverrides,
 } from "./db";
 import { storagePut } from "./storage";
@@ -1474,6 +1475,15 @@ const projectOverridesRouter = router({
     .mutation(async ({ input, ctx }) => {
       await requireAdmin(ctx);
       await toggleProjectPricingOverride(input.id, input.enabled);
+      return { success: true };
+    }),
+
+  // Bulk toggle all items in a category for a project
+  toggleCategory: publicProcedure
+    .input(z.object({ projectId: z.number(), category: z.string(), enabled: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await toggleCategoryOverrides(input.projectId, input.category, input.enabled);
       return { success: true };
     }),
 });
