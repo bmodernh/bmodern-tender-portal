@@ -120,6 +120,11 @@ import {
   createPcItem,
   updatePcItem,
   deletePcItem,
+  getProjectPricingOverrides,
+  upsertProjectPricingOverride,
+  deleteProjectPricingOverride,
+  toggleProjectPricingOverride,
+  seedProjectPricingOverrides,
 } from "./db";
 import { storagePut } from "./storage";
 import {
@@ -1287,6 +1292,88 @@ const pricingRulesRouter = router({
       await requireAdmin(ctx);
       return calculatePackagePrices(input.projectId);
     }),
+
+  // AI product description writer for inclusions library
+  generateDescription: publicProcedure
+    .input(z.object({
+      itemName: z.string(),
+      category: z.string(),
+      tierNumber: z.number().min(1).max(3),
+      tierLabel: z.string().optional(),
+      currentDescription: z.string().optional(),
+      unit: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const tierNames: Record<number, string> = { 1: "Built for Excellence (base/included)", 2: "Tailored Living (mid-range upgrade)", 3: "Signature Series (premium/luxury)" };
+      const tierName = tierNames[input.tierNumber] || `Tier ${input.tierNumber}`;
+      const currentCtx = input.currentDescription ? `\nCurrent description: "${input.currentDescription}". Improve or rewrite it.` : "";
+      const tierLabelCtx = input.tierLabel ? `\nProduct/Brand: ${input.tierLabel}` : "";
+      const prompt = `You are a product description writer for B Modern Homes, a premium Australian residential builder.
+
+Write 3 distinct product descriptions for a construction inclusion item. These descriptions are shown to homebuyers in an upgrade selection portal — they should be appealing, informative, and help clients understand the quality and value of each option.
+
+Item: ${input.itemName}
+Category: ${input.category}
+Tier: ${input.tierNumber} — ${tierName}${tierLabelCtx}${currentCtx}
+
+Requirements:
+- Write in a warm, professional tone suitable for homebuyers (not overly technical)
+- Each description should be 1–3 sentences
+- Highlight key features, materials, brands, or finishes that make this tier special
+- For Tier 1: emphasise quality and reliability of the standard inclusion
+- For Tier 2: emphasise the upgrade value and enhanced features
+- For Tier 3: emphasise luxury, premium brands, and exceptional quality
+- Do NOT include pricing
+- Do NOT use bullet points — write as flowing text
+- Vary the style: one brief/punchy, one balanced, one detailed/aspirational
+
+Return ONLY a JSON object with this exact structure:
+{
+  "suggestions": [
+    { "label": "Brief", "text": "..." },
+    { "label": "Balanced", "text": "..." },
+    { "label": "Detailed", "text": "..." }
+  ]
+}`;
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: "You are a professional product description writer for a premium home builder. Always respond with valid JSON only." },
+          { role: "user", content: prompt },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "description_suggestions",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                suggestions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      label: { type: "string" },
+                      text: { type: "string" },
+                    },
+                    required: ["label", "text"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["suggestions"],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+      const rawContent = response.choices?.[0]?.message?.content;
+      const content = typeof rawContent === "string" ? rawContent : null;
+      if (!content) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No response from AI" });
+      const parsed = JSON.parse(content) as { suggestions: { label: string; text: string }[] };
+      return parsed;
+    }),
 });
 
 // ─── PC Items Router ────────────────────────────────────────────────────────────────────────────────
@@ -1318,6 +1405,75 @@ const packagesRouter = router({
       await requireAdmin(ctx);
       const result = await applyMasterPackageToProject(input.projectId, input.packageId);
       return result;
+    }),
+});
+
+// ─── Project Pricing Overrides Router (per-project customisation) ──────────────────────────────
+const projectOverridesRouter = router({
+  // List all overrides for a project
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return getProjectPricingOverrides(input.projectId);
+    }),
+
+  // Seed overrides from global library (copies all pricing rules to project)
+  seed: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return seedProjectPricingOverrides(input.projectId);
+    }),
+
+  // Upsert a single override (create or update)
+  upsert: publicProcedure
+    .input(z.object({
+      id: z.number().optional(),
+      projectId: z.number(),
+      itemKey: z.string().min(1),
+      label: z.string().min(1),
+      category: z.string().min(1),
+      unit: z.enum(["each", "lm", "m2", "fixed"]).default("each"),
+      tier1Label: z.string().optional().nullable(),
+      tier2Label: z.string().optional().nullable(),
+      tier3Label: z.string().optional().nullable(),
+      tier1Description: z.string().optional().nullable(),
+      tier2Description: z.string().optional().nullable(),
+      tier3Description: z.string().optional().nullable(),
+      tier1ImageUrl: z.string().optional().nullable(),
+      tier2ImageUrl: z.string().optional().nullable(),
+      tier3ImageUrl: z.string().optional().nullable(),
+      tier2CostPerUnit: z.string().optional(),
+      tier3CostPerUnit: z.string().optional(),
+      tier2Qty: z.number().int().optional().nullable(),
+      tier3Qty: z.number().int().optional().nullable(),
+      enabled: z.boolean().optional(),
+      isCustom: z.boolean().optional(),
+      position: z.number().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const id = await upsertProjectPricingOverride(input as any);
+      return { id };
+    }),
+
+  // Delete an override
+  delete: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await deleteProjectPricingOverride(input.id);
+      return { success: true };
+    }),
+
+  // Toggle enabled/disabled for an override
+  toggle: publicProcedure
+    .input(z.object({ id: z.number(), enabled: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await toggleProjectPricingOverride(input.id, input.enabled);
+      return { success: true };
     }),
 });
 
@@ -1863,7 +2019,9 @@ export const appRouter = router({
   companySettings: companySettingsRouter,
   packages: packagesRouter,
   pricingRules: pricingRulesRouter,
+  projectOverrides: projectOverridesRouter,
   boq: boqRouter,
+
   terms: termsRouter,
   inclusionMaster: inclusionMasterRouter,
   chat: chatRouter,

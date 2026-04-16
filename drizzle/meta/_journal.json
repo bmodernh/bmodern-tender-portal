@@ -148,6 +148,13 @@
       "when": 1776133245987,
       "tag": "0020_sad_ego",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1776374016256,
+      "tag": "0021_complex_paladin",
+      "breakpoints": true
     }
   ]
 }

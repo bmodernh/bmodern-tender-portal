@@ -31,6 +31,7 @@ import {
   customItemRequests,
   projectMessages,
   pcItems,
+  projectPricingOverrides,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -616,8 +617,24 @@ export async function calculatePackagePrices(projectId: number): Promise<Package
   // Get quantities for this project
   const [qty] = await db.select().from(quantities).where(eq(quantities.projectId, projectId));
 
-  // Get all pricing rules
-  const rules = await db.select().from(upgradePricingRules).orderBy(upgradePricingRules.position);
+  // Get project-level overrides first, fall back to global rules
+  const overrides = await db.select().from(projectPricingOverrides)
+    .where(eq(projectPricingOverrides.projectId, projectId))
+    .orderBy(projectPricingOverrides.position);
+  const globalRules = await db.select().from(upgradePricingRules).orderBy(upgradePricingRules.position);
+  
+  // Use overrides if they exist (seeded per-project), otherwise fall back to global
+  const hasOverrides = overrides.length > 0;
+  const rules = hasOverrides
+    ? overrides.filter(o => o.enabled).map(o => ({
+        itemKey: o.itemKey, label: o.label, category: o.category, unit: o.unit,
+        tier1Label: o.tier1Label, tier2Label: o.tier2Label, tier3Label: o.tier3Label,
+        tier1Description: o.tier1Description, tier2Description: o.tier2Description, tier3Description: o.tier3Description,
+        tier1ImageUrl: o.tier1ImageUrl, tier2ImageUrl: o.tier2ImageUrl, tier3ImageUrl: o.tier3ImageUrl,
+        tier2CostPerUnit: o.tier2CostPerUnit, tier3CostPerUnit: o.tier3CostPerUnit,
+        tier2Qty: o.tier2Qty, tier3Qty: o.tier3Qty,
+      }))
+    : globalRules;
 
   let tier2Delta = 0;
   let tier3Delta = 0;
@@ -1069,4 +1086,78 @@ export async function updateInclusionItemImage(id: number, imageUrl: string | nu
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   await db.update(inclusionItems).set({ imageUrl }).where(eq(inclusionItems.id, id));
+}
+
+// ─── Project Pricing Overrides (per-project customisation of upgrade pricing) ──
+
+export async function getProjectPricingOverrides(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(projectPricingOverrides)
+    .where(eq(projectPricingOverrides.projectId, projectId))
+    .orderBy(projectPricingOverrides.position);
+}
+
+export async function upsertProjectPricingOverride(data: Omit<typeof projectPricingOverrides.$inferInsert, "id" | "createdAt" | "updatedAt"> & { id?: number }) {
+  const db = await getDb();
+  if (!db) return null;
+  if (data.id) {
+    const { id, ...rest } = data;
+    await db.update(projectPricingOverrides).set(rest).where(eq(projectPricingOverrides.id, id));
+    return id;
+  } else {
+    const [result] = await db.insert(projectPricingOverrides).values(data);
+    return (result as any).insertId as number;
+  }
+}
+
+export async function deleteProjectPricingOverride(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(projectPricingOverrides).where(eq(projectPricingOverrides.id, id));
+}
+
+export async function toggleProjectPricingOverride(id: number, enabled: boolean) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(projectPricingOverrides).set({ enabled }).where(eq(projectPricingOverrides.id, id));
+}
+
+export async function seedProjectPricingOverrides(projectId: number) {
+  const db = await getDb();
+  if (!db) return { seeded: false };
+  
+  // Check if overrides already exist for this project
+  const existing = await db.select().from(projectPricingOverrides)
+    .where(eq(projectPricingOverrides.projectId, projectId));
+  if (existing.length > 0) return { seeded: false, message: "Overrides already exist" };
+  
+  // Copy all global pricing rules as project overrides
+  const rules = await db.select().from(upgradePricingRules).orderBy(upgradePricingRules.position);
+  for (const rule of rules) {
+    await db.insert(projectPricingOverrides).values({
+      projectId,
+      itemKey: rule.itemKey,
+      label: rule.label,
+      category: rule.category,
+      unit: rule.unit,
+      tier1Label: rule.tier1Label,
+      tier2Label: rule.tier2Label,
+      tier3Label: rule.tier3Label,
+      tier1Description: null,  // global rules don't have tier1Description
+      tier2Description: rule.tier2Description,
+      tier3Description: rule.tier3Description,
+      tier1ImageUrl: rule.tier1ImageUrl,
+      tier2ImageUrl: rule.tier2ImageUrl,
+      tier3ImageUrl: rule.tier3ImageUrl,
+      tier2CostPerUnit: rule.tier2CostPerUnit,
+      tier3CostPerUnit: rule.tier3CostPerUnit,
+      tier2Qty: rule.tier2Qty,
+      tier3Qty: rule.tier3Qty,
+      enabled: true,
+      isCustom: false,
+      position: rule.position,
+    });
+  }
+  return { seeded: true, count: rules.length };
 }

@@ -504,6 +504,38 @@ export const projectMessages = mysqlTable("project_messages", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+// ─── Project Pricing Overrides (per-project customisation of upgrade pricing) ──
+export const projectPricingOverrides = mysqlTable("project_pricing_overrides", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  itemKey: varchar("itemKey", { length: 64 }).notNull(),  // matches upgradePricingRules.itemKey or custom key
+  label: varchar("label", { length: 256 }).notNull(),
+  category: varchar("category", { length: 128 }).notNull(),
+  unit: mysqlEnum("unit", ["each", "lm", "m2", "fixed"]).default("each").notNull(),
+  // Tier labels/descriptions/images (override global)
+  tier1Label: text("tier1Label"),
+  tier2Label: text("tier2Label"),
+  tier3Label: text("tier3Label"),
+  tier1Description: text("tier1Description"),
+  tier2Description: text("tier2Description"),
+  tier3Description: text("tier3Description"),
+  tier1ImageUrl: text("tier1ImageUrl"),
+  tier2ImageUrl: text("tier2ImageUrl"),
+  tier3ImageUrl: text("tier3ImageUrl"),
+  // Tier costs (override global)
+  tier2CostPerUnit: decimal("tier2CostPerUnit", { precision: 12, scale: 2 }).default("0"),
+  tier3CostPerUnit: decimal("tier3CostPerUnit", { precision: 12, scale: 2 }).default("0"),
+  // Electrical qty overrides
+  tier2Qty: int("tier2Qty"),
+  tier3Qty: int("tier3Qty"),
+  // Control flags
+  enabled: boolean("enabled").default(true).notNull(),  // hide item from this project
+  isCustom: boolean("isCustom").default(false).notNull(),  // true = custom item, not from library
+  position: int("position").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;

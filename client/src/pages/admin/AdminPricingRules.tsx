@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
   Pencil, Check, X, ChevronDown, ChevronUp, DollarSign, Info,
-  Plus, Trash2, ImagePlus, Loader2, Camera, Package, Layers
+  Plus, Trash2, ImagePlus, Loader2, Camera, Package, Layers, Sparkles
 } from "lucide-react";
 
 type PricingRule = {
@@ -71,6 +71,75 @@ function useImageUpload(onUploaded: (url: string) => void) {
   );
 
   return { trigger, uploading, FileInput };
+}
+
+// ─── AI Description Writer Button ───────────────────────────────────────────
+function AiDescriptionButton({ itemName, category, tierNumber, tierLabel, currentDescription, unit, onSelect }: {
+  itemName: string; category: string; tierNumber: number; tierLabel?: string;
+  currentDescription?: string; unit?: string; onSelect: (text: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<{ label: string; text: string }[]>([]);
+  const generateMutation = trpc.pricingRules.generateDescription.useMutation();
+
+  const handleGenerate = async () => {
+    setOpen(true);
+    setSuggestions([]);
+    try {
+      const result = await generateMutation.mutateAsync({
+        itemName, category, tierNumber,
+        tierLabel: tierLabel || undefined,
+        currentDescription: currentDescription || undefined,
+        unit: unit || undefined,
+      });
+      setSuggestions(result.suggestions);
+    } catch (e: any) {
+      toast.error("AI generation failed: " + (e.message || "Unknown error"));
+      setOpen(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <Button type="button" size="sm" variant="outline" onClick={handleGenerate}
+        disabled={generateMutation.isPending}
+        className="h-7 text-xs gap-1 shrink-0">
+        {generateMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+        AI Write
+      </Button>
+    );
+  }
+
+  return (
+    <div className="border rounded-md p-3 space-y-2" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">AI Suggestions</span>
+        <Button type="button" size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setOpen(false)}>
+          <X size={12} />
+        </Button>
+      </div>
+      {generateMutation.isPending ? (
+        <div className="flex items-center gap-2 py-4 justify-center text-muted-foreground">
+          <Loader2 size={14} className="animate-spin" />
+          <span className="text-xs">Generating descriptions...</span>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {suggestions.map((s, i) => (
+            <div key={i} className="flex items-start gap-2 p-2 rounded hover:bg-secondary/50 cursor-pointer transition-colors"
+              onClick={() => { onSelect(s.text); setOpen(false); toast.success(`"${s.label}" description applied`); }}>
+              <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5">{s.label}</Badge>
+              <span className="text-xs leading-relaxed">{s.text}</span>
+            </div>
+          ))}
+          <Button type="button" size="sm" variant="outline" onClick={handleGenerate}
+            disabled={generateMutation.isPending} className="h-7 text-xs gap-1 w-full">
+            <Sparkles size={12} /> Regenerate
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Tier Image Thumbnail ───────────────────────────────────────────────────
@@ -211,16 +280,33 @@ function RuleRow({ rule, onSave, onDelete }: {
 
               {/* Tier 1 */}
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wide mb-1 block" style={{ color: "var(--bm-petrol)" }}>
-                  Tier 1 — Built for Excellence (included in base price)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--bm-petrol)" }}>
+                    Tier 1 — Built for Excellence (included in base price)
+                  </label>
+                  <AiDescriptionButton
+                    itemName={form.label || rule.label} category={rule.category} tierNumber={1}
+                    tierLabel={form.tier1Label || undefined}
+                    unit={rule.unit}
+                    onSelect={text => setForm(f => ({ ...f, tier1Label: text }))}
+                  />
+                </div>
                 <Input value={form.tier1Label} onChange={e => setForm(f => ({ ...f, tier1Label: e.target.value }))}
                   placeholder="What's included in the base price..." className="text-sm" />
               </div>
 
               {/* Tier 2 */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-amber-600 uppercase tracking-wide block">Tier 2 — Tailored Living</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Tier 2 — Tailored Living</label>
+                  <AiDescriptionButton
+                    itemName={form.label || rule.label} category={rule.category} tierNumber={2}
+                    tierLabel={form.tier2Label || undefined}
+                    currentDescription={form.tier2Description || undefined}
+                    unit={rule.unit}
+                    onSelect={text => setForm(f => ({ ...f, tier2Description: text }))}
+                  />
+                </div>
                 <Input value={form.tier2Label} onChange={e => setForm(f => ({ ...f, tier2Label: e.target.value }))}
                   placeholder="Tier 2 specification..." className="text-sm" />
                 <div className="flex items-center gap-2">
@@ -245,7 +331,16 @@ function RuleRow({ rule, onSave, onDelete }: {
 
               {/* Tier 3 */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-purple-600 uppercase tracking-wide block">Tier 3 — Signature Series</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-purple-600 uppercase tracking-wide">Tier 3 — Signature Series</label>
+                  <AiDescriptionButton
+                    itemName={form.label || rule.label} category={rule.category} tierNumber={3}
+                    tierLabel={form.tier3Label || undefined}
+                    currentDescription={form.tier3Description || undefined}
+                    unit={rule.unit}
+                    onSelect={text => setForm(f => ({ ...f, tier3Description: text }))}
+                  />
+                </div>
                 <Input value={form.tier3Label} onChange={e => setForm(f => ({ ...f, tier3Label: e.target.value }))}
                   placeholder="Tier 3 specification..." className="text-sm" />
                 <div className="flex items-center gap-2">

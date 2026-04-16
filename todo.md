@@ -526,3 +526,16 @@
 - [x] Update admin quantities form to show new fields (Bathrooms, Plasterboard, Driveway & Garage, Insulation)
 - [x] Test pricing engine: Small house T2 +$27k (5.0%), Large house T2 +$45k (5.2%) — scales proportionally
 - [x] Keep Staircase, Balustrade, Kitchen Appliances as fixed lump sum
+
+## AI Writer for Inclusions Library
+- [x] Add backend tRPC procedure for AI product description generation (per tier)
+- [x] Add AI writer button per tier in inclusions library editor UI
+- [x] Test AI writer generates appropriate descriptions for each tier level
+
+## Per-Project Upgrade Editor
+- [x] Add per-project upgrade editor in admin project detail (Upgrades tab)
+- [x] Allow editing tier labels, descriptions, costs, and images per project
+- [x] Allow adding custom upgrade items that only exist for that project
+- [x] Allow removing/hiding items that don't apply to a specific project (enable/disable toggle)
+- [x] Library items seed as defaults, then fully editable per project
+- [x] AI writer buttons available in per-project editor too

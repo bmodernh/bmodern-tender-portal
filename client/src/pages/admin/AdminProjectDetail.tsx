@@ -22,6 +22,7 @@ import BaseInclusionsTab from "@/components/admin/BaseInclusionsTab";
 import { SubmissionResponseCard } from "@/components/admin/SubmissionResponseCard";
 import { CustomItemRequestsAdmin } from "@/components/admin/CustomItemRequestsAdmin";
 import { AdminProjectChat } from "@/components/ProjectChat";
+import ProjectUpgradesTab from "@/components/admin/ProjectUpgradesTab";
 
 // ─── PDF Download Button ─────────────────────────────────────────────────────
 function PdfDownloadButton({ projectId, proposalNumber }: { projectId: number; proposalNumber: string | null }) {
@@ -1176,7 +1177,7 @@ export default function AdminProjectDetail() {
         </TabsList>
         <TabsContent value="inclusions"><BaseInclusionsTab projectId={projectId} /></TabsContent>
         <TabsContent value="boq"><BoqTab projectId={projectId} /></TabsContent>
-        <TabsContent value="upgrades"><UpgradesTab projectId={projectId} /></TabsContent>
+        <TabsContent value="upgrades"><ProjectUpgradesTab projectId={projectId} /></TabsContent>
         <TabsContent value="plans"><PlanImagesTab projectId={projectId} /></TabsContent>
         <TabsContent value="portal"><ClientPortalTab projectId={projectId} project={project} /></TabsContent>
       </Tabs>
