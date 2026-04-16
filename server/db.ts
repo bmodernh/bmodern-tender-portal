@@ -633,6 +633,7 @@ export async function calculatePackagePrices(projectId: number): Promise<Package
         tier1ImageUrl: o.tier1ImageUrl, tier2ImageUrl: o.tier2ImageUrl, tier3ImageUrl: o.tier3ImageUrl,
         tier2CostPerUnit: o.tier2CostPerUnit, tier3CostPerUnit: o.tier3CostPerUnit,
         tier2Qty: o.tier2Qty, tier3Qty: o.tier3Qty,
+        baseQty: o.baseQty,  // per-item qty stored directly on override
       }))
     : globalRules;
 
@@ -641,12 +642,19 @@ export async function calculatePackagePrices(projectId: number): Promise<Package
   const lineItems: PackagePriceResult["lineItems"] = [];
 
   for (const rule of rules) {
-    const qtyFieldName = ITEM_QTY_MAP[rule.itemKey];
     let itemQty = 1; // default for fixed items
 
-    if (qtyFieldName && qty) {
-      const rawQty = (qty as Record<string, unknown>)[qtyFieldName];
-      itemQty = rawQty != null ? parseFloat(String(rawQty)) || 0 : 0;
+    // If overrides exist, use baseQty from the override row directly
+    if (hasOverrides && 'baseQty' in rule) {
+      const overrideQty = parseFloat(String((rule as any).baseQty) || "0");
+      itemQty = overrideQty > 0 ? overrideQty : 1;
+    } else {
+      // Fall back to quantities table lookup for global rules
+      const qtyFieldName = ITEM_QTY_MAP[rule.itemKey];
+      if (qtyFieldName && qty) {
+        const rawQty = (qty as Record<string, unknown>)[qtyFieldName];
+        itemQty = rawQty != null ? parseFloat(String(rawQty)) || 0 : 0;
+      }
     }
 
     // For electrical items with upgrade quantities set:
@@ -1132,9 +1140,23 @@ export async function seedProjectPricingOverrides(projectId: number) {
     .where(eq(projectPricingOverrides.projectId, projectId));
   if (existing.length > 0) return { seeded: false, message: "Overrides already exist" };
   
+  // Get quantities for this project (to populate baseQty per item)
+  const [qty] = await db.select().from(quantities).where(eq(quantities.projectId, projectId));
+  
   // Copy all global pricing rules as project overrides
   const rules = await db.select().from(upgradePricingRules).orderBy(upgradePricingRules.position);
   for (const rule of rules) {
+    // Look up the baseQty from the quantities table using ITEM_QTY_MAP
+    let baseQty = "0";
+    const qtyFieldName = ITEM_QTY_MAP[rule.itemKey];
+    if (qtyFieldName && qty) {
+      const rawQty = (qty as Record<string, unknown>)[qtyFieldName];
+      baseQty = rawQty != null ? String(parseFloat(String(rawQty)) || 0) : "0";
+    } else if (!qtyFieldName) {
+      // Fixed/lump-sum items (staircase, balustrade, appliances) — default qty 1
+      baseQty = "1";
+    }
+    
     await db.insert(projectPricingOverrides).values({
       projectId,
       itemKey: rule.itemKey,
@@ -1152,6 +1174,7 @@ export async function seedProjectPricingOverrides(projectId: number) {
       tier3ImageUrl: rule.tier3ImageUrl,
       tier2CostPerUnit: rule.tier2CostPerUnit,
       tier3CostPerUnit: rule.tier3CostPerUnit,
+      baseQty,
       tier2Qty: rule.tier2Qty,
       tier3Qty: rule.tier3Qty,
       enabled: true,

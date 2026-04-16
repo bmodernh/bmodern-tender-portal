@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
-  ChevronDown, ChevronUp, Edit, Eye, EyeOff, Plus, Trash2, Sparkles, Loader2, RefreshCw, Check, X,
+  ChevronDown, ChevronUp, Edit, Eye, EyeOff, Plus, Trash2, Sparkles, Loader2, RefreshCw, Check, X, DollarSign,
 } from "lucide-react";
 
 type Override = {
@@ -30,12 +30,33 @@ type Override = {
   tier3ImageUrl: string | null;
   tier2CostPerUnit: string | null;
   tier3CostPerUnit: string | null;
+  baseQty: string | null;
   tier2Qty: number | null;
   tier3Qty: number | null;
   enabled: boolean;
   isCustom: boolean;
   position: number;
 };
+
+const UNIT_LABELS: Record<string, string> = { each: "ea", lm: "lm", m2: "m²", fixed: "fixed" };
+const TIER_NAMES = ["", "Built for Excellence", "Tailored Living", "Signature Series"];
+
+function formatCurrency(n: number) {
+  return n.toLocaleString("en-AU", { style: "currency", currency: "AUD", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function calcItemCost(item: Override, tier: 2 | 3): number {
+  const qty = parseFloat(item.baseQty || "0") || 1;
+  const cost = parseFloat(tier === 2 ? (item.tier2CostPerUnit || "0") : (item.tier3CostPerUnit || "0"));
+  // Electrical items with override qty
+  const isElec = item.category.toLowerCase() === "electrical";
+  const tQty = tier === 2 ? (item.tier2Qty ?? 0) : (item.tier3Qty ?? 0);
+  if (isElec && tQty > 0) {
+    if (tier === 2) return Math.max(0, tQty - qty) * cost;
+    return tQty * cost;
+  }
+  return qty * cost;
+}
 
 // ─── AI Description Suggestions ──────────────────────────────────────────────
 function AiDescriptionButton({ itemName, category, tierNumber, tierLabel, currentDescription, unit, onSelect }: {
@@ -88,11 +109,51 @@ function AiDescriptionButton({ itemName, category, tierNumber, tierLabel, curren
   );
 }
 
+// ─── Inline Qty Editor ──────────────────────────────────────────────────────
+function InlineQtyInput({ item, onSave }: { item: Override; onSave: (baseQty: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(item.baseQty || "0");
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => { setVal(item.baseQty || "0"); setEditing(true); }}
+        className="text-xs px-1.5 py-0.5 rounded border hover:bg-muted/50 transition-colors tabular-nums"
+        style={{ fontFamily: "Lato, sans-serif", borderColor: "var(--border)", minWidth: 50, textAlign: "center" }}
+        title="Click to edit quantity"
+      >
+        {parseFloat(item.baseQty || "0") || (item.unit === "fixed" ? "1" : "0")} {UNIT_LABELS[item.unit] || item.unit}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <Input
+        type="number"
+        step="0.1"
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter") { onSave(val); setEditing(false); }
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className="h-6 w-16 text-xs text-center"
+        style={{ fontFamily: "Lato, sans-serif" }}
+        autoFocus
+      />
+      <button onClick={() => { onSave(val); setEditing(false); }} className="p-0.5 rounded hover:bg-green-100 text-green-600"><Check size={12} /></button>
+      <button onClick={() => setEditing(false)} className="p-0.5 rounded hover:bg-red-100 text-red-500"><X size={12} /></button>
+    </div>
+  );
+}
+
 // ─── Single Item Editor ──────────────────────────────────────────────────────
 function ItemEditor({ item, onSave, onCancel }: { item: Override; onSave: (data: Partial<Override>) => void; onCancel: () => void }) {
   const [form, setForm] = useState({
     label: item.label,
     unit: item.unit,
+    baseQty: item.baseQty || "0",
     tier1Label: item.tier1Label || "",
     tier2Label: item.tier2Label || "",
     tier3Label: item.tier3Label || "",
@@ -110,6 +171,11 @@ function ItemEditor({ item, onSave, onCancel }: { item: Override; onSave: (data:
 
   const update = (key: string, value: any) => setForm(f => ({ ...f, [key]: value }));
 
+  // Live cost preview
+  const previewQty = parseFloat(form.baseQty) || 1;
+  const previewT2 = parseFloat(form.tier2CostPerUnit) * previewQty;
+  const previewT3 = parseFloat(form.tier3CostPerUnit) * previewQty;
+
   const tierConfigs = [
     { num: 1, name: "Built for Excellence", labelKey: "tier1Label", descKey: "tier1Description", imgKey: "tier1ImageUrl", costKey: null, qtyKey: null },
     { num: 2, name: "Tailored Living", labelKey: "tier2Label", descKey: "tier2Description", imgKey: "tier2ImageUrl", costKey: "tier2CostPerUnit", qtyKey: "tier2Qty" },
@@ -118,7 +184,8 @@ function ItemEditor({ item, onSave, onCancel }: { item: Override; onSave: (data:
 
   return (
     <div className="px-4 py-4 space-y-4 border-t" style={{ borderColor: "var(--bm-petrol)", background: "oklch(97% 0.003 80)" }}>
-      <div className="grid grid-cols-3 gap-3">
+      {/* Item header with qty */}
+      <div className="grid grid-cols-4 gap-3">
         <div className="col-span-2 space-y-1">
           <Label className="text-[10px]" style={{ fontFamily: "Lato, sans-serif" }}>Item Label</Label>
           <Input value={form.label} onChange={e => update("label", e.target.value)} className="h-8 text-xs" style={{ fontFamily: "Lato, sans-serif" }} />
@@ -135,6 +202,19 @@ function ItemEditor({ item, onSave, onCancel }: { item: Override; onSave: (data:
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-1">
+          <Label className="text-[10px]" style={{ fontFamily: "Lato, sans-serif" }}>Quantity</Label>
+          <Input type="number" step="0.1" value={form.baseQty} onChange={e => update("baseQty", e.target.value)} className="h-8 text-xs" style={{ fontFamily: "Lato, sans-serif" }} />
+        </div>
+      </div>
+
+      {/* Live cost preview */}
+      <div className="flex items-center gap-4 px-3 py-2 rounded text-xs" style={{ background: "oklch(95% 0.01 200)", fontFamily: "Lato, sans-serif" }}>
+        <DollarSign size={13} style={{ color: "var(--bm-petrol)" }} />
+        <span className="text-muted-foreground">Live Cost Preview:</span>
+        <span>T2 upgrade: <strong style={{ color: "var(--bm-petrol)" }}>{formatCurrency(previewT2)}</strong></span>
+        <span>T3 upgrade: <strong style={{ color: "var(--bm-petrol)" }}>{formatCurrency(previewT3)}</strong></span>
+        <span className="text-muted-foreground">({previewQty} {UNIT_LABELS[form.unit] || form.unit} × rate)</span>
       </div>
 
       {tierConfigs.map(tier => (
@@ -175,7 +255,7 @@ function ItemEditor({ item, onSave, onCancel }: { item: Override; onSave: (data:
               </div>
               {tier.qtyKey && (
                 <div className="space-y-1">
-                  <Label className="text-[10px]" style={{ fontFamily: "Lato, sans-serif" }}>Override Qty (0 = use BOQ)</Label>
+                  <Label className="text-[10px]" style={{ fontFamily: "Lato, sans-serif" }}>Override Qty (electrical only, 0 = use base)</Label>
                   <Input type="number" value={(form as any)[tier.qtyKey]} onChange={e => update(tier.qtyKey, parseInt(e.target.value) || 0)} className="h-7 text-xs" style={{ fontFamily: "Lato, sans-serif" }} />
                 </div>
               )}
@@ -197,13 +277,14 @@ function ItemEditor({ item, onSave, onCancel }: { item: Override; onSave: (data:
 // ─── Add Custom Item Dialog ──────────────────────────────────────────────────
 function AddCustomItemDialog({ projectId, position, onSuccess }: { projectId: number; position: number; onSuccess: () => void }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ label: "", category: "", unit: "fixed" as const, tier1Label: "", tier2Label: "", tier3Label: "", tier2CostPerUnit: "0", tier3CostPerUnit: "0" });
+  const [form, setForm] = useState({ label: "", category: "", unit: "fixed" as const, tier1Label: "", tier2Label: "", tier3Label: "", tier2CostPerUnit: "0", tier3CostPerUnit: "0", baseQty: "1" });
   const upsertMutation = trpc.projectOverrides.upsert.useMutation({
-    onSuccess: () => { toast.success("Custom item added"); setOpen(false); setForm({ label: "", category: "", unit: "fixed", tier1Label: "", tier2Label: "", tier3Label: "", tier2CostPerUnit: "0", tier3CostPerUnit: "0" }); onSuccess(); },
+    onSuccess: () => { toast.success("Custom item added"); setOpen(false); setForm({ label: "", category: "", unit: "fixed", tier1Label: "", tier2Label: "", tier3Label: "", tier2CostPerUnit: "0", tier3CostPerUnit: "0", baseQty: "1" }); onSuccess(); },
     onError: (e) => toast.error(e.message),
   });
 
-  const CATEGORIES = ["Joinery", "Tiles & Stone", "Bathroom & Kitchen Fixtures", "Door Hardware", "Appliances", "Driveway", "Electrical", "Plasterboard", "Fixout Material", "Air Conditioning", "Garage Doors", "Staircases", "Insulation", "Custom"];
+  const CATEGORIES = ["Joinery", "Tiles & Stone", "Bathroom & Kitchen Fixtures", "Door Hardware", "Appliances", "Driveway", "Electrical",
+    "Plasterboard", "Fixout Material", "Air Conditioning", "Garage Doors", "Staircases", "Insulation", "Other"];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -221,7 +302,7 @@ function AddCustomItemDialog({ projectId, position, onSuccess }: { projectId: nu
             <Label className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>Item Name</Label>
             <Input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} className="h-8 text-sm" style={{ fontFamily: "Lato, sans-serif" }} placeholder="e.g. Custom Feature Wall" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>Category</Label>
               <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
@@ -240,6 +321,10 @@ function AddCustomItemDialog({ projectId, position, onSuccess }: { projectId: nu
                   <SelectItem value="fixed">Fixed</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>Quantity</Label>
+              <Input type="number" step="0.1" value={form.baseQty} onChange={e => setForm(f => ({ ...f, baseQty: e.target.value }))} className="h-8 text-sm" style={{ fontFamily: "Lato, sans-serif" }} />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -269,7 +354,7 @@ function AddCustomItemDialog({ projectId, position, onSuccess }: { projectId: nu
           <Button onClick={() => {
             if (!form.label || !form.category) { toast.error("Name and category required"); return; }
             const itemKey = `custom_${form.label.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_${Date.now()}`;
-            upsertMutation.mutate({ projectId, itemKey, label: form.label, category: form.category, unit: form.unit, tier1Label: form.tier1Label || null, tier2Label: form.tier2Label || null, tier3Label: form.tier3Label || null, tier2CostPerUnit: form.tier2CostPerUnit, tier3CostPerUnit: form.tier3CostPerUnit, enabled: true, isCustom: true, position });
+            upsertMutation.mutate({ projectId, itemKey, label: form.label, category: form.category, unit: form.unit, tier1Label: form.tier1Label || null, tier2Label: form.tier2Label || null, tier3Label: form.tier3Label || null, tier2CostPerUnit: form.tier2CostPerUnit, tier3CostPerUnit: form.tier3CostPerUnit, baseQty: form.baseQty, enabled: true, isCustom: true, position });
           }} disabled={!form.label || !form.category || upsertMutation.isPending} className="w-full gap-1.5 text-xs" style={{ background: "var(--bm-petrol)", fontFamily: "Lato, sans-serif" }}>
             {upsertMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add Item
           </Button>
@@ -283,6 +368,8 @@ function AddCustomItemDialog({ projectId, position, onSuccess }: { projectId: nu
 export default function ProjectUpgradesTab({ projectId }: { projectId: number }) {
   const utils = trpc.useUtils();
   const { data: overrides, isLoading } = trpc.projectOverrides.list.useQuery({ projectId });
+  const { data: project } = trpc.projects.get.useQuery({ id: projectId });
+
   const seedMutation = trpc.projectOverrides.seed.useMutation({
     onSuccess: (data) => {
       if (data.seeded) { toast.success(`Seeded ${data.count} items from library`); }
@@ -295,6 +382,10 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
     onSuccess: () => { toast.success("Item updated"); utils.projectOverrides.list.invalidate(); setEditingId(null); },
     onError: (e) => toast.error(e.message),
   });
+  const qtyMutation = trpc.projectOverrides.upsert.useMutation({
+    onSuccess: () => { utils.projectOverrides.list.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
   const toggleMutation = trpc.projectOverrides.toggle.useMutation({
     onSuccess: () => utils.projectOverrides.list.invalidate(),
     onError: (e) => toast.error(e.message),
@@ -303,9 +394,15 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
     onSuccess: () => { toast.success("Item deleted"); utils.projectOverrides.list.invalidate(); },
     onError: (e) => toast.error(e.message),
   });
+  const updateProjectMutation = trpc.projects.update.useMutation({
+    onSuccess: () => { toast.success("Starting tier updated"); utils.projects.get.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+  const startingTier = project?.startingTier ?? 1;
 
   // Group overrides by category
   const grouped = useMemo(() => {
@@ -317,6 +414,18 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
       map.get(cat)!.push(o as Override);
     }
     return Array.from(map.entries()).map(([category, items]) => ({ category, items }));
+  }, [overrides]);
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    if (!overrides) return { t2: 0, t3: 0, enabledCount: 0, totalCount: 0 };
+    let t2 = 0, t3 = 0;
+    const enabled = overrides.filter(o => o.enabled);
+    for (const item of enabled as Override[]) {
+      t2 += calcItemCost(item, 2);
+      t3 += calcItemCost(item, 3);
+    }
+    return { t2, t3, enabledCount: enabled.length, totalCount: overrides.length };
   }, [overrides]);
 
   const toggleCategory = (cat: string) => {
@@ -346,8 +455,26 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
       tier3ImageUrl: data.tier3ImageUrl ?? item.tier3ImageUrl,
       tier2CostPerUnit: data.tier2CostPerUnit ?? item.tier2CostPerUnit ?? "0",
       tier3CostPerUnit: data.tier3CostPerUnit ?? item.tier3CostPerUnit ?? "0",
+      baseQty: data.baseQty ?? item.baseQty ?? "0",
       tier2Qty: data.tier2Qty ?? item.tier2Qty,
       tier3Qty: data.tier3Qty ?? item.tier3Qty,
+      enabled: item.enabled,
+      isCustom: item.isCustom,
+      position: item.position,
+    });
+  };
+
+  const handleQtySave = (item: Override, baseQty: string) => {
+    qtyMutation.mutate({
+      id: item.id,
+      projectId: item.projectId,
+      itemKey: item.itemKey,
+      label: item.label,
+      category: item.category,
+      unit: item.unit,
+      baseQty,
+      tier2CostPerUnit: item.tier2CostPerUnit ?? "0",
+      tier3CostPerUnit: item.tier3CostPerUnit ?? "0",
       enabled: item.enabled,
       isCustom: item.isCustom,
       position: item.position,
@@ -372,35 +499,66 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
     );
   }
 
-  const enabledCount = overrides.filter(o => o.enabled).length;
   const customCount = overrides.filter(o => o.isCustom).length;
+  const basePrice = parseFloat(project?.baseContractPrice || "0");
 
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
-            {enabledCount} of {overrides.length} items enabled
+      {/* Header: Starting Tier + Totals */}
+      <div className="flex items-start justify-between flex-wrap gap-3 p-3 rounded border" style={{ borderColor: "var(--border)", background: "oklch(96% 0.005 200)" }}>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <Label className="text-xs font-medium" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>Starting Tier</Label>
+            <Select value={String(startingTier)} onValueChange={v => updateProjectMutation.mutate({ id: projectId, startingTier: parseInt(v) })}>
+              <SelectTrigger className="h-8 w-52 text-xs bg-white" style={{ fontFamily: "Lato, sans-serif" }}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Tier 1 — Built for Excellence</SelectItem>
+                <SelectItem value="2">Tier 2 — Tailored Living</SelectItem>
+                <SelectItem value="3">Tier 3 — Signature Series</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+            Clients will see tiers above the starting tier as upgrades. Tiers at or below are included in base price.
+          </p>
+        </div>
+
+        <div className="text-right space-y-1">
+          <div className="text-[10px] text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+            {totals.enabledCount} of {totals.totalCount} items enabled
             {customCount > 0 && ` · ${customCount} custom`}
-          </span>
+          </div>
+          <div className="flex items-center gap-4 text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
+            <span>T2 total: <strong style={{ color: "var(--bm-petrol)" }}>{formatCurrency(totals.t2)}</strong></span>
+            <span>T3 total: <strong style={{ color: "var(--bm-petrol)" }}>{formatCurrency(totals.t3)}</strong></span>
+          </div>
+          {basePrice > 0 && (
+            <div className="flex items-center gap-4 text-[10px] text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
+              <span>T2 package: {formatCurrency(basePrice + totals.t2)}</span>
+              <span>T3 package: {formatCurrency(basePrice + totals.t3)}</span>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <AddCustomItemDialog projectId={projectId} position={overrides.length} onSuccess={() => utils.projectOverrides.list.invalidate()} />
-          <Button size="sm" variant="outline" onClick={() => {
-            if (confirm("Re-seed will add any new library items that are missing. Existing items won't be overwritten. Continue?")) {
-              seedMutation.mutate({ projectId });
-            }
-          }} disabled={seedMutation.isPending} className="gap-1.5 text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
-            <RefreshCw size={12} /> Re-sync Library
-          </Button>
-        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2">
+        <AddCustomItemDialog projectId={projectId} position={overrides.length} onSuccess={() => utils.projectOverrides.list.invalidate()} />
+        <Button size="sm" variant="outline" onClick={() => {
+          if (confirm("Re-seed will add any new library items that are missing. Existing items won't be overwritten. Continue?")) {
+            seedMutation.mutate({ projectId });
+          }
+        }} disabled={seedMutation.isPending} className="gap-1.5 text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
+          <RefreshCw size={12} /> Re-sync Library
+        </Button>
       </div>
 
       {/* Categories */}
       {grouped.map(({ category, items }) => {
         const isExpanded = expandedCategories.has(category);
         const enabledInCat = items.filter(i => i.enabled).length;
+        const catT2 = items.filter(i => i.enabled).reduce((sum, i) => sum + calcItemCost(i, 2), 0);
+        const catT3 = items.filter(i => i.enabled).reduce((sum, i) => sum + calcItemCost(i, 3), 0);
         return (
           <div key={category} className="bg-card border rounded overflow-hidden" style={{ borderColor: "var(--border)" }}>
             <button onClick={() => toggleCategory(category)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors" style={{ background: "var(--bm-stone, oklch(93% 0.008 80))" }}>
@@ -408,7 +566,12 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
                 <span className="font-medium text-sm" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>{category}</span>
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{enabledInCat}/{items.length}</Badge>
               </div>
-              {isExpanded ? <ChevronUp size={15} className="text-muted-foreground" /> : <ChevronDown size={15} className="text-muted-foreground" />}
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-muted-foreground tabular-nums" style={{ fontFamily: "Lato, sans-serif" }}>
+                  T2: {formatCurrency(catT2)} · T3: {formatCurrency(catT3)}
+                </span>
+                {isExpanded ? <ChevronUp size={15} className="text-muted-foreground" /> : <ChevronDown size={15} className="text-muted-foreground" />}
+              </div>
             </button>
 
             {isExpanded && (
@@ -424,14 +587,26 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium" style={{ fontFamily: "Lato, sans-serif" }}>{item.label}</span>
                           {item.isCustom && <Badge variant="outline" className="text-[9px] px-1 py-0 border-purple-300 text-purple-600">Custom</Badge>}
-                          <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "Lato, sans-serif" }}>
-                            T2: ${Number(item.tier2CostPerUnit || 0).toLocaleString("en-AU")}/{item.unit} · T3: ${Number(item.tier3CostPerUnit || 0).toLocaleString("en-AU")}/{item.unit}
-                          </span>
                         </div>
                         <div className="text-[10px] text-muted-foreground mt-0.5 flex gap-3" style={{ fontFamily: "Lato, sans-serif" }}>
                           {item.tier1Label && <span>T1: {item.tier1Label}</span>}
                           {item.tier2Label && <span>T2: {item.tier2Label}</span>}
                           {item.tier3Label && <span>T3: {item.tier3Label}</span>}
+                        </div>
+                      </div>
+
+                      {/* Qty */}
+                      <div className="shrink-0">
+                        <InlineQtyInput item={item} onSave={(baseQty) => handleQtySave(item, baseQty)} />
+                      </div>
+
+                      {/* Cost display */}
+                      <div className="shrink-0 text-right">
+                        <div className="text-[10px] text-muted-foreground tabular-nums" style={{ fontFamily: "Lato, sans-serif" }}>
+                          T2: {formatCurrency(calcItemCost(item, 2))}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground tabular-nums" style={{ fontFamily: "Lato, sans-serif" }}>
+                          T3: {formatCurrency(calcItemCost(item, 3))}
                         </div>
                       </div>
 

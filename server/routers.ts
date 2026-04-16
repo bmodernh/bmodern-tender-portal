@@ -1446,6 +1446,7 @@ const projectOverridesRouter = router({
       tier3ImageUrl: z.string().optional().nullable(),
       tier2CostPerUnit: z.string().optional(),
       tier3CostPerUnit: z.string().optional(),
+      baseQty: z.string().optional(),
       tier2Qty: z.number().int().optional().nullable(),
       tier3Qty: z.number().int().optional().nullable(),
       enabled: z.boolean().optional(),

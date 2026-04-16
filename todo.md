@@ -539,3 +539,14 @@
 - [x] Allow removing/hiding items that don't apply to a specific project (enable/disable toggle)
 - [x] Library items seed as defaults, then fully editable per project
 - [x] AI writer buttons available in per-project editor too
+
+## Move Quantities into Upgrades Tab
+- [x] Add baseQty column to project_pricing_overrides table (qty for each item per project)
+- [x] Update seed function to populate baseQty from the quantities table when seeding
+- [x] Update pricing engine to read qty from project_pricing_overrides.baseQty instead of quantities table
+- [x] Show qty input per item in Upgrades tab UI (inline click-to-edit + in full editor)
+- [x] Show live calculated upgrade cost per item (qty × cost per unit) with category and total summaries
+- [ ] Remove or simplify the separate quantities form (kept for BOQ auto-fill)
+- [x] Test pricing with different quantities per project
+- [x] Add starting tier selector to Upgrades tab (Tier 1 / Tier 2 / Tier 3)
+- [x] Starting tier controls what client sees as baseline in portal

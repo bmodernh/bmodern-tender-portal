@@ -525,6 +525,8 @@ export const projectPricingOverrides = mysqlTable("project_pricing_overrides", {
   // Tier costs (override global)
   tier2CostPerUnit: decimal("tier2CostPerUnit", { precision: 12, scale: 2 }).default("0"),
   tier3CostPerUnit: decimal("tier3CostPerUnit", { precision: 12, scale: 2 }).default("0"),
+  // Quantity for this item (e.g. 8.5 lm of kitchen joinery, 35 downlights)
+  baseQty: decimal("baseQty", { precision: 12, scale: 2 }).default("0"),
   // Electrical qty overrides
   tier2Qty: int("tier2Qty"),
   tier3Qty: int("tier3Qty"),
