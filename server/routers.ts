@@ -252,6 +252,16 @@ const projectsRouter = router({
         status: "draft",
       });
       const newId = (result as any).insertId ?? null;
+      
+      // Auto-seed upgrade pricing overrides from library for the new project
+      if (newId) {
+        try {
+          await seedProjectPricingOverrides(newId);
+        } catch (e) {
+          console.error("Failed to auto-seed pricing overrides for project", newId, e);
+        }
+      }
+      
       return { success: true, id: newId };
     }),
 

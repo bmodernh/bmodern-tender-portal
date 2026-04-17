@@ -569,3 +569,7 @@
 - [x] Preserve per-project customizations (baseQty, enabled/disabled state) during re-sync
 - [x] Update all library-sourced fields (labels, descriptions, images, costs, positions) from library
 - [x] Test re-sync on existing projects with library changes
+
+## Auto-seed Upgrades on New Project Creation
+- [x] New projects should automatically have upgrades seeded from the library
+- [x] Verify seed happens on project creation, not just when manually clicking Re-sync

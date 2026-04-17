@@ -63,6 +63,7 @@ vi.mock("./db", () => ({
   deletePlanImage: vi.fn().mockResolvedValue(undefined),
   getCompanySettings: vi.fn().mockResolvedValue(null),
   upsertCompanySettings: vi.fn().mockResolvedValue(undefined),
+  seedProjectPricingOverrides: vi.fn().mockResolvedValue({ seeded: true, count: 19, added: 19, updated: 0, removed: 0 }),
 }));
 
 vi.mock("./email", () => ({
