@@ -651,7 +651,9 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
                     <tr key={item.id} className={`border-b hover:bg-muted/20 transition-colors ${idx === 0 ? "" : ""}`} style={{ borderColor: "var(--border)" }}>
                       <td className="px-4 py-1.5 font-medium">{item.label}</td>
                       <td className="px-3 py-1.5 text-muted-foreground">{idx === 0 ? category : ""}</td>
-                      <td className="px-3 py-1.5 text-center tabular-nums font-medium">{parseFloat(item.baseQty || "0") || (item.unit === "fixed" ? 1 : 0)}</td>
+                      <td className="px-3 py-1.5 text-center">
+                        <InlineQtyInput item={item as Override} onSave={(baseQty) => handleQtySave(item as Override, baseQty)} />
+                      </td>
                       <td className="px-3 py-1.5 text-center text-muted-foreground">{UNIT_LABELS[item.unit] || item.unit}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">${parseFloat(item.tier2CostPerUnit || "0").toLocaleString("en-AU", { minimumFractionDigits: 0 })}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">${parseFloat(item.tier3CostPerUnit || "0").toLocaleString("en-AU", { minimumFractionDigits: 0 })}</td>

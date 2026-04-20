@@ -611,3 +611,6 @@
 
 ## Remove Quantities from Client Portal
 - [x] Remove quantity display from client-facing upgrade selections — clients should only see item, tier options, and price
+
+## Editable Quantities in Summary Table
+- [x] Make quantity cells in the summary table editable inline so admin can update quantities directly from the summary view
