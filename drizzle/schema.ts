@@ -538,6 +538,110 @@ export const projectPricingOverrides = mysqlTable("project_pricing_overrides", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+// ─── Site Updates (builder posts progress photos/updates) ─────────────────────
+export const siteUpdates = mysqlTable("site_updates", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  description: text("description"),
+  stage: varchar("stage", { length: 64 }),
+  createdBy: varchar("createdBy", { length: 256 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const siteUpdatePhotos = mysqlTable("site_update_photos", {
+  id: int("id").autoincrement().primaryKey(),
+  siteUpdateId: int("siteUpdateId").notNull(),
+  imageUrl: text("imageUrl").notNull(),
+  fileKey: varchar("fileKey", { length: 512 }),
+  caption: varchar("caption", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const siteUpdateComments = mysqlTable("site_update_comments", {
+  id: int("id").autoincrement().primaryKey(),
+  siteUpdateId: int("siteUpdateId").notNull(),
+  authorName: varchar("authorName", { length: 256 }).notNull(),
+  authorType: mysqlEnum("authorType", ["admin", "client"]).notNull(),
+  comment: text("comment").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Approval Requests (on-site decisions needing client sign-off) ──────────
+export const approvalRequests = mysqlTable("approval_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 128 }),
+  sitePhotoUrl: text("sitePhotoUrl"),
+  planImageUrl: text("planImageUrl"),
+  status: mysqlEnum("status", ["pending", "approved", "change_requested"]).default("pending").notNull(),
+  clientResponse: text("clientResponse"),
+  respondedBy: varchar("respondedBy", { length: 256 }),
+  respondedAt: timestamp("respondedAt"),
+  createdBy: varchar("createdBy", { length: 256 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Variations (formal cost change requests) ──────────────────────────────
+export const variations = mysqlTable("variations", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  description: text("description"),
+  costImpact: decimal("costImpact", { precision: 12, scale: 2 }).default("0"),
+  supportingDocUrls: text("supportingDocUrls"),
+  status: mysqlEnum("status", ["pending", "approved", "declined"]).default("pending").notNull(),
+  builderName: varchar("builderName", { length: 256 }),
+  builderSignature: text("builderSignature"),
+  clientName: varchar("clientName", { length: 256 }),
+  clientSignature: text("clientSignature"),
+  clientSignedAt: timestamp("clientSignedAt"),
+  clientIp: varchar("clientIp", { length: 64 }),
+  createdBy: varchar("createdBy", { length: 256 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Project Documents (contracts, plans, specs) ────────────────────────────
+export const projectDocuments = mysqlTable("project_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  category: varchar("category", { length: 128 }).notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  fileKey: varchar("fileKey", { length: 512 }).notNull(),
+  mimeType: varchar("mimeType", { length: 128 }),
+  fileSizeBytes: int("fileSizeBytes"),
+  requiresSignature: boolean("requiresSignature").default(false).notNull(),
+  clientSignature: text("clientSignature"),
+  clientSignedName: varchar("clientSignedName", { length: 256 }),
+  clientSignedAt: timestamp("clientSignedAt"),
+  clientSignedIp: varchar("clientSignedIp", { length: 64 }),
+  uploadedBy: varchar("uploadedBy", { length: 256 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Meeting Minutes (site meeting records with signatures) ─────────────────
+export const meetingMinutes = mysqlTable("meeting_minutes", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  meetingDate: timestamp("meetingDate").notNull(),
+  location: varchar("location", { length: 256 }),
+  attendees: text("attendees"),
+  agenda: text("agenda"),
+  notes: text("notes"),
+  actionItems: text("actionItems"),
+  builderName: varchar("builderName", { length: 256 }),
+  builderSignature: text("builderSignature"),
+  clientName: varchar("clientName", { length: 256 }),
+  clientSignature: text("clientSignature"),
+  clientSignedAt: timestamp("clientSignedAt"),
+  clientIp: varchar("clientIp", { length: 64 }),
+  createdBy: varchar("createdBy", { length: 256 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;

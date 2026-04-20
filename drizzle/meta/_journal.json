@@ -155,6 +155,13 @@
       "when": 1776374016256,
       "tag": "0021_complex_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1776646124844,
+      "tag": "0022_brief_sunspot",
+      "breakpoints": true
     }
   ]
 }

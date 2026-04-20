@@ -126,6 +126,25 @@ import {
   toggleProjectPricingOverride,
   toggleCategoryOverrides,
   seedProjectPricingOverrides,
+  getSiteUpdatesByProject,
+  createSiteUpdate,
+  addSiteUpdateComment,
+  getApprovalsByProject,
+  createApprovalRequest,
+  respondToApprovalRequest,
+  getVariationsByProject,
+  getVariationById,
+  createVariation,
+  updateVariationStatus,
+  getDocumentsByProject,
+  createProjectDocument,
+  signDocument,
+  deleteProjectDocument,
+  getMeetingMinutesByProject,
+  getMeetingMinutesById,
+  createMeetingMinutes,
+  updateMeetingMinutes,
+  signMeetingMinutes,
 } from "./db";
 import { storagePut } from "./storage";
 import {
@@ -2014,7 +2033,126 @@ const termsRouter = router({
     }),
 });
 
-// ─── App Router ────────────────────────────────────────────────────────────────────────────────
+/// ─── Site Updates Router ──────────────────────────────────────────────────────
+const siteUpdatesRouter = router({
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input }) => getSiteUpdatesByProject(input.projectId)),
+  create: publicProcedure
+    .input(z.object({
+      projectId: z.number(), title: z.string(), description: z.string().optional(),
+      stage: z.string().optional(), photos: z.array(z.object({ imageUrl: z.string(), fileKey: z.string().optional(), caption: z.string().optional() })).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return createSiteUpdate({ ...input, createdBy: "B Modern Team" });
+    }),
+  addComment: publicProcedure
+    .input(z.object({ siteUpdateId: z.number(), authorName: z.string(), authorType: z.enum(["admin", "client"]), comment: z.string() }))
+    .mutation(async ({ input }) => { await addSiteUpdateComment(input); return { success: true }; }),
+});
+
+// ─── Approvals Router ────────────────────────────────────────────────────────
+const approvalsRouter = router({
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input }) => getApprovalsByProject(input.projectId)),
+  create: publicProcedure
+    .input(z.object({
+      projectId: z.number(), title: z.string(), description: z.string().optional(),
+      category: z.string().optional(), sitePhotoUrl: z.string().optional(), planImageUrl: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return createApprovalRequest({ ...input, createdBy: "B Modern Team" });
+    }),
+  respond: publicProcedure
+    .input(z.object({ id: z.number(), status: z.enum(["approved", "change_requested"]), clientResponse: z.string().optional(), respondedBy: z.string().optional() }))
+    .mutation(async ({ input }) => { await respondToApprovalRequest(input.id, input); return { success: true }; }),
+});
+
+// ─── Variations Router ───────────────────────────────────────────────────────
+const variationsRouter = router({
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input }) => getVariationsByProject(input.projectId)),
+  get: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => getVariationById(input.id)),
+  create: publicProcedure
+    .input(z.object({
+      projectId: z.number(), title: z.string(), description: z.string().optional(),
+      costImpact: z.string().optional(), supportingDocUrls: z.string().optional(),
+      builderName: z.string().optional(), builderSignature: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return createVariation({ ...input, createdBy: "B Modern Team" });
+    }),
+  respond: publicProcedure
+    .input(z.object({ id: z.number(), status: z.enum(["approved", "declined"]), clientName: z.string().optional(), clientSignature: z.string().optional() }))
+    .mutation(async ({ input }) => { await updateVariationStatus(input.id, input); return { success: true }; }),
+});
+
+// ─── Documents Router ────────────────────────────────────────────────────────
+const documentsRouter = router({
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input }) => getDocumentsByProject(input.projectId)),
+  create: publicProcedure
+    .input(z.object({
+      projectId: z.number(), title: z.string(), category: z.string(),
+      fileUrl: z.string(), fileKey: z.string(), mimeType: z.string().optional(),
+      fileSizeBytes: z.number().optional(), requiresSignature: z.boolean().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return createProjectDocument({ ...input, uploadedBy: "B Modern Team" });
+    }),
+  sign: publicProcedure
+    .input(z.object({ id: z.number(), clientSignature: z.string(), clientSignedName: z.string() }))
+    .mutation(async ({ input }) => { await signDocument(input.id, input); return { success: true }; }),
+  delete: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      await deleteProjectDocument(input.id);
+      return { success: true };
+    }),
+});
+
+// ─── Meeting Minutes Router ──────────────────────────────────────────────────
+const meetingMinutesRouter = router({
+  list: publicProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input }) => getMeetingMinutesByProject(input.projectId)),
+  get: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => getMeetingMinutesById(input.id)),
+  create: publicProcedure
+    .input(z.object({
+      projectId: z.number(), meetingDate: z.string(), location: z.string().optional(),
+      attendees: z.string().optional(), agenda: z.string().optional(), notes: z.string().optional(),
+      actionItems: z.string().optional(), builderName: z.string().optional(), builderSignature: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      return createMeetingMinutes({ ...input, createdBy: "B Modern Team" });
+    }),
+  update: publicProcedure
+    .input(z.object({ id: z.number(), location: z.string().optional(), attendees: z.string().optional(), agenda: z.string().optional(), notes: z.string().optional(), actionItems: z.string().optional() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const { id, ...data } = input;
+      await updateMeetingMinutes(id, data);
+      return { success: true };
+    }),
+  clientSign: publicProcedure
+    .input(z.object({ id: z.number(), clientName: z.string(), clientSignature: z.string() }))
+    .mutation(async ({ input }) => { await signMeetingMinutes(input.id, input); return { success: true }; }),
+});
+
+// ─── App Router ──────────────────────────────────────────────────────────────────────────────
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -2046,5 +2184,10 @@ export const appRouter = router({
   terms: termsRouter,
   inclusionMaster: inclusionMasterRouter,
   chat: chatRouter,
+  siteUpdates: siteUpdatesRouter,
+  approvals: approvalsRouter,
+  variations: variationsRouter,
+  documents: documentsRouter,
+  meetingMinutes: meetingMinutesRouter,
 });
 export type AppRouter = typeof appRouter;

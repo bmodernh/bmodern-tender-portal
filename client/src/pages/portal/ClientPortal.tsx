@@ -17,6 +17,14 @@ import {
 } from "lucide-react";
 import { FloatingChatButton } from "@/components/ProjectChat";
 import { SignaturePad } from "@/components/SignaturePad";
+import PortalLayout, { type PortalTab } from "@/components/portal/PortalLayout";
+import PortalDashboard from "@/components/portal/PortalDashboard";
+import PortalSiteUpdates from "@/components/portal/PortalSiteUpdates";
+import PortalApprovals from "@/components/portal/PortalApprovals";
+import PortalVariations from "@/components/portal/PortalVariations";
+import PortalDocuments from "@/components/portal/PortalDocuments";
+import PortalMessages from "@/components/portal/PortalMessages";
+import PortalMeetingMinutes from "@/components/portal/PortalMeetingMinutes";
 
 const LOGO_WHITE = "https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-White_RGB_82d45951.png";
 const LOGO_DARK = "https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB_233b3af0.png";
@@ -1526,6 +1534,7 @@ export default function ClientPortal() {
   const [upgradeTotal, setUpgradeTotal] = useState(0);
   const [plusTotal, setPlusTotal] = useState(0);
   const combinedUpgradeTotal = upgradeTotal + plusTotal;
+  const [activeTab, setActiveTab] = useState<PortalTab>("dashboard");
 
   // Fetch pricing data for range display
   const { data: priceData } = trpc.portal.getPackagePrices.useQuery({ token }, { enabled: !!token && !!project });
@@ -1546,8 +1555,10 @@ export default function ClientPortal() {
 
   const basePrice = parseFloat(project.baseContractPrice || "0");
   const isLocked = !!project.portalLockedAt;
+  const projectId = project.id;
 
-  return (
+  // Render the selections (tender presentation) content
+  const selectionsContent = (
     <div className="min-h-screen bg-[#f8f6f1] pb-28">
       {/* Admin Preview Banner */}
       {isPreview && (
@@ -1559,46 +1570,22 @@ export default function ClientPortal() {
             </div>
             <span className="text-xs font-['Lato'] text-white/70">This is how the client will see the portal. Selections made here are not saved.</span>
           </div>
-          <button
-            onClick={() => window.close()}
-            className="flex items-center gap-1.5 text-xs font-['Lato'] bg-white/15 hover:bg-white/25 rounded-full px-3 py-1 transition-colors"
-          >
+          <button onClick={() => window.close()} className="flex items-center gap-1.5 text-xs font-['Lato'] bg-white/15 hover:bg-white/25 rounded-full px-3 py-1 transition-colors">
             <X className="h-3.5 w-3.5" /> Close Preview
           </button>
         </div>
       )}
-
-      {/* Hero */}
-      <HeroSection
-        project={project}
-        minPrice={priceData?.tier1Total}
-        maxPrice={priceData?.tier3Total}
-        hasSelections={hasSelections}
-      />
-
-      {/* Draft banner */}
+      <HeroSection project={project} minPrice={priceData?.tier1Total} maxPrice={priceData?.tier3Total} hasSelections={hasSelections} />
       {project.status === "draft" && (
         <div className="bg-amber-50 border-b border-amber-200 text-center py-2.5 text-xs text-amber-800 font-['Lato'] font-medium">
           <AlertCircle className="inline h-3.5 w-3.5 mr-1.5" /> This proposal is in draft and may change before presentation.
         </div>
       )}
-
-      {/* 0. Project Timeline */}
       <ProjectTimeline token={token} />
-
-      {/* 1. Base Inclusions — shown FIRST */}
       <BaseInclusionsSection token={token} />
-
-      {/* 1B. PC Items */}
       <PcItemsSection token={token} />
-
-      {/* 1C. Provisional Sums */}
       <ProvisionalSumsSection token={token} />
-
-      {/* 1D. Exclusions */}
       <ExclusionsSection token={token} />
-
-      {/* Elegant divider */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         <div className="flex items-center gap-4">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#203E4A]/15 to-transparent" />
@@ -1606,41 +1593,35 @@ export default function ClientPortal() {
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#203E4A]/15 to-transparent" />
         </div>
       </div>
-
-      {/* 2. Upgrade Selections — cross-tier pick and choose */}
       <UpgradeSelectionsSection token={token} project={project} onTotalChange={setUpgradeTotal} />
-
-      {/* 2B. Plus Options — per-project add-ons */}
       <PlusOptionsSection token={token} project={project} onTotalChange={setPlusTotal} />
-
-      {/* 3. Custom Item Requests */}
       <CustomItemRequestSection token={token} />
-
-      {/* 4. File Upload */}
       <FileUploadSection token={token} />
-
-      {/* 5. Submit for Review / Admin Response */}
       <SubmitSection token={token} upgradeTotal={combinedUpgradeTotal} basePrice={basePrice} />
-
-      {/* Footer */}
       <div className="bg-gradient-to-br from-[#203E4A] via-[#1a3540] to-[#162d36] mt-12 py-10 text-center mb-20">
         <img src={LOGO_WHITE} alt="B Modern Homes" className="h-7 mx-auto mb-4" />
         <p className="text-white/30 text-xs font-['Lato'] tracking-[0.2em] uppercase">Building Modern Homes for Modern Living</p>
       </div>
-
-      {/* Sticky running total */}
-      <StickyTotalBar
-        basePrice={basePrice}
-        upgradeTotal={combinedUpgradeTotal}
-        isLocked={isLocked}
-        minPrice={priceData?.tier1Total}
-        maxPrice={priceData?.tier3Total}
-        hasSelections={hasSelections}
-      />
-
-      {/* Floating chat button */}
-      <FloatingChatButton token={token} />
+      <StickyTotalBar basePrice={basePrice} upgradeTotal={combinedUpgradeTotal} isLocked={isLocked} minPrice={priceData?.tier1Total} maxPrice={priceData?.tier3Total} hasSelections={hasSelections} />
     </div>
+  );
+
+  return (
+    <PortalLayout
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      projectName={project.projectAddress || `Project #${project.proposalNumber}`}
+      clientName={project.clientName}
+    >
+      {activeTab === "dashboard" && <PortalDashboard projectId={projectId} onNavigate={setActiveTab} />}
+      {activeTab === "selections" && selectionsContent}
+      {activeTab === "site-updates" && <PortalSiteUpdates projectId={projectId} />}
+      {activeTab === "approvals" && <PortalApprovals projectId={projectId} />}
+      {activeTab === "variations" && <PortalVariations projectId={projectId} />}
+      {activeTab === "documents" && <PortalDocuments projectId={projectId} />}
+      {activeTab === "messages" && <PortalMessages projectId={projectId} />}
+      {activeTab === "minutes" && <PortalMeetingMinutes projectId={projectId} />}
+    </PortalLayout>
   );
 }
 

@@ -32,6 +32,13 @@ import {
   projectMessages,
   pcItems,
   projectPricingOverrides,
+  siteUpdates,
+  siteUpdatePhotos,
+  siteUpdateComments,
+  approvalRequests,
+  variations,
+  projectDocuments,
+  meetingMinutes,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -1276,4 +1283,204 @@ export async function seedProjectPricingOverrides(projectId: number) {
   }
   
   return { seeded: true, count: rules.length, added, updated, removed };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SITE UPDATES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function getSiteUpdatesByProject(projectId: number) {
+  const db = await getDb(); if (!db) return [];
+  const updates = await db.select().from(siteUpdates).where(eq(siteUpdates.projectId, projectId)).orderBy(desc(siteUpdates.createdAt));
+  // Attach photos and comments
+  const result = [];
+  for (const u of updates) {
+    const photos = await db.select().from(siteUpdatePhotos).where(eq(siteUpdatePhotos.siteUpdateId, u.id));
+    const comments = await db.select().from(siteUpdateComments).where(eq(siteUpdateComments.siteUpdateId, u.id)).orderBy(siteUpdateComments.createdAt);
+    result.push({ ...u, photos, comments });
+  }
+  return result;
+}
+
+export async function createSiteUpdate(data: {
+  projectId: number; title: string; description?: string; stage?: string; createdBy?: string;
+  photos?: { imageUrl: string; fileKey?: string; caption?: string }[];
+}) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  const [ins] = await db.insert(siteUpdates).values({
+    projectId: data.projectId, title: data.title, description: data.description ?? null,
+    stage: data.stage ?? null, createdBy: data.createdBy ?? null,
+  });
+  const id = ins.insertId;
+  if (data.photos?.length) {
+    for (const p of data.photos) {
+      await db.insert(siteUpdatePhotos).values({ siteUpdateId: id, imageUrl: p.imageUrl, fileKey: p.fileKey ?? null, caption: p.caption ?? null });
+    }
+  }
+  return { id };
+}
+
+export async function addSiteUpdateComment(data: { siteUpdateId: number; authorName: string; authorType: "admin" | "client"; comment: string }) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  await db.insert(siteUpdateComments).values(data);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// APPROVAL REQUESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function getApprovalsByProject(projectId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(approvalRequests).where(eq(approvalRequests.projectId, projectId)).orderBy(desc(approvalRequests.createdAt));
+}
+
+export async function createApprovalRequest(data: {
+  projectId: number; title: string; description?: string; category?: string;
+  sitePhotoUrl?: string; planImageUrl?: string; createdBy?: string;
+}) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  const [ins] = await db.insert(approvalRequests).values({
+    projectId: data.projectId, title: data.title, description: data.description ?? null,
+    category: data.category ?? null, sitePhotoUrl: data.sitePhotoUrl ?? null,
+    planImageUrl: data.planImageUrl ?? null, createdBy: data.createdBy ?? null,
+  });
+  return { id: ins.insertId };
+}
+
+export async function respondToApprovalRequest(id: number, data: { status: "approved" | "change_requested"; clientResponse?: string; respondedBy?: string }) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  await db.update(approvalRequests).set({
+    status: data.status, clientResponse: data.clientResponse ?? null,
+    respondedBy: data.respondedBy ?? null, respondedAt: new Date(),
+  }).where(eq(approvalRequests.id, id));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VARIATIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function getVariationsByProject(projectId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(variations).where(eq(variations.projectId, projectId)).orderBy(desc(variations.createdAt));
+}
+
+export async function getVariationById(id: number) {
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(variations).where(eq(variations.id, id));
+  return rows[0] ?? null;
+}
+
+export async function createVariation(data: {
+  projectId: number; title: string; description?: string; costImpact?: string;
+  supportingDocUrls?: string; builderName?: string; builderSignature?: string; createdBy?: string;
+}) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  const [ins] = await db.insert(variations).values({
+    projectId: data.projectId, title: data.title, description: data.description ?? null,
+    costImpact: data.costImpact ?? "0", supportingDocUrls: data.supportingDocUrls ?? null,
+    builderName: data.builderName ?? null, builderSignature: data.builderSignature ?? null,
+    createdBy: data.createdBy ?? null,
+  });
+  return { id: ins.insertId };
+}
+
+export async function updateVariationStatus(id: number, data: {
+  status: "approved" | "declined"; clientName?: string; clientSignature?: string; clientIp?: string;
+}) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  await db.update(variations).set({
+    status: data.status, clientName: data.clientName ?? null,
+    clientSignature: data.clientSignature ?? null, clientIp: data.clientIp ?? null,
+    clientSignedAt: new Date(),
+  }).where(eq(variations.id, id));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROJECT DOCUMENTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function getDocumentsByProject(projectId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(projectDocuments).where(eq(projectDocuments.projectId, projectId)).orderBy(desc(projectDocuments.createdAt));
+}
+
+export async function createProjectDocument(data: {
+  projectId: number; title: string; category: string; fileUrl: string; fileKey: string;
+  mimeType?: string; fileSizeBytes?: number; requiresSignature?: boolean; uploadedBy?: string;
+}) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  const [ins] = await db.insert(projectDocuments).values({
+    projectId: data.projectId, title: data.title, category: data.category,
+    fileUrl: data.fileUrl, fileKey: data.fileKey, mimeType: data.mimeType ?? null,
+    fileSizeBytes: data.fileSizeBytes ?? null, requiresSignature: data.requiresSignature ?? false,
+    uploadedBy: data.uploadedBy ?? null,
+  });
+  return { id: ins.insertId };
+}
+
+export async function signDocument(id: number, data: { clientSignature: string; clientSignedName: string; clientSignedIp?: string }) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  await db.update(projectDocuments).set({
+    clientSignature: data.clientSignature, clientSignedName: data.clientSignedName,
+    clientSignedIp: data.clientSignedIp ?? null, clientSignedAt: new Date(),
+  }).where(eq(projectDocuments.id, id));
+}
+
+export async function deleteProjectDocument(id: number) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  await db.delete(projectDocuments).where(eq(projectDocuments.id, id));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MEETING MINUTES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function getMeetingMinutesByProject(projectId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(meetingMinutes).where(eq(meetingMinutes.projectId, projectId)).orderBy(desc(meetingMinutes.meetingDate));
+}
+
+export async function getMeetingMinutesById(id: number) {
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(meetingMinutes).where(eq(meetingMinutes.id, id));
+  return rows[0] ?? null;
+}
+
+export async function createMeetingMinutes(data: {
+  projectId: number; meetingDate: string; location?: string; attendees?: string;
+  agenda?: string; notes?: string; actionItems?: string;
+  builderName?: string; builderSignature?: string; createdBy?: string;
+}) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  const [ins] = await db.insert(meetingMinutes).values({
+    projectId: data.projectId, meetingDate: new Date(data.meetingDate),
+    location: data.location ?? null, attendees: data.attendees ?? null,
+    agenda: data.agenda ?? null, notes: data.notes ?? null, actionItems: data.actionItems ?? null,
+    builderName: data.builderName ?? null, builderSignature: data.builderSignature ?? null,
+    createdBy: data.createdBy ?? null,
+  });
+  return { id: ins.insertId };
+}
+
+export async function updateMeetingMinutes(id: number, data: {
+  location?: string; attendees?: string; agenda?: string; notes?: string; actionItems?: string;
+}) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  const updates: Record<string, any> = {};
+  if (data.location !== undefined) updates.location = data.location;
+  if (data.attendees !== undefined) updates.attendees = data.attendees;
+  if (data.agenda !== undefined) updates.agenda = data.agenda;
+  if (data.notes !== undefined) updates.notes = data.notes;
+  if (data.actionItems !== undefined) updates.actionItems = data.actionItems;
+  if (Object.keys(updates).length > 0) {
+    await db.update(meetingMinutes).set(updates).where(eq(meetingMinutes.id, id));
+  }
+}
+
+export async function signMeetingMinutes(id: number, data: { clientName: string; clientSignature: string; clientIp?: string }) {
+  const db = await getDb(); if (!db) throw new Error("No DB");
+  await db.update(meetingMinutes).set({
+    clientName: data.clientName, clientSignature: data.clientSignature,
+    clientIp: data.clientIp ?? null, clientSignedAt: new Date(),
+  }).where(eq(meetingMinutes.id, id));
 }

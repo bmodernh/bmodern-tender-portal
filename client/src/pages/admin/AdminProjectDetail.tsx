@@ -23,6 +23,11 @@ import { SubmissionResponseCard } from "@/components/admin/SubmissionResponseCar
 import { CustomItemRequestsAdmin } from "@/components/admin/CustomItemRequestsAdmin";
 import { AdminProjectChat } from "@/components/ProjectChat";
 import ProjectUpgradesTab from "@/components/admin/ProjectUpgradesTab";
+import AdminSiteUpdatesTab from "@/components/admin/AdminSiteUpdatesTab";
+import AdminApprovalsTab from "@/components/admin/AdminApprovalsTab";
+import AdminVariationsTab from "@/components/admin/AdminVariationsTab";
+import AdminDocumentsTab from "@/components/admin/AdminDocumentsTab";
+import AdminMeetingMinutesTab from "@/components/admin/AdminMeetingMinutesTab";
 
 // ─── PDF Download Button ─────────────────────────────────────────────────────
 function PdfDownloadButton({ projectId, proposalNumber }: { projectId: number; proposalNumber: string | null }) {
@@ -1169,9 +1174,20 @@ export default function AdminProjectDetail() {
       {/* Tabs */}
       <Tabs defaultValue="inclusions">
         <TabsList className="mb-6 h-9 flex-wrap">
-          {["inclusions", "boq", "upgrades", "plans", "portal"].map((tab) => (
-            <TabsTrigger key={tab} value={tab} className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
-              {tab === "portal" ? "Client Portal" : tab === "plans" ? "Plan Images" : tab === "boq" ? "BOQ" : tab === "inclusions" ? "Tender Creation" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+          {[
+            { value: "inclusions", label: "Tender Creation" },
+            { value: "boq", label: "BOQ" },
+            { value: "upgrades", label: "Upgrades" },
+            { value: "plans", label: "Plan Images" },
+            { value: "site-updates", label: "Site Updates" },
+            { value: "approvals", label: "Approvals" },
+            { value: "variations", label: "Variations" },
+            { value: "documents", label: "Documents" },
+            { value: "minutes", label: "Meeting Minutes" },
+            { value: "portal", label: "Client Portal" },
+          ].map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value} className="text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
+              {tab.label}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -1179,6 +1195,11 @@ export default function AdminProjectDetail() {
         <TabsContent value="boq"><BoqTab projectId={projectId} /></TabsContent>
         <TabsContent value="upgrades"><ProjectUpgradesTab projectId={projectId} /></TabsContent>
         <TabsContent value="plans"><PlanImagesTab projectId={projectId} /></TabsContent>
+        <TabsContent value="site-updates"><AdminSiteUpdatesTab projectId={projectId} /></TabsContent>
+        <TabsContent value="approvals"><AdminApprovalsTab projectId={projectId} /></TabsContent>
+        <TabsContent value="variations"><AdminVariationsTab projectId={projectId} /></TabsContent>
+        <TabsContent value="documents"><AdminDocumentsTab projectId={projectId} /></TabsContent>
+        <TabsContent value="minutes"><AdminMeetingMinutesTab projectId={projectId} /></TabsContent>
         <TabsContent value="portal"><ClientPortalTab projectId={projectId} project={project} /></TabsContent>
       </Tabs>
     </AdminLayout>

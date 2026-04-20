@@ -573,3 +573,24 @@
 ## Auto-seed Upgrades on New Project Creation
 - [x] New projects should automatically have upgrades seeded from the library
 - [x] Verify seed happens on project creation, not just when manually clicking Re-sync
+
+## Client Portal — Full Portal Rebuild
+- [x] Database tables for site_updates, site_update_photos, site_update_comments, approval_requests, variations, project_documents, meeting_minutes
+- [x] DB helpers for all new portal features (CRUD operations)
+- [x] tRPC routers: siteUpdates, approvals, variations, documents, meetingMinutes
+- [x] Portal layout with sidebar navigation (Dashboard, Selections, Site Updates, Approvals, Variations, Documents, Messages, Meeting Minutes)
+- [x] PortalDashboard component with project summary and activity feed
+- [x] PortalSiteUpdates component for viewing build progress photos
+- [x] PortalApprovals component for on-site decision approvals with photo evidence
+- [x] PortalVariations component with digital signature for approving/declining
+- [x] PortalDocuments component for viewing and signing documents
+- [x] PortalMessages component for client-builder chat
+- [x] PortalMeetingMinutes component with digital signature capability
+- [x] PortalSelections component wrapping existing tender presentation
+- [x] Admin Site Updates tab for posting progress photos
+- [x] Admin Approvals tab for raising on-site approval requests
+- [x] Admin Variations tab for raising variations with cost impact and builder signature
+- [x] Admin Documents tab for uploading contracts, plans, specs with signature requirement
+- [x] Admin Meeting Minutes tab for creating minutes with builder signature
+- [x] All admin tabs wired into AdminProjectDetail with proper navigation
+- [x] Vitest tests for all new portal features (77 tests passing)
