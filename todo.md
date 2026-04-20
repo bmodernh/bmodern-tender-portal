@@ -608,3 +608,6 @@
 
 ## Quantities Summary Table in Upgrades Tab
 - [x] Add a summary table at the top of the Upgrades tab showing all items with their required quantities for easy reference
+
+## Remove Quantities from Client Portal
+- [x] Remove quantity display from client-facing upgrade selections — clients should only see item, tier options, and price

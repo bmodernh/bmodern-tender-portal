@@ -391,15 +391,7 @@ function BaseInclusionsSection({ token }: { token: string }) {
                             <p className="text-xs text-[#6D7E94] font-['Lato'] mt-0.5 line-clamp-2 leading-relaxed">{item.description}</p>
                           )}
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          {item.qty ? (
-                            <span className="text-sm font-semibold text-[#203E4A] font-['Lato']">
-                              {item.qty} <span className="text-xs font-normal text-[#6D7E94]">{item.unit || ""}</span>
-                            </span>
-                          ) : (
-                            <span className="text-xs text-[#6D7E94]">—</span>
-                          )}
-                        </div>
+
                       </div>
                     ))}
                   </div>
@@ -662,11 +654,7 @@ function UpgradeSelectionsSection({
                         <div key={item.itemKey} className="px-5 py-5">
                           <div className="flex items-center justify-between mb-4">
                             <h4 className="font-['Lato'] font-bold text-[#203E4A] text-sm">{item.label}</h4>
-                            {item.qty > 0 && (
-                              <span className="text-xs text-[#6D7E94] font-['Lato'] bg-gray-100 px-2.5 py-1 rounded-full">
-                                {item.qty} {item.unit}
-                              </span>
-                            )}
+
                           </div>
                           <div className={`grid grid-cols-1 ${gridCols} gap-3`}>
                             {tierCards.map(tc => {
