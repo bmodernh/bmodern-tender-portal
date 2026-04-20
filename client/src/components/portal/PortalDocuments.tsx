@@ -23,7 +23,7 @@ export default function PortalDocuments({ projectId }: { projectId: number }) {
   const signed = docs.filter((d: any) => d.clientSignedAt);
   const other = docs.filter((d: any) => !d.requiresSignature && !d.clientSignedAt);
   const DocRow = ({ d, showSign }: { d: any; showSign?: boolean }) => (
-    <div className="bg-white rounded-lg border p-3 flex items-center gap-3" style={{ borderColor: "#e5e5e3", borderLeft: showSign ? `3px solid ${catColor(d.category)}` : undefined }}>
+    <div className="bg-white rounded-lg border p-3 flex flex-col sm:flex-row sm:items-center gap-3" style={{ borderColor: "#e5e5e3", borderLeft: showSign ? `3px solid ${catColor(d.category)}` : undefined }}>
       {d.clientSignedAt ? <CheckCircle2 size={18} className="text-green-500 shrink-0" /> : <FileText size={18} style={{ color: catColor(d.category) }} className="shrink-0" />}
       <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{d.title}</p>
         <div className="flex items-center gap-2 mt-0.5"><span className="text-[10px] px-1.5 py-0.5 rounded capitalize" style={{ background: `${catColor(d.category)}15`, color: catColor(d.category) }}>{d.category}</span>

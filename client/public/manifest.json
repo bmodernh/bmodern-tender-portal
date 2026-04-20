@@ -1,0 +1,24 @@
+{
+  "name": "B Modern Tender Portal",
+  "short_name": "B Modern",
+  "description": "Client portal for B Modern Homes — tender proposals, upgrade selections, site updates, and approvals.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F1C22",
+  "theme_color": "#203E4A",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

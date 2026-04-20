@@ -53,7 +53,7 @@ export default function PortalVariations({ projectId }: { projectId: number }) {
       {completed.length > 0 && (<div>
         <h3 className="text-sm font-semibold mb-3" style={{ color: "#1a2b3c" }}>Completed ({completed.length})</h3>
         <div className="space-y-2">{completed.map((v: any) => (
-          <div key={v.id} className="bg-white rounded-lg border p-3 flex items-center gap-3" style={{ borderColor: "#e5e5e3" }}>
+          <div key={v.id} className="bg-white rounded-lg border p-3 flex flex-col sm:flex-row sm:items-center gap-3" style={{ borderColor: "#e5e5e3" }}>
             {v.status === "approved" ? <CheckCircle2 size={16} className="text-green-500 shrink-0" /> : <XCircle size={16} className="text-red-500 shrink-0" />}
             <div className="flex-1 min-w-0"><p className="text-sm truncate">{v.title}</p><p className="text-[10px] text-muted-foreground">{v.clientSignedAt ? new Date(v.clientSignedAt).toLocaleDateString("en-AU") : ""}</p></div>
             <span className="text-xs font-medium shrink-0">${Number(v.costImpact || 0).toLocaleString("en-AU")}</span>{statusBadge(v.status)}</div>))}</div></div>)}

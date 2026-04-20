@@ -1124,7 +1124,7 @@ export default function AdminProjectDetail() {
       ]}
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1 flex-wrap">
             <h1 className="text-xl" style={{ fontFamily: "'Playfair Display SC', Georgia, serif", color: "var(--bm-petrol)" }}>
@@ -1173,7 +1173,7 @@ export default function AdminProjectDetail() {
 
       {/* Tabs */}
       <Tabs defaultValue="inclusions">
-        <TabsList className="mb-6 h-9 flex-wrap">
+        <TabsList className="mb-6 h-auto flex-wrap gap-1 overflow-x-auto">
           {[
             { value: "inclusions", label: "Tender Creation" },
             { value: "boq", label: "BOQ" },

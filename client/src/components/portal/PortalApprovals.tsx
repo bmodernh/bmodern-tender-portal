@@ -76,7 +76,7 @@ export default function PortalApprovals({ projectId }: { projectId: number }) {
           <h3 className="text-sm font-semibold mb-3" style={{ color: "#1a2b3c" }}>Completed ({completed.length})</h3>
           <div className="space-y-2">
             {completed.map((a: any) => (
-              <div key={a.id} className="bg-white rounded-lg border p-3 flex items-center gap-3" style={{ borderColor: "#e5e5e3" }}>
+              <div key={a.id} className="bg-white rounded-lg border p-3 flex flex-col sm:flex-row sm:items-center gap-3" style={{ borderColor: "#e5e5e3" }}>
                 {a.status === "approved" ? <CheckCircle2 size={16} className="text-green-500 shrink-0" /> : <XCircle size={16} className="text-orange-500 shrink-0" />}
                 <div className="flex-1 min-w-0"><p className="text-sm truncate">{a.title}</p><p className="text-[10px] text-muted-foreground">{a.respondedAt ? new Date(a.respondedAt).toLocaleDateString("en-AU") : ""}</p></div>
                 {statusBadge(a.status)}

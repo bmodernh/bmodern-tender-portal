@@ -33,7 +33,7 @@ export default function PortalSiteUpdates({ projectId }: { projectId: number }) 
       {updates.map((u: any) => (
         <div key={u.id} className="bg-white rounded-lg border overflow-hidden" style={{ borderColor: "#e5e5e3" }}>
           {u.photos?.length > 0 && (
-            <div className={`grid gap-1 ${u.photos.length === 1 ? "grid-cols-1" : u.photos.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+            <div className={`grid gap-1 ${u.photos.length === 1 ? "grid-cols-1" : u.photos.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"}`}>
               {u.photos.map((p: any) => (<img key={p.id} src={p.imageUrl} alt={p.caption || ""} className="w-full h-48 object-cover" />))}
             </div>
           )}

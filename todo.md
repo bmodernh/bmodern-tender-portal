@@ -594,3 +594,14 @@
 - [x] Admin Meeting Minutes tab for creating minutes with builder signature
 - [x] All admin tabs wired into AdminProjectDetail with proper navigation
 - [x] Vitest tests for all new portal features (77 tests passing)
+
+## Bug: Admin Project Detail Not Displaying
+- [ ] Fix admin project detail page showing nothing when clicking on a project
+
+## Mobile & PWA Support
+- [x] Add PWA manifest.json with app name, icons, theme color
+- [x] Add service worker for offline caching and Add to Home Screen
+- [x] Add Apple touch icon and meta tags for iOS home screen
+- [x] Fix mobile responsiveness on client portal sidebar/layout
+- [x] Fix mobile responsiveness on admin sidebar and tabs
+- [x] Ensure all forms and dialogs work on mobile viewports
