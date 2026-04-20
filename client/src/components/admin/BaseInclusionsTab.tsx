@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Trash2, Check, X, ChevronDown, ChevronUp,
   Wand2, Layers, Edit, Sparkles, Loader2,
-  DollarSign, FileX, ListChecks, Package
+  DollarSign, FileX, ListChecks, Package,
+  ArrowUp, ArrowDown, GripVertical
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -243,10 +244,18 @@ function CategoryCard({
   category,
   projectId,
   onRefresh,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }: {
   category: InclusionCategory;
   projectId: number;
   onRefresh: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [addingItem, setAddingItem] = useState(false);
@@ -337,6 +346,13 @@ function CategoryCard({
           </div>
         )}
         <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-white/50 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed" onClick={onMoveUp} disabled={isFirst} title="Move up">
+            <ArrowUp size={12} />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-white/50 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed" onClick={onMoveDown} disabled={isLast} title="Move down">
+            <ArrowDown size={12} />
+          </Button>
+          <div className="w-px h-4 bg-white/20 mx-0.5" />
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-white/70 hover:text-white hover:bg-white/10" onClick={() => setEditingName(true)}>
             <Edit size={12} />
           </Button>
@@ -612,6 +628,21 @@ export default function BaseInclusionsTab({ projectId }: { projectId: number }) 
     onError: e => toast.error(e.message),
   });
 
+  const reorderCategories = trpc.inclusionMaster.reorderCategories.useMutation({
+    onSuccess: () => utils.inclusionMaster.listCategories.invalidate(),
+    onError: e => toast.error("Reorder failed: " + e.message),
+  });
+
+  const handleMoveCategory = useCallback((index: number, direction: "up" | "down") => {
+    if (!categories) return;
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= categories.length) return;
+    const reordered = [...categories];
+    [reordered[index], reordered[newIndex]] = [reordered[newIndex], reordered[index]];
+    const orderedIds = reordered.map(c => c.id);
+    reorderCategories.mutate({ orderedIds });
+  }, [categories, reorderCategories]);
+
   // ─── Exclusions data ──────────────────────────────────────────────────────
   const { data: exclusions = [], isLoading: exclLoading } = trpc.exclusions.list.useQuery({ projectId }, { refetchOnWindowFocus: false });
   const createExclusion = trpc.exclusions.create.useMutation({
@@ -785,8 +816,17 @@ export default function BaseInclusionsTab({ projectId }: { projectId: number }) 
         )}
 
         <div className="space-y-3">
-          {categories?.map(cat => (
-            <CategoryCard key={cat.id} category={cat} projectId={projectId} onRefresh={handleRefresh} />
+          {categories?.map((cat, idx) => (
+            <CategoryCard
+              key={cat.id}
+              category={cat}
+              projectId={projectId}
+              onRefresh={handleRefresh}
+              onMoveUp={() => handleMoveCategory(idx, "up")}
+              onMoveDown={() => handleMoveCategory(idx, "down")}
+              isFirst={idx === 0}
+              isLast={idx === (categories?.length ?? 1) - 1}
+            />
           ))}
         </div>
       </div>

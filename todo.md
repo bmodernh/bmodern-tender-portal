@@ -614,3 +614,6 @@
 
 ## Editable Quantities in Summary Table
 - [x] Make quantity cells in the summary table editable inline so admin can update quantities directly from the summary view
+
+## Category Reordering in Tender Creation
+- [x] Add ability to reorder categories in Tender Creation tab to control display order in client portal

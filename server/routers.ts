@@ -1699,6 +1699,18 @@ const inclusionMasterRouter = router({
       return { success: true };
     }),
 
+  // Reorder categories (batch position update)
+  reorderCategories: publicProcedure
+    .input(z.object({
+      orderedIds: z.array(z.number()),
+    }))
+    .mutation(async ({ input }) => {
+      for (let i = 0; i < input.orderedIds.length; i++) {
+        await updateInclusionCategory(input.orderedIds[i], { position: i });
+      }
+      return { success: true };
+    }),
+
   // Delete a category and all its items
   deleteCategory: publicProcedure
     .input(z.object({ id: z.number() }))
