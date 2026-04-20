@@ -474,6 +474,7 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [showQtyTable, setShowQtyTable] = useState(false);
 
   const startingTier = project?.startingTier ?? 1;
 
@@ -612,6 +613,64 @@ export default function ProjectUpgradesTab({ projectId }: { projectId: number })
             </div>
           )}
         </div>
+      </div>
+
+      {/* Quantities Summary Table */}
+      <div className="border rounded overflow-hidden" style={{ borderColor: "var(--border)" }}>
+        <button
+          onClick={() => setShowQtyTable(!showQtyTable)}
+          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors"
+          style={{ background: "var(--bm-stone, oklch(93% 0.008 80))" }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm" style={{ fontFamily: "Lato, sans-serif", color: "var(--bm-petrol)" }}>Quantities Summary</span>
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{totals.enabledCount} items</Badge>
+          </div>
+          {showQtyTable ? <ChevronUp size={15} className="text-muted-foreground" /> : <ChevronDown size={15} className="text-muted-foreground" />}
+        </button>
+        {showQtyTable && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs" style={{ fontFamily: "Lato, sans-serif" }}>
+              <thead>
+                <tr className="border-b" style={{ borderColor: "var(--border)", background: "oklch(97% 0.003 200)" }}>
+                  <th className="text-left px-4 py-2 font-medium" style={{ color: "var(--bm-petrol)" }}>Item</th>
+                  <th className="text-left px-3 py-2 font-medium" style={{ color: "var(--bm-petrol)" }}>Category</th>
+                  <th className="text-center px-3 py-2 font-medium" style={{ color: "var(--bm-petrol)" }}>Qty</th>
+                  <th className="text-center px-3 py-2 font-medium" style={{ color: "var(--bm-petrol)" }}>Unit</th>
+                  <th className="text-right px-3 py-2 font-medium" style={{ color: "var(--bm-petrol)" }}>T2 Cost/Unit</th>
+                  <th className="text-right px-3 py-2 font-medium" style={{ color: "var(--bm-petrol)" }}>T3 Cost/Unit</th>
+                  <th className="text-right px-4 py-2 font-medium" style={{ color: "var(--bm-petrol)" }}>T2 Total</th>
+                  <th className="text-right px-4 py-2 font-medium" style={{ color: "var(--bm-petrol)" }}>T3 Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grouped.map(({ category, items }) => {
+                  const enabledItems = items.filter(i => i.enabled);
+                  if (enabledItems.length === 0) return null;
+                  return enabledItems.map((item, idx) => (
+                    <tr key={item.id} className={`border-b hover:bg-muted/20 transition-colors ${idx === 0 ? "" : ""}`} style={{ borderColor: "var(--border)" }}>
+                      <td className="px-4 py-1.5 font-medium">{item.label}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">{idx === 0 ? category : ""}</td>
+                      <td className="px-3 py-1.5 text-center tabular-nums font-medium">{parseFloat(item.baseQty || "0") || (item.unit === "fixed" ? 1 : 0)}</td>
+                      <td className="px-3 py-1.5 text-center text-muted-foreground">{UNIT_LABELS[item.unit] || item.unit}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">${parseFloat(item.tier2CostPerUnit || "0").toLocaleString("en-AU", { minimumFractionDigits: 0 })}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">${parseFloat(item.tier3CostPerUnit || "0").toLocaleString("en-AU", { minimumFractionDigits: 0 })}</td>
+                      <td className="px-4 py-1.5 text-right tabular-nums font-medium">{formatCurrency(calcItemCost(item as Override, 2))}</td>
+                      <td className="px-4 py-1.5 text-right tabular-nums font-medium">{formatCurrency(calcItemCost(item as Override, 3))}</td>
+                    </tr>
+                  ));
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 font-semibold" style={{ borderColor: "var(--bm-petrol)", background: "oklch(96% 0.005 200)" }}>
+                  <td className="px-4 py-2" colSpan={6} style={{ color: "var(--bm-petrol)" }}>Total</td>
+                  <td className="px-4 py-2 text-right tabular-nums" style={{ color: "var(--bm-petrol)" }}>{formatCurrency(totals.t2)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums" style={{ color: "var(--bm-petrol)" }}>{formatCurrency(totals.t3)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Actions */}

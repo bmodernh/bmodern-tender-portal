@@ -605,3 +605,6 @@
 - [x] Fix mobile responsiveness on client portal sidebar/layout
 - [x] Fix mobile responsiveness on admin sidebar and tabs
 - [x] Ensure all forms and dialogs work on mobile viewports
+
+## Quantities Summary Table in Upgrades Tab
+- [x] Add a summary table at the top of the Upgrades tab showing all items with their required quantities for easy reference
