@@ -388,7 +388,7 @@ function BaseInclusionsSection({ token }: { token: string }) {
                             )}
                           </div>
                           {item.description && (
-                            <p className="text-xs text-[#6D7E94] font-['Lato'] mt-0.5 line-clamp-2 leading-relaxed">{item.description}</p>
+                            <p className="text-xs text-[#6D7E94] font-['Lato'] mt-0.5 leading-relaxed">{item.description}</p>
                           )}
                         </div>
 
@@ -686,8 +686,8 @@ function UpgradeSelectionsSection({
                                       {isBase ? "Included" : tc.meta.name.split(" ")[0]}
                                     </span>
                                   </div>
-                                  <p className="text-xs text-gray-700 font-['Lato'] leading-relaxed line-clamp-2">{tc.label || (isBase ? "Standard inclusion" : "Upgrade option")}</p>
-                                  {tc.desc && <p className="text-[11px] text-gray-500 mt-1 font-['Lato'] line-clamp-1">{tc.desc}</p>}
+                                  <p className="text-xs text-gray-700 font-['Lato'] leading-relaxed">{tc.label || (isBase ? "Standard inclusion" : "Upgrade option")}</p>
+                                  {tc.desc && <p className="text-[11px] text-gray-500 mt-1 font-['Lato'] leading-relaxed">{tc.desc}</p>}
                                   <p className="text-sm font-bold mt-2 font-['Lato']" style={{ color: tc.meta.accent }}>
                                     {isBase ? "Included" : tc.delta > 0 ? `+${fmt(tc.delta)}` : tc.delta < 0 ? fmt(tc.delta) : "Included"}
                                   </p>
@@ -826,7 +826,7 @@ function PlusOptionsSection({
                                 )}
                               </div>
                               {opt.description && (
-                                <p className="text-xs text-[#6D7E94] font-['Lato'] leading-relaxed line-clamp-2">{opt.description}</p>
+                                <p className="text-xs text-[#6D7E94] font-['Lato'] leading-relaxed">{opt.description}</p>
                               )}
                               {!opt.isIncluded && price > 0 && (
                                 <p className="text-sm font-bold text-teal-700 mt-1.5 font-['Lato']">+{fmt(price)}</p>

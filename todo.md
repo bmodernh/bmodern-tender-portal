@@ -617,3 +617,6 @@
 
 ## Category Reordering in Tender Creation
 - [x] Add ability to reorder categories in Tender Creation tab to control display order in client portal
+
+## Bug Fix: Client Portal Description Truncation
+- [x] Fix client portal upgrade selections not showing the full description (description is being truncated)
