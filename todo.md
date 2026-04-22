@@ -624,3 +624,6 @@
 ## Bug Fix: Client Portal PDF Download 404
 - [x] Fix client portal PDF download button returning 404 error
 - [x] Add signature spots (client + builder) to the generated PDF
+
+## Enhancement: Terms & Conditions in PDF
+- [x] Add Terms & Conditions content to the client selections PDF signing/acceptance page

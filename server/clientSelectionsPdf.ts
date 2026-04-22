@@ -134,6 +134,7 @@ export interface ClientSelectionsPdfData {
     userAgent: string;
     documentRefId: string;
   } | null;
+  termsAndConditions: string | null;
 }
 
 const TIER_NAMES: Record<number, string> = {
@@ -349,6 +350,31 @@ export async function generateClientSelectionsPdf(data: ClientSelectionsPdfData)
   doc.text(`Plus Options: ${totals.plusOptionsTotal >= 0 ? "+" : ""}${fmt(totals.plusOptionsTotal)}`, breakdownX, y + 38, { width: CONTENT_W * 0.4 });
 
   y += 76;
+
+  // ─── Terms & Conditions ──────────────────────────────────────────────────
+  if (data.termsAndConditions) {
+    drawFooter(doc, pageNum);
+    y = startContentPage();
+    y = sectionTitle(doc, "Terms & Conditions", y);
+    y += 4;
+
+    // Split T&C content into paragraphs and render with page breaks
+    const tcParagraphs = data.termsAndConditions.split(/\n+/).filter(p => p.trim());
+    for (const para of tcParagraphs) {
+      if (y > PAGE_H - 60) { drawFooter(doc, pageNum); y = startContentPage(); }
+      doc.fillColor(DARK).fontSize(8).font("Helvetica")
+        .text(para.trim(), MARGIN, y, { width: CONTENT_W, lineGap: 1.5 });
+      y = doc.y + 6;
+    }
+
+    // Acknowledgement line at the bottom of T&C
+    y += 8;
+    if (y > PAGE_H - 60) { drawFooter(doc, pageNum); y = startContentPage(); }
+    doc.rect(MARGIN, y, CONTENT_W, 24).fill("#F8F6F1");
+    doc.fillColor(PETROL).fontSize(7.5).font("Helvetica-Bold")
+      .text("By signing below, the client acknowledges they have read and agree to the Terms & Conditions set out above.", MARGIN + 12, y + 7, { width: CONTENT_W - 24 });
+    y += 32;
+  }
 
   // ─── Signed Tender Certificate ──────────────────────────────────────────────
   if (data.signoff) {
