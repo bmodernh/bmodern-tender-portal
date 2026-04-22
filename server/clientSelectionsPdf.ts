@@ -437,9 +437,101 @@ export async function generateClientSelectionsPdf(data: ClientSelectionsPdfData)
       .text("\u2713 This document has been digitally signed and is a legally binding record of the client\u2019s upgrade selections.", MARGIN + 12, y + 8, { width: CONTENT_W - 24 });
     y += 36;
   } else {
-    // No sign-off yet — show disclaimer
+    // No sign-off yet — show signature spots for manual signing
+    // Start signature block on a new page for formality
+    drawFooter(doc, pageNum);
+    y = startContentPage();
+
+    y = sectionTitle(doc, "Acceptance & Sign-Off", y);
+    y += 8;
+
+    // Declaration text
+    doc.fillColor(DARK).fontSize(8.5).font("Helvetica")
+      .text("I/We confirm that I/we have reviewed all upgrade selections and optional extras listed in this document. " +
+        "I/We understand that these selections are subject to final pricing confirmation by B Modern Homes. " +
+        "The estimated total shown is indicative and may vary upon final review. " +
+        "I/We acknowledge that once submitted, changes may require a new submission.",
+        MARGIN, y, { width: CONTENT_W, lineGap: 2 });
+    y = doc.y + 24;
+
+    // ── Client Signature Block ──
+    doc.fillColor(PETROL).fontSize(10).font("Helvetica-Bold").text("Client / Owner", MARGIN, y);
+    y = doc.y + 16;
+
+    // Name line
+    doc.moveTo(MARGIN, y + 14).lineTo(MARGIN + CONTENT_W * 0.6, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Full Name (print)", MARGIN, y + 18);
+    y += 40;
+
+    // Signature line
+    doc.moveTo(MARGIN, y + 14).lineTo(MARGIN + CONTENT_W * 0.6, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Signature", MARGIN, y + 18);
+    // Date line (right side)
+    doc.moveTo(MARGIN + CONTENT_W * 0.65, y + 14).lineTo(MARGIN + CONTENT_W, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Date", MARGIN + CONTENT_W * 0.65, y + 18);
+    y += 50;
+
+    // ── Second Client / Joint Owner Signature Block ──
+    doc.fillColor(PETROL).fontSize(10).font("Helvetica-Bold").text("Client / Owner (2nd signatory, if applicable)", MARGIN, y);
+    y = doc.y + 16;
+
+    // Name line
+    doc.moveTo(MARGIN, y + 14).lineTo(MARGIN + CONTENT_W * 0.6, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Full Name (print)", MARGIN, y + 18);
+    y += 40;
+
+    // Signature line
+    doc.moveTo(MARGIN, y + 14).lineTo(MARGIN + CONTENT_W * 0.6, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Signature", MARGIN, y + 18);
+    // Date line
+    doc.moveTo(MARGIN + CONTENT_W * 0.65, y + 14).lineTo(MARGIN + CONTENT_W, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Date", MARGIN + CONTENT_W * 0.65, y + 18);
+    y += 50;
+
+    // Divider
+    doc.moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.5).stroke();
+    y += 16;
+
+    // ── Builder Signature Block ──
+    doc.fillColor(PETROL).fontSize(10).font("Helvetica-Bold").text("Builder — B Modern Homes", MARGIN, y);
+    y = doc.y + 16;
+
+    // Name line
+    doc.moveTo(MARGIN, y + 14).lineTo(MARGIN + CONTENT_W * 0.6, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Authorised Representative (print)", MARGIN, y + 18);
+    y += 40;
+
+    // Signature line
+    doc.moveTo(MARGIN, y + 14).lineTo(MARGIN + CONTENT_W * 0.6, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Signature", MARGIN, y + 18);
+    // Date line
+    doc.moveTo(MARGIN + CONTENT_W * 0.65, y + 14).lineTo(MARGIN + CONTENT_W, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Date", MARGIN + CONTENT_W * 0.65, y + 18);
+    y += 50;
+
+    // Witness block
+    doc.moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.5).stroke();
+    y += 16;
+    doc.fillColor(PETROL).fontSize(10).font("Helvetica-Bold").text("Witness", MARGIN, y);
+    y = doc.y + 16;
+
+    // Name line
+    doc.moveTo(MARGIN, y + 14).lineTo(MARGIN + CONTENT_W * 0.6, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Full Name (print)", MARGIN, y + 18);
+    y += 40;
+
+    // Signature line
+    doc.moveTo(MARGIN, y + 14).lineTo(MARGIN + CONTENT_W * 0.6, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Signature", MARGIN, y + 18);
+    // Date line
+    doc.moveTo(MARGIN + CONTENT_W * 0.65, y + 14).lineTo(MARGIN + CONTENT_W, y + 14).strokeColor(DARK).lineWidth(0.5).stroke();
+    doc.fillColor(MID).fontSize(7).font("Helvetica").text("Date", MARGIN + CONTENT_W * 0.65, y + 18);
+    y += 50;
+
+    // Disclaimer
+    y += 8;
     doc.fillColor(MID).fontSize(7).font("Helvetica")
-      .text("This document summarises the client's upgrade selections. Final pricing is subject to confirmation by B Modern Homes. This document has not yet been signed.", MARGIN, y, { width: CONTENT_W, lineGap: 2 });
+      .text("This document summarises the client\u2019s upgrade selections. Final pricing is subject to confirmation by B Modern Homes.", MARGIN, y, { width: CONTENT_W, lineGap: 2 });
   }
 
   // Footer on last page

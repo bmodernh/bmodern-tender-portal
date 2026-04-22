@@ -620,3 +620,7 @@
 
 ## Bug Fix: Client Portal Description Truncation
 - [x] Fix client portal upgrade selections not showing the full description (description is being truncated)
+
+## Bug Fix: Client Portal PDF Download 404
+- [x] Fix client portal PDF download button returning 404 error
+- [x] Add signature spots (client + builder) to the generated PDF
