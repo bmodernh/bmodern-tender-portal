@@ -645,3 +645,7 @@
 - [x] Add base inclusions (full tender) to the client selections PDF — not just upgrades
 - [x] Fix line bleed-over formatting in the PDF (text overflowing past page margins)
 - [x] PDF base inclusions should reflect upgraded tier selections (show upgraded item description, not original base tier when client has upgraded)
+
+## Bug Fix: PDF Text Bleed-Over & Professional Polish
+- [x] Fix all text bleed-over issues in the PDF (text overflowing columns and page margins)
+- [x] Make the PDF look professional with proper column widths, spacing, and typography
