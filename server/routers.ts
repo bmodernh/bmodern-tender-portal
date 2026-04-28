@@ -921,6 +921,9 @@ const portalRouter = router({
         signoffIp: ip,
         signoffUserAgent: input.userAgent || "unknown",
       });
+      // Auto-lock the portal after tender is signed
+      await updateProject(tokenRecord.projectId, { portalLockedAt: new Date() });
+
       // Send notifications
       await notifyUpgradeSubmission(
         project.id,

@@ -627,3 +627,16 @@
 
 ## Enhancement: Terms & Conditions in PDF
 - [x] Add Terms & Conditions content to the client selections PDF signing/acceptance page
+
+## Feature: Auto-lock portal on tender/contract signing
+- [x] Auto-lock portal when client submits signed tender (submitSelections mutation)
+- [x] Enforce lock checks on all client-facing mutations (tier selections, upgrade selections, custom item requests, package selection)
+- [x] Show clear locked state in client portal UI when tender is signed
+
+## Bug Fix: PDF 404 on Published Domain
+- [x] Fix /api/pdf/* routes being intercepted by SPA catch-all in production deployment
+
+## Feature: Auto-lock portal on tender/contract signing
+- [x] Auto-lock portal when client submits signed tender (submitSelections mutation)
+- [x] Enforce lock checks on all client-facing mutations (tier selections, upgrade selections, custom item requests, package selection)
+- [x] Show clear locked state in client portal UI when tender is signed
