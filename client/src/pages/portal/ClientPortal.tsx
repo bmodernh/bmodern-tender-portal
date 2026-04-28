@@ -26,6 +26,20 @@ import PortalDocuments from "@/components/portal/PortalDocuments";
 import PortalMessages from "@/components/portal/PortalMessages";
 import PortalMeetingMinutes from "@/components/portal/PortalMeetingMinutes";
 
+// Download PDF via fetch+blob to bypass SPA router interception
+function downloadPdf(token: string) {
+  const url = `${window.location.origin}/api/pdf/selections/${token}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  // Use the full absolute URL so the browser treats it as a direct navigation
+  // rather than a client-side route
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 const LOGO_WHITE = "https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-White_RGB_82d45951.png";
 const LOGO_DARK = "https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-Monochrome_RGB_233b3af0.png";
 
@@ -1179,7 +1193,7 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
                   </div>
                 )}
                 <p className="text-[11px] text-[#6D7E94] font-['Lato'] mt-4">Responded on {fmtDate(adminResponse.adminRespondedAt)}</p>
-                <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
+                <Button variant="outline" onClick={() => downloadPdf(token)}
                   className="mt-4 font-['Lato'] h-10 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
                   <Download className="mr-2 h-4 w-4" /> Download Selections Summary (PDF)
                 </Button>
@@ -1209,7 +1223,7 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
                   </div>
                 )}
                 <div>
-                  <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
+                  <Button variant="outline" onClick={() => downloadPdf(token)}
                     className="font-['Lato'] h-10 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
                     <Download className="mr-2 h-4 w-4" /> Download Selections Summary (PDF)
                   </Button>
@@ -1249,7 +1263,7 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
                 <p className="text-[11px] text-[#6D7E94] font-['Lato'] text-center mt-3">
                   You will be guided through a 3-step sign-off process to finalise your selections.
                 </p>
-                <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
+                <Button variant="outline" onClick={() => downloadPdf(token)}
                   className="w-full mt-3 font-['Lato'] h-10 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
                   <Download className="mr-2 h-4 w-4" /> Preview Selections Summary (PDF)
                 </Button>
@@ -1323,7 +1337,7 @@ function SubmitSection({ token, upgradeTotal, basePrice }: { token: string; upgr
                       </p>
                     </div>
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => window.open(`/api/pdf/selections/${token}`, '_blank')}
+                      <Button variant="outline" onClick={() => downloadPdf(token)}
                         className="font-['Lato'] h-11 text-sm tracking-wide border-[#203E4A]/20 text-[#203E4A] hover:bg-[#203E4A]/5">
                         <Download className="mr-2 h-4 w-4" /> Download PDF
                       </Button>
