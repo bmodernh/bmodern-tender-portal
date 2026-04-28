@@ -188,6 +188,7 @@ const pwaPlugin = VitePWA({
   },
   workbox: {
     globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+    navigateFallbackDenylist: [/^\/api\//],
     runtimeCaching: [
       {
         urlPattern: /^\/api\/trpc\//,

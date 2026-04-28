@@ -127,7 +127,21 @@ export function SubmissionResponseCard({ submission, projectId }: { submission: 
         <Button
           size="sm"
           variant="outline"
-          onClick={() => window.open(`/api/pdf/selections/${submission.clientToken}`, "_blank")}
+          onClick={async () => {
+            try {
+              const res = await fetch(`${window.location.origin}/api/pdf/selections/${submission.clientToken}`);
+              if (!res.ok) throw new Error('Failed to generate PDF');
+              const blob = await res.blob();
+              const cd = res.headers.get('content-disposition');
+              const match = cd?.match(/filename="?([^"]+)"?/);
+              const filename = match?.[1] || 'B-Modern-Selections.pdf';
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url; a.download = filename;
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(url), 5000);
+            } catch { toast.error('Failed to download PDF'); }
+          }}
           className="gap-1.5 text-xs"
           style={{ fontFamily: "Lato, sans-serif" }}
         >
