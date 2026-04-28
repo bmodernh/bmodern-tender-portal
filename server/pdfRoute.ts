@@ -21,6 +21,7 @@ import {
   planImages,
   companySettings,
   clientTokens,
+  projectPricingOverrides,
 } from "../drizzle/schema";
 import { calculatePackagePrices } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -317,6 +318,90 @@ export function registerPdfRoute(app: Express) {
       });
 
       const basePrice = parseFloat(project.baseContractPrice ?? "0");
+
+      // Fetch base inclusions (categories + items), exclusions, PC items, provisional sums
+      const [inclCats, inclItems, exclRows, pcRows, psRows] = await Promise.all([
+        db.select().from(inclusionCategories)
+          .where(eq(inclusionCategories.projectId, projectId))
+          .orderBy(inclusionCategories.position),
+        db.select().from(inclusionItems)
+          .where(and(eq(inclusionItems.projectId, projectId), eq(inclusionItems.included, true)))
+          .orderBy(inclusionItems.categoryId, inclusionItems.position),
+        db.select().from(exclusions).where(eq(exclusions.projectId, projectId)).orderBy(exclusions.position),
+        db.select().from(pcItems).where(eq(pcItems.projectId, projectId)).orderBy(pcItems.position),
+        db.select().from(provisionalSums).where(eq(provisionalSums.projectId, projectId)).orderBy(provisionalSums.position),
+      ]);
+
+      // Build a map of pricing overrides by itemKey for cross-referencing
+      const overridesByKey = new Map<string, typeof priceData.lineItems[0]>();
+      for (const item of priceData.lineItems) {
+        overridesByKey.set(item.itemKey, item);
+      }
+
+      // Build inclusionToOverrideKey map: boqFieldKey or name match → itemKey
+      const inclusionToOverrideKey: Record<string, string> = {};
+      const overrideLabelMap = new Map<string, string>();
+      for (const item of priceData.lineItems) {
+        overrideLabelMap.set(item.label.toLowerCase(), item.itemKey);
+      }
+      // Build a map from boqFieldKey patterns to itemKey
+      const boqToItemKey = new Map<string, string>();
+      // Map common boqFieldKey patterns to itemKeys
+      const BOQ_TO_ITEM: Record<string, string> = {
+        downlightsQty: "downlights", powerPointsQty: "power_points",
+        vanityQty: "vanities", wardrobeLm: "wardrobes",
+        mainFloorTileM2: "main_floor_tiles", floorTileM2: "wet_area_tiles",
+        doorHandlesQty: "door_hardware", squareSetQty: "square_set",
+        garageDoorQty: "garage_doors", skirtingLm: "skirting_boards",
+        kitchenBaseCabinetryLm: "kitchen_laundry_joinery",
+        kitchenBenchtopArea: "stone_benchtops",
+        timberHybridM2: "timber_flooring", drivewayM2: "driveway",
+        bathroomQty: "bathroom_kitchen_tapware",
+      };
+      for (const [boqKey, itemKey] of Object.entries(BOQ_TO_ITEM)) {
+        if (overridesByKey.has(itemKey)) boqToItemKey.set(boqKey, itemKey);
+      }
+
+      for (const ii of inclItems) {
+        // Match by boqFieldKey first (most reliable), then by name
+        if (ii.boqFieldKey && boqToItemKey.has(ii.boqFieldKey)) {
+          inclusionToOverrideKey[`${ii.id}`] = boqToItemKey.get(ii.boqFieldKey)!;
+        }
+        if (!inclusionToOverrideKey[`${ii.id}`]) {
+          const matchKey = overrideLabelMap.get(ii.name.toLowerCase());
+          if (matchKey) inclusionToOverrideKey[`${ii.id}`] = matchKey;
+        }
+      }
+
+      // Build upgradeMap: for items where client selected a tier above starting
+      const upgradeMap: Record<string, { selectedTier: number; tierLabel: string; tierName: string }> = {};
+      for (const [itemKey, selectedTier] of Object.entries(selMap)) {
+        if (selectedTier > startingTier) {
+          const override = overridesByKey.get(itemKey);
+          if (override) {
+            const tierLabel = selectedTier === 3 ? (override.tier3Label || "") : (override.tier2Label || "");
+            upgradeMap[itemKey] = {
+              selectedTier,
+              tierLabel,
+              tierName: selectedTier === 3 ? "Signature Series" : selectedTier === 2 ? "Tailored Living" : "Built for Excellence",
+            };
+          }
+        }
+      }
+
+      const baseInclusions = inclCats.map(cat => ({
+        categoryName: cat.name,
+        items: inclItems
+          .filter(i => i.categoryId === cat.id)
+          .map(i => ({
+            id: i.id,
+            name: i.name,
+            description: i.description,
+            qty: i.qty,
+            unit: i.unit ?? "each",
+          })),
+      })).filter(cat => cat.items.length > 0);
+
       const [company] = await db.select().from(companySettings).limit(1);
 
       // Get submission sign-off data if available
@@ -335,6 +420,10 @@ export function registerPdfRoute(app: Express) {
           startingTier,
           heroImageUrl: project.heroImageUrl,
         },
+        baseInclusions,
+        exclusions: exclRows.map(e => ({ description: e.description })),
+        pcItems: pcRows.map(p => ({ description: p.description, allowance: p.allowance, notes: p.notes })),
+        provisionalSums: psRows.map(p => ({ description: p.description, amount: p.amount, notes: p.notes })),
         tierSelections,
         plusOptions,
         totals: {
@@ -358,6 +447,8 @@ export function registerPdfRoute(app: Express) {
           documentRefId: submission.documentRefId || "\u2014",
         } : null,
         termsAndConditions: termsContent,
+        upgradeMap,
+        inclusionToOverrideKey,
       };
 
       const pdfBuffer = await generateClientSelectionsPdf(pdfData);

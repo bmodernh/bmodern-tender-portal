@@ -640,3 +640,8 @@
 - [x] Auto-lock portal when client submits signed tender (submitSelections mutation)
 - [x] Enforce lock checks on all client-facing mutations (tier selections, upgrade selections, custom item requests, package selection)
 - [x] Show clear locked state in client portal UI when tender is signed
+
+## Enhancement: Full Tender PDF
+- [x] Add base inclusions (full tender) to the client selections PDF — not just upgrades
+- [x] Fix line bleed-over formatting in the PDF (text overflowing past page margins)
+- [x] PDF base inclusions should reflect upgraded tier selections (show upgraded item description, not original base tier when client has upgraded)

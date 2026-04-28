@@ -91,6 +91,19 @@ export interface ClientSelectionsPdfData {
     startingTier: number;
     heroImageUrl: string | null;
   };
+  baseInclusions: Array<{
+    categoryName: string;
+    items: Array<{
+      id: number;
+      name: string;
+      description: string | null;
+      qty: string | null;
+      unit: string;
+    }>;
+  }>;
+  exclusions: Array<{ description: string }>;
+  pcItems: Array<{ description: string; allowance: string | null; notes: string | null }>;
+  provisionalSums: Array<{ description: string; amount: string | null; notes: string | null }>;
   tierSelections: Array<{
     category: string;
     items: Array<{
@@ -135,6 +148,10 @@ export interface ClientSelectionsPdfData {
     documentRefId: string;
   } | null;
   termsAndConditions: string | null;
+  /** Map from pricing override itemKey → { selectedTier, tierLabel } for items the client upgraded */
+  upgradeMap: Record<string, { selectedTier: number; tierLabel: string; tierName: string }>;
+  /** Map from inclusionItem boqFieldKey or name → pricing override itemKey */
+  inclusionToOverrideKey: Record<string, string>;
 }
 
 const TIER_NAMES: Record<number, string> = {
@@ -151,7 +168,7 @@ const TIER_COLORS: Record<number, string> = {
 
 // ─── Main generator ───────────────────────────────────────────────────────────
 export async function generateClientSelectionsPdf(data: ClientSelectionsPdfData): Promise<Buffer> {
-  const { project, tierSelections, plusOptions, totals, company, submittedAt } = data;
+  const { project, baseInclusions, exclusions: exclList, pcItems: pcList, provisionalSums: psList, tierSelections, plusOptions, totals, company, submittedAt, upgradeMap, inclusionToOverrideKey } = data;
 
   const logoBuffer = await tryFetchImage(company?.logoUrl || null);
 
@@ -160,7 +177,7 @@ export async function generateClientSelectionsPdf(data: ClientSelectionsPdfData)
     margin: 0,
     bufferPages: true,
     info: {
-      Title: `Upgrade Selections — ${project.clientName}`,
+      Title: `Tender & Selections — ${project.clientName}`,
       Author: "B Modern Homes",
     },
   });
@@ -195,7 +212,7 @@ export async function generateClientSelectionsPdf(data: ClientSelectionsPdfData)
 
   // Title
   let y = 90;
-  doc.fillColor(PETROL).fontSize(9).font("Helvetica").text("UPGRADE SELECTIONS SUMMARY", MARGIN, y, { characterSpacing: 2 });
+  doc.fillColor(PETROL).fontSize(9).font("Helvetica").text("TENDER & SELECTIONS SUMMARY", MARGIN, y, { characterSpacing: 2 });
   y += 18;
   doc.fillColor(PETROL).fontSize(24).font("Helvetica-Bold").text(project.clientName.toUpperCase(), MARGIN, y, { width: CONTENT_W });
   y = doc.y + 6;
@@ -238,6 +255,148 @@ export async function generateClientSelectionsPdf(data: ClientSelectionsPdfData)
   });
   y += 96;
 
+  // ─── Base Inclusions ──────────────────────────────────────────────────────
+  if (baseInclusions.length > 0) {
+    drawFooter(doc, pageNum);
+    y = startContentPage();
+    y = sectionTitle(doc, "Base Inclusions", y);
+
+    for (const cat of baseInclusions) {
+      if (y > PAGE_H - 80) { drawFooter(doc, pageNum); y = startContentPage(); }
+
+      // Category header
+      doc.rect(MARGIN, y, CONTENT_W, 20).fill("#EEF2F4");
+      doc.fillColor(PETROL).fontSize(9).font("Helvetica-Bold")
+        .text(cat.categoryName.toUpperCase(), MARGIN + 8, y + 5, { width: CONTENT_W - 16, characterSpacing: 0.5 });
+      y += 24;
+
+      // Table header
+      doc.fillColor(MID).fontSize(7).font("Helvetica-Bold");
+      doc.text("ITEM", MARGIN + 8, y, { width: CONTENT_W * 0.3 });
+      doc.text("DESCRIPTION", MARGIN + CONTENT_W * 0.3, y, { width: CONTENT_W * 0.45 });
+      doc.text("QTY", MARGIN + CONTENT_W * 0.75, y, { width: CONTENT_W * 0.12, align: "right" });
+      doc.text("UNIT", MARGIN + CONTENT_W * 0.87, y, { width: CONTENT_W * 0.13, align: "right" });
+      y += 12;
+      doc.moveTo(MARGIN + 8, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.3).stroke();
+      y += 4;
+
+      for (const item of cat.items) {
+        if (y > PAGE_H - 50) { drawFooter(doc, pageNum); y = startContentPage(); }
+
+        // Check if this inclusion item has been upgraded
+        const overrideKey = inclusionToOverrideKey[`${item.id}`];
+        const upgrade = overrideKey ? upgradeMap[overrideKey] : undefined;
+        const displayDesc = upgrade ? upgrade.tierLabel : (item.description || "\u2014");
+
+        const startY = y;
+        doc.fillColor(DARK).fontSize(8).font("Helvetica-Bold")
+          .text(item.name, MARGIN + 8, y, { width: CONTENT_W * 0.28 });
+        const nameEndY = doc.y;
+
+        if (upgrade) {
+          // Show upgraded description with tier badge
+          doc.fillColor(upgrade.selectedTier === 3 ? PURPLE : AMBER).fontSize(7).font("Helvetica-Bold")
+            .text(`UPGRADED >> ${upgrade.tierName}`, MARGIN + CONTENT_W * 0.3, startY, { width: CONTENT_W * 0.43 });
+          const badgeY = doc.y;
+          doc.fillColor(DARK).fontSize(7.5).font("Helvetica")
+            .text(displayDesc, MARGIN + CONTENT_W * 0.3, badgeY, { width: CONTENT_W * 0.43 });
+        } else {
+          doc.fillColor(MID).fontSize(7.5).font("Helvetica")
+            .text(displayDesc, MARGIN + CONTENT_W * 0.3, startY, { width: CONTENT_W * 0.43 });
+        }
+        const descEndY = doc.y;
+
+        doc.fillColor(DARK).fontSize(8).font("Helvetica")
+          .text(item.qty || "\u2014", MARGIN + CONTENT_W * 0.75, startY, { width: CONTENT_W * 0.12, align: "right" });
+        doc.fillColor(MID).fontSize(7.5).font("Helvetica")
+          .text(item.unit, MARGIN + CONTENT_W * 0.87, startY, { width: CONTENT_W * 0.13, align: "right" });
+
+        y = Math.max(nameEndY, descEndY, startY + 10) + 4;
+        doc.moveTo(MARGIN + 8, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.15).stroke();
+        y += 4;
+      }
+      y += 6;
+    }
+  }
+
+  // ─── Exclusions ───────────────────────────────────────────────────────────
+  if (exclList.length > 0) {
+    if (y > PAGE_H - 100) { drawFooter(doc, pageNum); y = startContentPage(); }
+    y = sectionTitle(doc, "Exclusions", y);
+    y += 4;
+    for (const excl of exclList) {
+      if (y > PAGE_H - 50) { drawFooter(doc, pageNum); y = startContentPage(); }
+      doc.fillColor(DARK).fontSize(8).font("Helvetica")
+        .text(`\u2022  ${excl.description}`, MARGIN + 8, y, { width: CONTENT_W - 16, lineGap: 1.5 });
+      y = doc.y + 4;
+    }
+    y += 6;
+  }
+
+  // ─── PC Items (Prime Cost) ────────────────────────────────────────────────
+  if (pcList.length > 0) {
+    if (y > PAGE_H - 100) { drawFooter(doc, pageNum); y = startContentPage(); }
+    y = sectionTitle(doc, "Prime Cost Items", y);
+    y += 4;
+
+    // Table header
+    doc.fillColor(MID).fontSize(7).font("Helvetica-Bold");
+    doc.text("DESCRIPTION", MARGIN + 8, y, { width: CONTENT_W * 0.5 });
+    doc.text("ALLOWANCE", MARGIN + CONTENT_W * 0.5, y, { width: CONTENT_W * 0.2, align: "right" });
+    doc.text("NOTES", MARGIN + CONTENT_W * 0.72, y, { width: CONTENT_W * 0.28 });
+    y += 12;
+    doc.moveTo(MARGIN + 8, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.3).stroke();
+    y += 4;
+
+    for (const pc of pcList) {
+      if (y > PAGE_H - 50) { drawFooter(doc, pageNum); y = startContentPage(); }
+      const startY = y;
+      doc.fillColor(DARK).fontSize(8).font("Helvetica")
+        .text(pc.description, MARGIN + 8, y, { width: CONTENT_W * 0.48 });
+      const descEndY = doc.y;
+      doc.fillColor(DARK).fontSize(8).font("Helvetica-Bold")
+        .text(pc.allowance ? fmt(pc.allowance) : "—", MARGIN + CONTENT_W * 0.5, startY, { width: CONTENT_W * 0.2, align: "right" });
+      doc.fillColor(MID).fontSize(7.5).font("Helvetica")
+        .text(pc.notes || "—", MARGIN + CONTENT_W * 0.72, startY, { width: CONTENT_W * 0.28 });
+      y = Math.max(descEndY, startY + 10) + 4;
+      doc.moveTo(MARGIN + 8, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.15).stroke();
+      y += 4;
+    }
+    y += 6;
+  }
+
+  // ─── Provisional Sums ─────────────────────────────────────────────────────
+  if (psList.length > 0) {
+    if (y > PAGE_H - 100) { drawFooter(doc, pageNum); y = startContentPage(); }
+    y = sectionTitle(doc, "Provisional Sums", y);
+    y += 4;
+
+    // Table header
+    doc.fillColor(MID).fontSize(7).font("Helvetica-Bold");
+    doc.text("DESCRIPTION", MARGIN + 8, y, { width: CONTENT_W * 0.5 });
+    doc.text("AMOUNT", MARGIN + CONTENT_W * 0.5, y, { width: CONTENT_W * 0.2, align: "right" });
+    doc.text("NOTES", MARGIN + CONTENT_W * 0.72, y, { width: CONTENT_W * 0.28 });
+    y += 12;
+    doc.moveTo(MARGIN + 8, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.3).stroke();
+    y += 4;
+
+    for (const ps of psList) {
+      if (y > PAGE_H - 50) { drawFooter(doc, pageNum); y = startContentPage(); }
+      const startY = y;
+      doc.fillColor(DARK).fontSize(8).font("Helvetica")
+        .text(ps.description, MARGIN + 8, y, { width: CONTENT_W * 0.48 });
+      const descEndY = doc.y;
+      doc.fillColor(DARK).fontSize(8).font("Helvetica-Bold")
+        .text(ps.amount ? fmt(ps.amount) : "—", MARGIN + CONTENT_W * 0.5, startY, { width: CONTENT_W * 0.2, align: "right" });
+      doc.fillColor(MID).fontSize(7.5).font("Helvetica")
+        .text(ps.notes || "—", MARGIN + CONTENT_W * 0.72, startY, { width: CONTENT_W * 0.28 });
+      y = Math.max(descEndY, startY + 10) + 4;
+      doc.moveTo(MARGIN + 8, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.15).stroke();
+      y += 4;
+    }
+    y += 6;
+  }
+
   // ─── Tier Upgrade Selections ───────────────────────────────────────────────
   if (tierSelections.length > 0) {
     if (y > PAGE_H - 120) { drawFooter(doc, pageNum); y = startContentPage(); }
@@ -263,27 +422,39 @@ export async function generateClientSelectionsPdf(data: ClientSelectionsPdfData)
       y += 4;
 
       for (const item of group.items) {
-        if (y > PAGE_H - 50) { drawFooter(doc, pageNum); y = startContentPage(); }
+        if (y > PAGE_H - 80) { drawFooter(doc, pageNum); y = startContentPage(); }
 
         const tierName = TIER_NAMES[item.selectedTier] || `Tier ${item.selectedTier}`;
         const tierColor = TIER_COLORS[item.selectedTier] || DARK;
         const isBase = item.selectedTier === project.startingTier;
         const selectedLabel = item.selectedTier === 1 ? item.tier1Label : item.selectedTier === 2 ? item.tier2Label : item.tier3Label;
 
-        doc.fillColor(DARK).fontSize(8.5).font("Helvetica").text(item.label, MARGIN + 8, y, { width: CONTENT_W * 0.3 - 8 });
-        const textY = y;
-        doc.fillColor(tierColor).fontSize(8).font("Helvetica-Bold").text(tierName, MARGIN + CONTENT_W * 0.3, textY, { width: CONTENT_W * 0.25 });
-        doc.fillColor(MID).fontSize(7.5).font("Helvetica").text(selectedLabel || "—", MARGIN + CONTENT_W * 0.55, textY, { width: CONTENT_W * 0.25 });
+        const startY = y;
+        doc.fillColor(DARK).fontSize(8.5).font("Helvetica")
+          .text(item.label, MARGIN + 8, startY, { width: CONTENT_W * 0.28 });
+        const labelEndY = doc.y;
+
+        doc.fillColor(tierColor).fontSize(8).font("Helvetica-Bold")
+          .text(tierName, MARGIN + CONTENT_W * 0.3, startY, { width: CONTENT_W * 0.2 });
+        const tierEndY = doc.y;
+
+        doc.fillColor(MID).fontSize(7.5).font("Helvetica")
+          .text(selectedLabel || "\u2014", MARGIN + CONTENT_W * 0.5, startY, { width: CONTENT_W * 0.28 });
+        const selEndY = doc.y;
 
         if (isBase) {
-          doc.fillColor(GREEN).fontSize(8).font("Helvetica-Bold").text("Included", MARGIN + CONTENT_W * 0.8, textY, { width: CONTENT_W * 0.2, align: "right" });
+          doc.fillColor(GREEN).fontSize(8).font("Helvetica-Bold")
+            .text("Included", MARGIN + CONTENT_W * 0.8, startY, { width: CONTENT_W * 0.2, align: "right" });
         } else if (item.relativeDelta > 0) {
-          doc.fillColor(AMBER).fontSize(8).font("Helvetica-Bold").text(`+${fmt(item.relativeDelta)}`, MARGIN + CONTENT_W * 0.8, textY, { width: CONTENT_W * 0.2, align: "right" });
+          doc.fillColor(AMBER).fontSize(8).font("Helvetica-Bold")
+            .text(`+${fmt(item.relativeDelta)}`, MARGIN + CONTENT_W * 0.8, startY, { width: CONTENT_W * 0.2, align: "right" });
         } else {
-          doc.fillColor(GREEN).fontSize(8).font("Helvetica-Bold").text("Included", MARGIN + CONTENT_W * 0.8, textY, { width: CONTENT_W * 0.2, align: "right" });
+          doc.fillColor(GREEN).fontSize(8).font("Helvetica-Bold")
+            .text("Included", MARGIN + CONTENT_W * 0.8, startY, { width: CONTENT_W * 0.2, align: "right" });
         }
+        const costEndY = doc.y;
 
-        y = Math.max(doc.y, textY) + 6;
+        y = Math.max(labelEndY, tierEndY, selEndY, costEndY, startY + 10) + 4;
         doc.moveTo(MARGIN + 8, y).lineTo(PAGE_W - MARGIN, y).strokeColor(BORDER).lineWidth(0.15).stroke();
         y += 4;
       }
