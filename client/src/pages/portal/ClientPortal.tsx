@@ -26,18 +26,31 @@ import PortalDocuments from "@/components/portal/PortalDocuments";
 import PortalMessages from "@/components/portal/PortalMessages";
 import PortalMeetingMinutes from "@/components/portal/PortalMeetingMinutes";
 
-// Download PDF via fetch+blob to bypass SPA router interception
-function downloadPdf(token: string) {
-  const url = `${window.location.origin}/api/pdf/selections/${token}`;
-  const a = document.createElement('a');
-  a.href = url;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
-  // Use the full absolute URL so the browser treats it as a direct navigation
-  // rather than a client-side route
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+// Download PDF via fetch+blob to bypass SPA router interception entirely
+async function downloadPdf(token: string) {
+  try {
+    const url = `${window.location.origin}/api/pdf/selections/${token}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to generate PDF (${res.status})`);
+    const blob = await res.blob();
+    // Extract filename from Content-Disposition header if available
+    const cd = res.headers.get('content-disposition');
+    const filenameMatch = cd?.match(/filename="?([^"]+)"?/);
+    const filename = filenameMatch?.[1] || 'B-Modern-Selections.pdf';
+    // Create object URL and trigger download
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Clean up the object URL after a short delay
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+  } catch (err: any) {
+    console.error('PDF download error:', err);
+    toast.error(err.message || 'Failed to download PDF. Please try again.');
+  }
 }
 
 const LOGO_WHITE = "https://d2xsxph8kpxj0f.cloudfront.net/310519663548387177/imEXQJppF9z2GgJphACuNv/B-Modern-Homes_Logo_Horizontal-White_RGB_82d45951.png";
